@@ -1,0 +1,114 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  LOCKED
+}
+
+enum ResourceType {
+  ELECTRICITY // ไฟฟ้า
+  WATER // น้ำ
+  GAS // แก๊ส
+}
+
+enum RecordStatus {
+  PENDING // ยังไม่ได้บันทึก
+  RECORDED // บันทึกแล้ว
+}
+
+model Company {
+  companyId   Int      @id @default(autoincrement()) @map("company_id")
+  companyName String   @map("company_name")
+  companyCode String   @unique @map("company_code")
+  taxId       String?  @map("tax_id")
+  email       String?
+  phone       String?
+  status      String   @default("ACTIVE")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  users     User[]
+  equipment Equipment[]
+
+  @@map("company")
+}
+
+model Role {
+  roleId      Int     @id @default(autoincrement()) @map("role_id")
+  roleName    String  @unique @map("role_name")
+  description String?
+
+  users User[]
+
+  @@map("role")
+}
+
+model User {
+  userId       Int        @id @default(autoincrement()) @map("user_id")
+  companyId    Int?       @map("company_id")
+  roleId       Int        @map("role_id")
+  employeeCode String?    @map("employee_code")
+  firstName    String     @map("first_name")
+  lastName     String     @map("last_name")
+  email        String     @unique
+  username     String     @unique
+  passwordHash String     @map("password_hash")
+  phone        String?
+  failedLogin  Int        @default(0) @map("failed_login")
+  lockedUntil  DateTime?  @map("locked_until")
+  status       UserStatus @default(ACTIVE)
+  lastLogin    DateTime?  @map("last_login")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  company Company? @relation(fields: [companyId], references: [companyId])
+  role    Role     @relation(fields: [roleId], references: [roleId])
+
+  resourceRecords ResourceRecord[]
+
+  @@index([companyId])
+  @@index([roleId])
+  @@map("user")
+}
+
+model Equipment {
+  equipmentId  Int          @id @default(autoincrement()) @map("equipment_id")
+  companyId    Int          @map("company_id")
+  name         String
+  location     String
+  resourceType ResourceType @map("resource_type")
+  isActive     Boolean      @default(true) @map("is_active")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  company Company          @relation(fields: [companyId], references: [companyId])
+  records ResourceRecord[]
+
+  @@index([companyId])
+  @@map("equipment")
+}
+
+model ResourceRecord {
+  recordId     Int          @id @default(autoincrement()) @map("record_id")
+  equipmentId  Int          @map("equipment_id")
+  recordedById Int          @map("recorded_by_id")
+  value        Float
+  unit         String
+  status       RecordStatus @default(RECORDED)
+  recordedAt   DateTime     @default(now()) @map("recorded_at")
+
+  equipment  Equipment @relation(fields: [equipmentId], references: [equipmentId])
+  recordedBy User      @relation(fields: [recordedById], references: [userId])
+
+  @@index([recordedById, recordedAt])
+  @@index([equipmentId, recordedAt])
+  @@map("resource_record")
+}
