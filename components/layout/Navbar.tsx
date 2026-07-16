@@ -106,7 +106,7 @@ export default function Navbar() {
       >
         <div
           className={`mx-auto flex max-w-[1440px] items-center justify-between px-5 transition-all duration-300 sm:px-8 lg:px-12 xl:px-16 ${
-            isScrolled ? "h-16" : "h-[72px]"
+            isScrolled ? "h-[58px]" : "h-[66px]"
           }`}
         >
           <Link
@@ -116,7 +116,7 @@ export default function Navbar() {
           >
             <div className="leading-none">
               <div
-                className={`text-[16px] font-semibold tracking-[-0.045em] transition-colors sm:text-[18px] ${
+                className={`text-[18px] font-semibold tracking-[-0.045em] transition-colors sm:text-[21px] ${
                   isScrolled ? "text-[#10201a]" : "text-white"
                 }`}
               >
@@ -128,21 +128,21 @@ export default function Navbar() {
                 </span>
               </div>
               <div
-                className={`mt-1.5 hidden text-[9px] font-medium tracking-[0.08em] transition-colors min-[420px]:block ${
+                className={`mt-1 hidden text-[10px] font-medium tracking-[0.08em] transition-colors min-[420px]:block ${
                   isScrolled ? "text-emerald-950/42" : "text-white/46"
                 }`}
               >
                 Industrial Intelligence Platform
               </div>
               <div
-                className={`mt-2 h-[2px] w-10 rounded-full transition-colors ${isScrolled ? "bg-gradient-to-r from-emerald-600 to-teal-400" : "bg-gradient-to-r from-emerald-300 to-cyan-300"}`}
+                className={`mt-1.5 h-[2px] w-14 rounded-full transition-colors ${isScrolled ? "bg-gradient-to-r from-emerald-600 to-teal-400" : "bg-gradient-to-r from-emerald-300 to-cyan-300"}`}
               />
             </div>
           </Link>
 
           <nav
             aria-label="เมนูหลัก"
-            className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-6 xl:flex"
+            className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-8 xl:flex"
           >
             {navigation.slice(0, 2).map((item) => (
               <DesktopNavLink
@@ -166,7 +166,7 @@ export default function Navbar() {
                 aria-expanded={isSolutionsOpen}
                 aria-haspopup="true"
                 onClick={() => setIsSolutionsOpen((value) => !value)}
-                className={`group relative flex h-12 items-center gap-1.5 text-[13px] font-medium transition-colors ${
+                className={`group relative flex h-12 items-center gap-2 text-[15px] font-medium transition-colors ${
                   isScrolled
                     ? "text-slate-700 hover:text-emerald-800"
                     : "text-white/72 hover:text-white"
@@ -188,34 +188,34 @@ export default function Navbar() {
                 />
               </button>
 
-              <div className="absolute left-1/2 top-full h-5 w-[760px] -translate-x-1/2" />
+              <div className="absolute left-1/2 top-full h-5 w-[1000px] -translate-x-1/2" />
 
               <div
-                className={`absolute left-1/2 top-[calc(100%+14px)] w-[760px] -translate-x-1/2 transition-all duration-250 ${
+                className={`absolute left-1/2 top-[calc(100%+12px)] w-[1000px] -translate-x-1/2 transition-all duration-250 ${
                   isSolutionsOpen
                     ? "visible translate-y-0 opacity-100"
                     : "invisible -translate-y-2 opacity-0"
                 }`}
               >
-                <div className="overflow-hidden rounded-[28px] border border-emerald-950/10 bg-white shadow-[0_32px_90px_rgba(6,45,31,0.20)]">
-                  <div className="grid grid-cols-[240px_1fr]">
-                    <div className="flex min-h-[324px] flex-col bg-[radial-gradient(circle_at_top_left,rgba(52,211,153,0.24),transparent_42%),linear-gradient(145deg,#0c2a20,#102f25_55%,#174336)] p-7 text-white">
-                      <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-emerald-100/65">
+                <div className="overflow-hidden rounded-[30px] border border-emerald-950/10 bg-white shadow-[0_32px_90px_rgba(6,45,31,0.20)]">
+                  <div className="grid grid-cols-[320px_1fr]">
+                    <div className="flex min-h-[400px] flex-col bg-[radial-gradient(circle_at_top_left,rgba(52,211,153,0.24),transparent_42%),linear-gradient(145deg,#0c2a20,#102f25_55%,#174336)] p-9 text-white">
+                      <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-emerald-100/65">
                         GreenFactory Insight
                       </p>
-                      <h3 className="mt-6 text-[29px] font-medium leading-[1.14] tracking-[-0.05em]">
+                      <h3 className="mt-8 text-[34px] font-medium leading-[1.14] tracking-[-0.05em]">
                         เชื่อมโยงข้อมูล
                         <span className="block text-emerald-200/72">
                           สู่การตัดสินใจ
                         </span>
                       </h3>
-                      <p className="mt-5 text-[12px] leading-6 text-emerald-50/62">
+                      <p className="mt-6 text-[13px] leading-7 text-emerald-50/62">
                         รวมข้อมูลโรงงาน เครื่องจักร ทรัพยากร
                         และผลการดำเนินงานไว้ในแพลตฟอร์มเดียว
                       </p>
                       <Link
                         href="/features"
-                        className="group mt-auto inline-flex items-center gap-2 text-[12px] font-medium text-white"
+                        className="group mt-auto inline-flex items-center gap-2.5 text-[13px] font-medium text-white"
                       >
                         ดูภาพรวมระบบ
                         <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
@@ -229,19 +229,19 @@ export default function Navbar() {
                           <Link
                             key={solution.title}
                             href={solution.href}
-                            className="group min-h-[162px] bg-[linear-gradient(180deg,#ffffff,#f8fcfa)] p-6 transition-all hover:-translate-y-0.5 hover:bg-white hover:shadow-[0_16px_30px_rgba(16,80,58,0.08)]"
+                            className="group min-h-[200px] bg-[linear-gradient(180deg,#ffffff,#f8fcfa)] p-8 transition-all hover:-translate-y-0.5 hover:bg-white hover:shadow-[0_16px_30px_rgba(16,80,58,0.08)]"
                           >
                             <div className="flex items-start justify-between">
                               <Icon
-                                className="h-[19px] w-[19px] text-emerald-700"
+                                className="h-7 w-7 text-emerald-700"
                                 strokeWidth={1.55}
                               />
-                              <ArrowUpRight className="h-4 w-4 text-emerald-950/25 transition-all group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-emerald-800" />
+                              <ArrowUpRight className="h-[18px] w-[18px] text-emerald-950/25 transition-all group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-emerald-800" />
                             </div>
-                            <h4 className="mt-7 text-[14px] font-medium tracking-[-0.02em] text-[#10201a]">
+                            <h4 className="mt-10 text-[17px] font-medium tracking-[-0.02em] text-[#10201a]">
                               {solution.title}
                             </h4>
-                            <p className="mt-2 text-[11px] leading-5 text-slate-500">
+                            <p className="mt-3 text-[13px] leading-6 text-slate-500">
                               {solution.description}
                             </p>
                           </Link>
@@ -268,7 +268,7 @@ export default function Navbar() {
           <div className="hidden items-center gap-5 lg:flex">
             <Link
               href="/login"
-              className={`relative text-[13px] font-medium transition-all duration-200 hover:-translate-y-px ${
+              className={`relative text-[14px] font-medium transition-all duration-200 hover:-translate-y-px ${
                 isScrolled
                   ? "text-black/56 hover:text-black"
                   : "text-white/66 hover:text-white"
@@ -278,7 +278,7 @@ export default function Navbar() {
             </Link>
             <Link
               href="/contact"
-              className={`group inline-flex h-10 items-center justify-center gap-2 rounded-full px-5 text-[13px] font-semibold transition-all duration-200 hover:-translate-y-px ${
+              className={`group inline-flex h-10 items-center justify-center gap-2 rounded-full px-5 text-[14px] font-semibold transition-all duration-200 hover:-translate-y-px ${
                 isScrolled
                   ? "bg-[#1E7A49] text-white shadow-[0_8px_22px_rgba(30,122,73,0.22)] hover:bg-[#16663D] hover:shadow-[0_12px_28px_rgba(30,122,73,0.28)]"
                   : "bg-white text-[#123326] shadow-[0_8px_24px_rgba(0,0,0,0.14)] hover:bg-emerald-50"
@@ -437,7 +437,7 @@ function DesktopNavLink({
   return (
     <Link
       href={href}
-      className={`group relative flex h-12 items-center text-[13px] font-medium transition-all duration-200 hover:-translate-y-px ${
+      className={`group relative flex h-12 items-center text-[15px] font-medium transition-all duration-200 hover:-translate-y-px ${
         light
           ? "text-white/72 hover:text-white"
           : "text-slate-700 hover:text-emerald-800"

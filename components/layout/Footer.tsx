@@ -1,5 +1,10 @@
 import Link from "next/link";
-import { ArrowUpRight, Mail, MapPin } from "lucide-react";
+import {
+  ArrowUpRight,
+  ExternalLink,
+  Mail,
+  MapPin,
+} from "lucide-react";
 
 const footerLinks = [
   {
@@ -24,71 +29,51 @@ const footerLinks = [
   },
 ];
 
+const mapUrl =
+  "https://www.google.com/maps/search/?api=1&query=Suranaree+University+of+Technology";
+
 export default function Footer() {
   return (
-    <footer className="border-t border-[#dce8df] bg-[#f7faf8] px-5 pb-7 pt-14 text-[#173323] sm:px-8 sm:pt-16 lg:px-12 xl:px-16">
+    <footer className="border-t border-[#dce8df] bg-[#f7faf8] px-5 pb-6 pt-12 text-[#173323] sm:px-8 lg:px-12 xl:px-16">
       <div className="mx-auto max-w-[1280px]">
-        {/* Footer heading */}
-        <div className="flex flex-col gap-7 border-b border-[#dce8df] pb-10 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-[680px]">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#3f7653]">
-              GreenFactory Insight
-            </p>
-
-            <h2 className="mt-4 text-[clamp(1.8rem,3vw,3.15rem)] font-semibold leading-[1.16] tracking-[-0.04em] text-[#173323]">
-              เปลี่ยนข้อมูลภายในโรงงาน
-              <span className="block text-[#4b7f5d]">
-                ให้เป็นการตัดสินใจที่มีประสิทธิภาพ
-              </span>
-            </h2>
-
-            <p className="mt-5 max-w-[620px] text-[13px] leading-7 text-[#68796f] sm:text-[14px]">
-              รวมข้อมูลด้านพลังงาน คาร์บอน ทรัพยากร และการดำเนินงาน
-              เพื่อช่วยให้องค์กรมองเห็นภาพรวม ติดตามผล
-              และวางแผนการพัฒนาได้อย่างเป็นระบบ
-            </p>
-          </div>
-
-          <Link
-            href="/features"
-            className="group inline-flex min-h-[46px] w-fit shrink-0 items-center justify-center gap-2 rounded-lg bg-[#237c49] px-5 text-[13px] font-medium text-white transition duration-300 hover:bg-[#1c693d]"
-          >
-            สำรวจแพลตฟอร์ม
-
-            <ArrowUpRight className="h-4 w-4 transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
-          </Link>
-        </div>
-
-        {/* Main footer */}
-        <div className="grid gap-10 py-10 md:grid-cols-2 lg:grid-cols-[1.2fr_0.55fr_0.85fr] lg:gap-14">
+        <div className="grid gap-10 pb-10 md:grid-cols-2 lg:grid-cols-[1.25fr_0.55fr_0.85fr] lg:gap-16">
           {/* Brand */}
-          <div className="max-w-[470px]">
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#237c49] text-[12px] font-bold text-white">
+          <div className="max-w-[480px]">
+            <Link href="/" className="group inline-flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#237c49] text-[12px] font-bold text-white shadow-[0_8px_20px_rgba(35,124,73,0.16)] transition duration-300 group-hover:-translate-y-0.5 group-hover:bg-[#1d6e40]">
                 GF
               </div>
 
               <div>
-                <p className="text-[14px] font-semibold tracking-[-0.02em] text-[#173323]">
+                <p className="text-[15px] font-semibold tracking-[-0.025em] text-[#173323]">
                   GreenFactory Insight
                 </p>
 
-                <p className="mt-0.5 text-[9px] uppercase tracking-[0.13em] text-[#829087]">
+                <p className="mt-0.5 text-[9px] uppercase tracking-[0.14em] text-[#829087]">
                   Industrial Intelligence Platform
                 </p>
               </div>
-            </div>
+            </Link>
 
-            <p className="mt-5 text-[13px] leading-7 text-[#68796f]">
-              แพลตฟอร์มสำหรับบริหารข้อมูลความยั่งยืนขององค์กรอุตสาหกรรม
-              รองรับการติดตามตัวชี้วัด การใช้ทรัพยากร
-              และข้อมูลจากหลายโรงงานภายใต้ระบบเดียว
+            <p className="mt-5 max-w-[440px] text-[13px] leading-7 text-[#68796f]">
+              แพลตฟอร์มสำหรับรวบรวมและบริหารข้อมูลด้านพลังงาน คาร์บอน
+              ทรัพยากร และการดำเนินงานของโรงงาน
+              ช่วยให้องค์กรติดตามผลและวางแผนพัฒนาได้อย่างเป็นระบบ
             </p>
+
+            <Link
+              href="/features"
+              className="group mt-6 inline-flex items-center gap-2 text-[12px] font-semibold text-[#237c49] transition hover:text-[#185f37]"
+            >
+              สำรวจความสามารถของระบบ
+
+              <ArrowUpRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+            </Link>
           </div>
 
           {/* Navigation */}
           <div>
-            <p className="text-[11px] font-semibold text-[#294f38]">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#294f38]">
               เมนูเว็บไซต์
             </p>
 
@@ -97,11 +82,11 @@ export default function Footer() {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="group inline-flex items-center gap-1.5 text-[13px] text-[#65776c] transition duration-200 hover:text-[#237c49]"
+                  className="group inline-flex items-center gap-1.5 text-[13px] text-[#65776c] transition duration-200 hover:translate-x-0.5 hover:text-[#237c49]"
                 >
                   {item.label}
 
-                  <ArrowUpRight className="h-3.5 w-3.5 opacity-0 transition duration-200 group-hover:translate-x-0.5 group-hover:opacity-100" />
+                  <ArrowUpRight className="h-3.5 w-3.5 opacity-0 transition duration-200 group-hover:opacity-100" />
                 </Link>
               ))}
             </nav>
@@ -109,44 +94,54 @@ export default function Footer() {
 
           {/* Contact */}
           <div>
-            <p className="text-[11px] font-semibold text-[#294f38]">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#294f38]">
               ข้อมูลติดต่อ
             </p>
 
-            <div className="mt-5 space-y-5">
-              <div className="flex items-start gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#d6e4da] bg-white text-[#357551]">
+            <div className="mt-5 space-y-4">
+              <a
+                href={mapUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="เปิดตำแหน่งมหาวิทยาลัยเทคโนโลยีสุรนารีใน Google Maps"
+                className="group flex items-start gap-3 rounded-xl border border-transparent p-2 transition duration-200 hover:border-[#d6e4da] hover:bg-white"
+              >
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#d6e4da] bg-white text-[#357551] transition duration-200 group-hover:border-[#9dc7aa] group-hover:bg-[#edf7f0]">
                   <MapPin className="h-4 w-4" strokeWidth={1.7} />
                 </div>
 
-                <div>
-                  <p className="text-[12px] font-medium text-[#294132]">
-                    สถานที่พัฒนาโครงการ
-                  </p>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-[12px] font-medium text-[#294132]">
+                      สถานที่พัฒนาโครงการ
+                    </p>
 
-                  <p className="mt-1 text-[12px] leading-6 text-[#718078]">
-                    Suranaree University of Technology
+                    <ExternalLink className="h-3 w-3 text-[#819087] transition group-hover:text-[#237c49]" />
+                  </div>
+
+                  <p className="mt-1 text-[12px] leading-6 text-[#718078] transition duration-200 group-hover:text-[#4f6859]">
+                    มหาวิทยาลัยเทคโนโลยีสุรนารี
                     <span className="block">
-                      Nakhon Ratchasima, Thailand
+                      จังหวัดนครราชสีมา ประเทศไทย
                     </span>
                   </p>
                 </div>
-              </div>
+              </a>
 
               <a
                 href="mailto:kesrin9170@gmail.com"
-                className="group flex items-start gap-3"
+                className="group flex items-start gap-3 rounded-xl border border-transparent p-2 transition duration-200 hover:border-[#d6e4da] hover:bg-white"
               >
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#d6e4da] bg-white text-[#357551] transition duration-200 group-hover:border-[#9dc7aa]">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#d6e4da] bg-white text-[#357551] transition duration-200 group-hover:border-[#9dc7aa] group-hover:bg-[#edf7f0]">
                   <Mail className="h-4 w-4" strokeWidth={1.7} />
                 </div>
 
-                <div>
+                <div className="min-w-0">
                   <p className="text-[12px] font-medium text-[#294132]">
                     อีเมล
                   </p>
 
-                  <p className="mt-1 text-[12px] text-[#718078] transition duration-200 group-hover:text-[#237c49]">
+                  <p className="mt-1 break-all text-[12px] text-[#718078] transition duration-200 group-hover:text-[#237c49]">
                     kesrin9170@gmail.com
                   </p>
                 </div>
@@ -162,7 +157,7 @@ export default function Footer() {
           </p>
 
           <p className="text-[9px] uppercase tracking-[0.12em] text-[#94a098]">
-            Sustainability data management platform
+            Sustainability Data Management Platform
           </p>
         </div>
       </div>

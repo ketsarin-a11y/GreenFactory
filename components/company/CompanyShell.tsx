@@ -1,26 +1,31 @@
 "use client";
 
 import {
-  BarChart3,
   Bell,
   Building2,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  CircleHelp,
   ClipboardList,
   Factory,
-  Gauge,
+  FileBarChart,
+  LayoutDashboard,
   Leaf,
   LogOut,
   Menu,
   QrCode,
+  Radio,
   Settings,
   ShieldCheck,
+  UserRound,
   Users,
-  Waves,
+  Warehouse,
   X,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ReactNode, useState } from "react";
+import { ReactNode, useMemo, useState } from "react";
 
 type CompanyShellProps = {
   children: ReactNode;
@@ -35,99 +40,95 @@ type CompanyShellProps = {
   };
 };
 
-const navigationGroups = [
+type NavigationItem = {
+  label: string;
+  href: string;
+  icon: typeof LayoutDashboard;
+};
+
+const navigationItems: NavigationItem[] = [
   {
-    label: "ภาพรวม",
-    items: [
-      {
-        label: "แดชบอร์ด",
-        href: "/company/dashboard",
-        icon: Gauge,
-      },
-    ],
+    label: "หน้าหลัก",
+    href: "/company/dashboard",
+    icon: LayoutDashboard,
   },
   {
-    label: "องค์กร",
-    items: [
-      {
-        label: "โรงงานและโครงสร้าง",
-        href: "/company/factories",
-        icon: Building2,
-      },
-      {
-        label: "ผู้ใช้งาน",
-        href: "/company/users",
-        icon: Users,
-      },
-      {
-        label: "บทบาทและสิทธิ์",
-        href: "/company/roles",
-        icon: ShieldCheck,
-      },
-    ],
+    label: "ผู้ใช้งาน",
+    href: "/company/users",
+    icon: Users,
   },
   {
-    label: "เครื่องจักรและข้อมูล",
-    items: [
-      {
-        label: "เครื่องจักร",
-        href: "/company/machines",
-        icon: Factory,
-      },
-      {
-        label: "เซนเซอร์",
-        href: "/company/sensors",
-        icon: Waves,
-      },
-      {
-        label: "QR Code",
-        href: "/company/qr-codes",
-        icon: QrCode,
-      },
-      {
-        label: "บันทึกการใช้ทรัพยากร",
-        href: "/company/resource-usage",
-        icon: ClipboardList,
-      },
-    ],
+    label: "บทบาทและสิทธิ์",
+    href: "/company/roles",
+    icon: ShieldCheck,
   },
   {
-    label: "วิเคราะห์และรายงาน",
-    items: [
-      {
-        label: "รายงาน",
-        href: "/company/reports",
-        icon: BarChart3,
-      },
-      {
-        label: "การแจ้งเตือน",
-        href: "/company/notifications",
-        icon: Bell,
-      },
-    ],
+    label: "แผนกและสายการผลิต",
+    href: "/company/departments",
+    icon: Building2,
+  },
+  {
+    label: "เครื่องจักรและจุดตรวจ",
+    href: "/company/machines",
+    icon: Factory,
+  },
+  {
+    label: "เซนเซอร์",
+    href: "/company/sensors",
+    icon: Radio,
+  },
+  {
+    label: "QR Code",
+    href: "/company/qr-codes",
+    icon: QrCode,
+  },
+  {
+    label: "การบันทึกการใช้ทรัพยากร",
+    href: "/company/resource-usage",
+    icon: ClipboardList,
+  },
+  {
+    label: "รายงานและส่งออกข้อมูล",
+    href: "/company/reports",
+    icon: FileBarChart,
+  },
+  {
+    label: "การตั้งค่าโรงงาน",
+    href: "/company/settings",
+    icon: Settings,
+  },
+  {
+    label: "โปรไฟล์",
+    href: "/company/profile",
+    icon: UserRound,
   },
 ];
 
 const pageTitles: Array<[string, string]> = [
-  ["/company/dashboard", "แดชบอร์ด"],
-  ["/company/factories", "โรงงานและโครงสร้าง"],
+  ["/company/dashboard", "หน้าหลัก"],
   ["/company/users", "ผู้ใช้งาน"],
   ["/company/roles", "บทบาทและสิทธิ์"],
-  ["/company/machines", "เครื่องจักร"],
+  ["/company/departments", "แผนกและสายการผลิต"],
+  ["/company/production-lines", "สายการผลิต"],
+  ["/company/machines", "เครื่องจักรและจุดตรวจ"],
   ["/company/sensors", "เซนเซอร์"],
   ["/company/qr-codes", "QR Code"],
-  ["/company/resource-usage", "บันทึกการใช้ทรัพยากร"],
-  ["/company/reports", "รายงาน"],
-  ["/company/notifications", "การแจ้งเตือน"],
-  ["/company/settings", "ตั้งค่าบริษัท"],
+  ["/company/resource-usage", "การบันทึกการใช้ทรัพยากร"],
+  ["/company/reports", "รายงานและส่งออกข้อมูล"],
+  ["/company/settings", "การตั้งค่าโรงงาน"],
+  ["/company/profile", "โปรไฟล์"],
 ];
 
 function getPageTitle(pathname: string) {
-  const matched = pageTitles.find(
+  const matchedPage = pageTitles.find(
     ([path]) => pathname === path || pathname.startsWith(`${path}/`),
   );
 
-  return matched?.[1] ?? "Company Administration";
+  return matchedPage?.[1] ?? "Company Admin";
+}
+
+function isPathActive(pathname: string, href: string) {
+  return pathname === href || pathname.startsWith(`${href}/`);
 }
 
 export default function CompanyShell({
@@ -138,8 +139,10 @@ export default function CompanyShell({
   const pathname = usePathname();
   const router = useRouter();
 
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+  const [companyMenuOpen, setCompanyMenuOpen] = useState(false);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const fullName =
@@ -151,9 +154,13 @@ export default function CompanyShell({
 
   const pageTitle = getPageTitle(pathname);
 
-  function isActive(href: string) {
-    return pathname === href || pathname.startsWith(`${href}/`);
-  }
+  const sidebarWidthClass = collapsed ? "lg:w-[82px]" : "lg:w-[252px]";
+  const contentPaddingClass = collapsed ? "lg:pl-[82px]" : "lg:pl-[252px]";
+
+  const currentBreadcrumb = useMemo(
+    () => [company.companyName, pageTitle],
+    [company.companyName, pageTitle],
+  );
 
   async function handleLogout() {
     if (isLoggingOut) return;
@@ -161,232 +168,333 @@ export default function CompanyShell({
     setIsLoggingOut(true);
 
     try {
-      await fetch("/api/auth/logout", {
+      const response = await fetch("/api/auth/logout", {
         method: "POST",
       });
 
+      if (!response.ok) {
+        throw new Error("Logout failed");
+      }
+
       router.replace("/login");
       router.refresh();
-    } finally {
+    } catch (error) {
+      console.error("Logout error:", error);
       setIsLoggingOut(false);
     }
   }
 
   return (
-    <div className="min-h-screen bg-[#f4f6f5] text-[#17231c]">
-      {sidebarOpen && (
+    <div className="min-h-screen bg-[#f7faf7] text-[#243129]">
+      {mobileSidebarOpen && (
         <button
           type="button"
           aria-label="ปิดเมนู"
-          onClick={() => setSidebarOpen(false)}
-          className="fixed inset-0 z-40 bg-[#071f14]/40 backdrop-blur-[2px] lg:hidden"
+          onClick={() => setMobileSidebarOpen(false)}
+          className="fixed inset-0 z-40 bg-black/35 lg:hidden"
         />
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-[258px] flex-col bg-[#0b3d2c] text-white shadow-[18px_0_50px_rgba(5,35,23,0.08)] transition-transform duration-300 lg:translate-x-0 ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        className={`fixed inset-y-0 left-0 z-50 flex w-[252px] flex-col border-r border-[#dce8df] bg-[#6f9e7d] text-white transition-[width,transform] duration-300 ${sidebarWidthClass} ${
+          mobileSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         }`}
       >
-        <div className="flex h-[78px] items-center justify-between border-b border-white/10 px-5">
+        <div
+          className={`flex h-[74px] items-center border-b border-white/20 ${
+            collapsed ? "justify-center px-3" : "justify-between px-5"
+          }`}
+        >
           <Link
             href="/company/dashboard"
-            className="flex min-w-0 items-center gap-3"
+            className={`flex min-w-0 items-center ${
+              collapsed ? "justify-center" : "gap-3"
+            }`}
           >
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-[#61d985] text-[#063721]">
-              <Leaf className="h-[19px] w-[19px]" strokeWidth={2} />
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-[#52735f]">
+              <Leaf className="h-[18px] w-[18px]" strokeWidth={2} />
             </span>
 
-            <span className="min-w-0">
-              <span className="block truncate text-[13px] font-semibold">
-                GreenFactory Insight
+            {!collapsed && (
+              <span className="leading-none">
+                <span className="block text-[14px] font-semibold tracking-[-0.02em] text-white">
+                  GreenFactory
+                </span>
+                <span className="mt-1 block text-[14px] font-semibold tracking-[-0.02em] text-[#eef7f0]">
+                  Insight
+                </span>
               </span>
-
-              <span className="mt-1 block truncate text-[9px] text-[#78df98]">
-                {company.companyName}
-              </span>
-
-              <span className="mt-0.5 block text-[6px] uppercase tracking-[0.16em] text-white/40">
-                Company Administrator
-              </span>
-            </span>
+            )}
           </Link>
 
           <button
             type="button"
-            onClick={() => setSidebarOpen(false)}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-white/60 hover:bg-white/10 lg:hidden"
+            onClick={() => setMobileSidebarOpen(false)}
+            aria-label="ปิดเมนู"
+            className="flex h-8 w-8 items-center justify-center rounded-md text-white/80 hover:bg-white/15 lg:hidden"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="border-b border-white/10 px-5 py-3">
-          <div className="flex items-center gap-2 text-[9px] text-white/60">
-            <ShieldCheck
-              className="h-3.5 w-3.5 text-[#73df94]"
+        <div className={collapsed ? "px-2 py-3" : "px-4 py-4"}>
+          <button
+            type="button"
+            onClick={() => setCompanyMenuOpen((current) => !current)}
+            className={`flex w-full items-center border border-white/25 bg-white/10 text-left transition hover:bg-white/15 ${
+              collapsed
+                ? "h-12 justify-center rounded-lg px-2"
+                : "min-h-[64px] gap-3 rounded-lg px-3 py-2.5"
+            }`}
+          >
+            <Warehouse
+              className="h-[18px] w-[18px] shrink-0 text-[#eef7f0]"
               strokeWidth={1.8}
             />
-            Company Admin · {company.companyCode}
-          </div>
+
+            {!collapsed && (
+              <>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[10px] text-white/65">
+                    Company Admin
+                  </span>
+                  <span className="mt-0.5 block truncate text-[11px] font-medium text-white">
+                    {company.companyName}
+                  </span>
+                  <span className="mt-0.5 block text-[9px] text-white/55">
+                    {company.companyCode}
+                  </span>
+                </span>
+
+                <ChevronDown
+                  className={`h-3.5 w-3.5 shrink-0 text-white/65 transition-transform ${
+                    companyMenuOpen ? "rotate-180" : ""
+                  }`}
+                />
+              </>
+            )}
+          </button>
+
+          {companyMenuOpen && !collapsed && (
+            <div className="mt-2 rounded-lg border border-white/20 bg-[#638f71] p-2">
+              <div className="rounded-md px-2 py-2">
+                <p className="truncate text-[11px] font-medium text-white">
+                  {company.companyName}
+                </p>
+                <p className="mt-1 text-[9px] text-white/55">
+                  รหัสบริษัท {company.companyCode}
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
-        <nav className="flex-1 overflow-y-auto px-3 py-5">
-          <div className="space-y-6">
-            {navigationGroups.map((group) => (
-              <section key={group.label}>
-                <p className="px-3 text-[7px] font-semibold uppercase tracking-[0.17em] text-white/32">
-                  {group.label}
-                </p>
+        <nav className="flex-1 overflow-y-auto px-3 pb-4 [scrollbar-width:thin]">
+          <div className="space-y-1">
+            {navigationItems.map((item) => {
+              const Icon = item.icon;
+              const active = isPathActive(pathname, item.href);
 
-                <div className="mt-2 space-y-0.5">
-                  {group.items.map((item) => {
-                    const Icon = item.icon;
-                    const active = isActive(item.href);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setMobileSidebarOpen(false)}
+                  title={collapsed ? item.label : undefined}
+                  className={`flex min-h-[42px] items-center rounded-lg transition-colors ${
+                    collapsed ? "justify-center px-2" : "gap-3 px-3"
+                  } ${
+                    active
+                      ? "bg-white font-medium text-[#456653] shadow-[0_1px_2px_rgba(47,73,57,0.10)]"
+                      : "text-white/88 hover:bg-white/15 hover:text-white"
+                  }`}
+                >
+                  <Icon
+                    className={`h-[17px] w-[17px] shrink-0 ${
+                      active ? "text-[#5f896e]" : "text-white/82"
+                    }`}
+                    strokeWidth={1.7}
+                  />
 
-                    return (
-                      <Link
-                        key={item.href}
-                        href={item.href}
-                        onClick={() => setSidebarOpen(false)}
-                        className={`group relative flex min-h-[40px] items-center gap-3 rounded-[9px] px-3 text-[11px] transition ${
-                          active
-                            ? "bg-[#178e59] font-medium text-white"
-                            : "text-white/64 hover:bg-white/[0.07] hover:text-white"
-                        }`}
-                      >
-                        <Icon
-                          className={`h-[15px] w-[15px] shrink-0 ${
-                            active
-                              ? "text-white"
-                              : "text-white/45 group-hover:text-[#77e097]"
-                          }`}
-                          strokeWidth={1.7}
-                        />
-
-                        <span className="truncate">{item.label}</span>
-
-                        {active && (
-                          <span className="absolute right-3 h-1.5 w-1.5 rounded-full bg-[#a4f0b9]" />
-                        )}
-                      </Link>
-                    );
-                  })}
-                </div>
-              </section>
-            ))}
+                  {!collapsed && (
+                    <span className="truncate text-[11px]">{item.label}</span>
+                  )}
+                </Link>
+              );
+            })}
           </div>
         </nav>
 
-        <div className="border-t border-white/10 p-3">
-          <Link
-            href="/company/settings"
-            className={`flex min-h-[42px] items-center gap-3 rounded-[9px] px-3 text-[11px] transition ${
-              isActive("/company/settings")
-                ? "bg-[#178e59] font-medium text-white"
-                : "text-white/64 hover:bg-white/[0.07] hover:text-white"
+        {!collapsed && (
+          <div className="px-3 pb-3">
+            <Link
+              href="/company/help"
+              className="flex min-h-[58px] items-center gap-3 rounded-lg border border-white/25 bg-white/[0.06] px-3 text-white/88 transition hover:bg-white/15 hover:text-white"
+            >
+              <CircleHelp className="h-[17px] w-[17px]" strokeWidth={1.7} />
+              <span>
+                <span className="block text-[11px] font-medium">ช่วยเหลือ</span>
+                <span className="mt-0.5 block text-[8px] text-white/55">
+                  คู่มือการใช้งานและคำถามที่พบบ่อย
+                </span>
+              </span>
+            </Link>
+          </div>
+        )}
+
+        <div className="border-t border-white/20 p-3">
+          <div
+            className={`flex items-center ${
+              collapsed ? "justify-center" : "gap-3"
             }`}
           >
-            <Settings className="h-[15px] w-[15px]" strokeWidth={1.7} />
-            ตั้งค่าบริษัท
-          </Link>
+            <button
+              type="button"
+              onClick={() => setProfileMenuOpen((current) => !current)}
+              className={`flex min-w-0 items-center rounded-lg hover:bg-white/15 ${
+                collapsed
+                  ? "h-10 w-10 justify-center"
+                  : "flex-1 gap-3 px-2 py-2 text-left"
+              }`}
+            >
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-[10px] font-semibold text-[#52735f]">
+                {initials}
+              </span>
+
+              {!collapsed && (
+                <>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[10px] font-medium text-white">
+                      {fullName}
+                    </span>
+                    <span className="mt-0.5 block truncate text-[8px] text-white/55">
+                      {user.email}
+                    </span>
+                  </span>
+
+                  <ChevronDown
+                    className={`h-3.5 w-3.5 text-white/60 transition-transform ${
+                      profileMenuOpen ? "rotate-180" : ""
+                    }`}
+                  />
+                </>
+              )}
+            </button>
+          </div>
+
+          {profileMenuOpen && (
+            <>
+              <button
+                type="button"
+                aria-label="ปิดเมนูผู้ใช้"
+                onClick={() => setProfileMenuOpen(false)}
+                className="fixed inset-0 z-40 cursor-default"
+              />
+
+              <div
+                className={`absolute bottom-[68px] z-50 rounded-lg border border-[#dce8df] bg-white p-1.5 text-[#2f4035] shadow-lg ${
+                  collapsed ? "left-[72px] w-[210px]" : "left-3 right-3"
+                }`}
+              >
+                <Link
+                  href="/company/profile"
+                  onClick={() => setProfileMenuOpen(false)}
+                  className="flex min-h-[38px] items-center gap-3 rounded-md px-3 text-[10px] hover:bg-[#eef5f0]"
+                >
+                  <UserRound className="h-4 w-4" strokeWidth={1.6} />
+                  โปรไฟล์ของฉัน
+                </Link>
+
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  disabled={isLoggingOut}
+                  className="flex min-h-[38px] w-full items-center gap-3 rounded-md px-3 text-left text-[10px] text-[#b45454] hover:bg-[#fff3f3] disabled:opacity-50"
+                >
+                  <LogOut className="h-4 w-4" strokeWidth={1.6} />
+                  {isLoggingOut ? "กำลังออกจากระบบ" : "ออกจากระบบ"}
+                </button>
+              </div>
+            </>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setCollapsed((current) => !current)}
+            className={`mt-2 hidden min-h-[36px] w-full items-center rounded-md text-white/65 hover:bg-white/15 hover:text-white lg:flex ${
+              collapsed ? "justify-center" : "gap-3 px-2"
+            }`}
+          >
+            {collapsed ? (
+              <ChevronRight className="h-4 w-4" />
+            ) : (
+              <>
+                <ChevronLeft className="h-4 w-4" />
+                <span className="text-[9px]">ซ่อนเมนู</span>
+              </>
+            )}
+          </button>
         </div>
       </aside>
 
-      <div className="min-h-screen lg:pl-[258px]">
-        <header className="sticky top-0 z-30 flex h-[68px] items-center border-b border-[#153b28]/8 bg-white px-5 sm:px-7 lg:px-8">
+      <div
+        className={`min-h-screen transition-[padding] duration-300 ${contentPaddingClass}`}
+      >
+        <header className="sticky top-0 z-30 flex h-[68px] items-center border-b border-[#e1eae3] bg-white px-5 sm:px-7 lg:px-8">
           <button
             type="button"
-            onClick={() => setSidebarOpen(true)}
-            className="mr-3 flex h-9 w-9 items-center justify-center rounded-lg text-[#53645a] hover:bg-[#eef3ef] lg:hidden"
+            onClick={() => setMobileSidebarOpen(true)}
+            aria-label="เปิดเมนู"
+            className="mr-3 flex h-9 w-9 items-center justify-center rounded-lg text-[#53645c] hover:bg-[#eef5f0] lg:hidden"
           >
             <Menu className="h-[18px] w-[18px]" />
           </button>
 
           <div className="min-w-0">
-            <p className="truncate text-[14px] font-semibold tracking-[-0.025em] text-[#192a20]">
+            <h1 className="truncate text-[16px] font-semibold text-[#27372d]">
               {pageTitle}
-            </p>
+            </h1>
 
-            <p className="mt-0.5 hidden text-[8px] uppercase tracking-[0.13em] text-[#98a29c] sm:block">
-              {company.companyName}
-            </p>
+            <div className="mt-1 hidden items-center gap-1.5 text-[9px] text-[#849189] sm:flex">
+              {currentBreadcrumb.map((item, index) => (
+                <span key={`${item}-${index}`} className="flex items-center gap-1.5">
+                  {index > 0 && <span>/</span>}
+                  <span className="truncate">{item}</span>
+                </span>
+              ))}
+            </div>
           </div>
 
           <div className="ml-auto flex items-center gap-2">
             <Link
               href="/company/notifications"
-              className="relative flex h-9 w-9 items-center justify-center rounded-full text-[#64736a] hover:bg-[#eef3ef] hover:text-[#247049]"
+              aria-label="การแจ้งเตือน"
+              className="relative flex h-9 w-9 items-center justify-center rounded-lg border border-[#dfe8e1] text-[#627569] hover:bg-[#f0f6f2]"
             >
               <Bell className="h-[16px] w-[16px]" strokeWidth={1.7} />
-
-              <span className="absolute right-[6px] top-[6px] h-1.5 w-1.5 rounded-full bg-[#e14f4f] ring-2 ring-white" />
+              <span className="absolute right-[6px] top-[6px] h-1.5 w-1.5 rounded-full bg-[#d65a5a]" />
             </Link>
 
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setProfileOpen((current) => !current)}
-                className="flex items-center gap-2 rounded-full py-1 pl-1 pr-2 hover:bg-[#f0f4f1]"
-              >
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#dff1e4] text-[10px] font-semibold text-[#1d7548]">
-                  {initials}
+            <button
+              type="button"
+              onClick={() => setProfileMenuOpen((current) => !current)}
+              className="hidden items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-[#eef5f0] sm:flex"
+            >
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#dcecdf] text-[10px] font-semibold text-[#4e725b]">
+                {initials}
+              </span>
+
+              <span className="hidden text-left md:block">
+                <span className="block max-w-[130px] truncate text-[10px] font-medium text-[#314139]">
+                  {fullName}
                 </span>
-
-                <span className="hidden text-left md:block">
-                  <span className="block max-w-[135px] truncate text-[10px] font-semibold text-[#293a30]">
-                    {fullName}
-                  </span>
-
-                  <span className="block text-[8px] text-[#8a968e]">
-                    Company Admin
-                  </span>
+                <span className="mt-0.5 block text-[8px] text-[#87938c]">
+                  Company Admin
                 </span>
+              </span>
 
-                <ChevronDown
-                  className={`hidden h-3 w-3 text-[#7d8982] transition md:block ${
-                    profileOpen ? "rotate-180" : ""
-                  }`}
-                />
-              </button>
-
-              {profileOpen && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => setProfileOpen(false)}
-                    className="fixed inset-0 z-40 cursor-default"
-                  />
-
-                  <div className="absolute right-0 top-[48px] z-50 w-[240px] overflow-hidden rounded-[15px] border border-[#23422f]/10 bg-white shadow-[0_22px_60px_rgba(22,52,33,0.15)]">
-                    <div className="border-b border-[#23422f]/8 px-4 py-4">
-                      <p className="truncate text-[12px] font-semibold text-[#25372c]">
-                        {fullName}
-                      </p>
-
-                      <p className="mt-1 truncate text-[9px] text-[#849087]">
-                        {user.email}
-                      </p>
-                    </div>
-
-                    <div className="p-2">
-                      <button
-                        type="button"
-                        onClick={handleLogout}
-                        disabled={isLoggingOut}
-                        className="flex min-h-[40px] w-full items-center gap-3 rounded-[9px] px-3 text-left text-[11px] text-[#b14545] hover:bg-[#fff1f1] disabled:opacity-50"
-                      >
-                        <LogOut className="h-4 w-4" strokeWidth={1.6} />
-
-                        {isLoggingOut
-                          ? "กำลังออกจากระบบ"
-                          : "ออกจากระบบ"}
-                      </button>
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
+              <ChevronDown className="h-3.5 w-3.5 text-[#87938c]" />
+            </button>
           </div>
         </header>
 

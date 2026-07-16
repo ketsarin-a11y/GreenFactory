@@ -4,6 +4,7 @@ import {
   ArrowRight,
   CheckCircle2,
   ChevronDown,
+  ExternalLink,
   Mail,
   MapPin,
   MessageSquareText,
@@ -28,14 +29,17 @@ const faqs = [
   {
     question: "แพลตฟอร์มรองรับหลายองค์กรหรือหลายหน่วยงานหรือไม่",
     answer:
-      "รองรับ โดยสามารถแยกข้อมูล ผู้ใช้งาน หน่วยงาน และสิทธิ์การเข้าถึงของแต่ละองค์กรได้อย่างเป็นระบบ",
+      "รองรับ โดยระบบสามารถแยกข้อมูล ผู้ใช้งาน หน่วยงาน และสิทธิ์การเข้าถึงของแต่ละองค์กรได้อย่างเป็นระบบ",
   },
   {
     question: "ต้องเตรียมข้อมูลอะไรบ้างก่อนติดต่อ",
     answer:
-      "เพียงระบุประเภทองค์กร เป้าหมายที่ต้องการ และข้อมูลที่มีอยู่ เช่น พลังงาน คาร์บอน น้ำ ของเสีย หรือข้อมูลจากเครื่องจักร",
+      "ระบุประเภทองค์กร เป้าหมายที่ต้องการ และข้อมูลที่มีอยู่ เช่น พลังงาน คาร์บอน น้ำ ของเสีย หรือข้อมูลจากเครื่องจักร",
   },
 ];
+
+const mapUrl =
+  "https://www.google.com/maps/search/?api=1&query=Suranaree+University+of+Technology";
 
 export default function ContactExperience() {
   const [selectedTopic, setSelectedTopic] = useState(topics[0]);
@@ -48,95 +52,100 @@ export default function ContactExperience() {
   };
 
   return (
-    <main className="overflow-x-clip bg-[#f5f7f3] text-[#18231c]">
-      {/* Hero */}
-      <section className="relative overflow-hidden px-5 pb-16 pt-36 sm:px-8 sm:pb-20 sm:pt-40 lg:px-12 xl:px-16">
-        <div className="pointer-events-none absolute -right-40 -top-36 h-[460px] w-[460px] rounded-full bg-[#8fe0ad]/25 blur-[120px]" />
-        <div className="pointer-events-none absolute -left-52 top-48 h-[380px] w-[380px] rounded-full bg-white blur-[120px]" />
-
-        <div className="relative mx-auto max-w-[1380px]">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#4c7759]">
-            Contact GreenFactory Insight
+    <main className="bg-[#f7f9f7] text-[#1b2a20]">
+      {/* Header */}
+      <section className="border-b border-[#dfe8e1] px-5 pb-10 pt-28 sm:px-8 sm:pb-12 sm:pt-32 lg:px-12 xl:px-16">
+        <div className="mx-auto max-w-[1280px]">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#4e785b]">
+            ติดต่อเรา
           </p>
 
-          <h1 className="mt-5 max-w-[960px] text-[clamp(3rem,6vw,6.4rem)] font-medium leading-[1.01] tracking-[-0.06em]">
-            เริ่มต้นบทสนทนา
-            <span className="block text-[#4f805f]">
-              เพื่อโรงงานที่จัดการข้อมูลได้ดีกว่า
-            </span>
+          <h1 className="mt-3 max-w-[720px] text-[clamp(2rem,4vw,3.6rem)] font-semibold leading-[1.15] tracking-[-0.04em] text-[#173323]">
+            พูดคุยเกี่ยวกับความต้องการขององค์กร
           </h1>
 
-          <p className="mt-7 max-w-[650px] text-[14px] leading-8 text-[#69766e] sm:text-[15px]">
-            บอกเราเกี่ยวกับเป้าหมาย ปัญหา หรือแนวทางที่องค์กรกำลังมองหา
-            แล้วเราจะติดต่อกลับเพื่อพูดคุยรายละเอียดร่วมกัน
+          <p className="mt-4 max-w-[650px] text-[13px] leading-7 text-[#6b7a70] sm:text-[14px]">
+            ส่งรายละเอียดเกี่ยวกับเป้าหมาย ปัญหา หรือข้อมูลที่องค์กรต้องการบริหาร
+            เพื่อให้เรานำไปวางแนวทางการพัฒนาร่วมกัน
           </p>
         </div>
       </section>
 
-      {/* Contact form */}
-      <section className="px-5 pb-20 sm:px-8 lg:px-12 lg:pb-28 xl:px-16">
-        <div className="mx-auto grid max-w-[1380px] gap-8 lg:grid-cols-[0.72fr_1.28fr]">
+      {/* Contact */}
+      <section className="px-5 py-12 sm:px-8 sm:py-14 lg:px-12 lg:py-16 xl:px-16">
+        <div className="mx-auto grid max-w-[1280px] gap-7 lg:grid-cols-[0.72fr_1.28fr]">
           {/* Contact information */}
-          <aside className="rounded-[28px] bg-[#173426] p-7 text-white sm:p-9 lg:sticky lg:top-28 lg:self-start">
-            <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-[#9ed7ac]">
-              ติดต่อโดยตรง
-            </p>
+          <aside className="rounded-2xl border border-[#dbe6de] bg-[#173426] p-6 text-white sm:p-8 lg:sticky lg:top-24 lg:self-start">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#a6d9b3]">
+                ข้อมูลติดต่อ
+              </p>
 
-            <h2 className="mt-5 text-[30px] font-medium leading-[1.18] tracking-[-0.04em] sm:text-[36px]">
-              พร้อมรับฟัง
-              <span className="block text-white/60">และช่วยวางแนวทางร่วมกัน</span>
-            </h2>
+              <h2 className="mt-3 text-[24px] font-semibold tracking-[-0.03em] sm:text-[28px]">
+                ติดต่อ GreenFactory Insight
+              </h2>
 
-            <div className="mt-10 divide-y divide-white/10">
+              <p className="mt-3 text-[13px] leading-7 text-white/60">
+                สำหรับสอบถามข้อมูลระบบ ความร่วมมือ หรือข้อเสนอแนะเกี่ยวกับโครงการ
+              </p>
+            </div>
+
+            <div className="mt-8 divide-y divide-white/10 border-y border-white/10">
               <a
                 href="mailto:kesrin9170@gmail.com"
-                className="group flex items-start gap-4 py-6 first:pt-0"
+                className="group flex items-start gap-3 py-5"
               >
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/12 bg-white/[0.06] text-[#a9deb5] transition group-hover:bg-white group-hover:text-[#173426]">
-                  <Mail className="h-[18px] w-[18px]" strokeWidth={1.6} />
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/[0.06] text-[#a9deb5] transition group-hover:bg-white group-hover:text-[#173426]">
+                  <Mail className="h-4 w-4" strokeWidth={1.7} />
                 </span>
 
                 <div>
-                  <p className="text-[10px] uppercase tracking-[0.16em] text-white/42">
+                  <p className="text-[10px] uppercase tracking-[0.13em] text-white/40">
                     Email
                   </p>
-                  <p className="mt-2 text-[14px] text-white/88">
+                  <p className="mt-1.5 break-all text-[13px] text-white/85">
                     kesrin9170@gmail.com
                   </p>
                 </div>
               </a>
 
-              <div className="flex items-start gap-4 py-6">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/12 bg-white/[0.06] text-[#a9deb5]">
-                  <MapPin className="h-[18px] w-[18px]" strokeWidth={1.6} />
+              <a
+                href={mapUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group flex items-start gap-3 py-5"
+              >
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/[0.06] text-[#a9deb5] transition group-hover:bg-white group-hover:text-[#173426]">
+                  <MapPin className="h-4 w-4" strokeWidth={1.7} />
                 </span>
 
                 <div>
-                  <p className="text-[10px] uppercase tracking-[0.16em] text-white/42">
-                    Research & Development
-                  </p>
-                  <p className="mt-2 text-[14px] leading-7 text-white/88">
-                    Suranaree University
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-[10px] uppercase tracking-[0.13em] text-white/40">
+                      สถานที่พัฒนาโครงการ
+                    </p>
+                    <ExternalLink className="h-3 w-3 text-white/35" />
+                  </div>
+
+                  <p className="mt-1.5 text-[13px] leading-6 text-white/85">
+                    มหาวิทยาลัยเทคโนโลยีสุรนารี
                     <span className="block text-white/50">
-                      Nakhon Ratchasima, Thailand
+                      นครราชสีมา ประเทศไทย
                     </span>
                   </p>
                 </div>
-              </div>
+              </a>
 
-              <div className="flex items-start gap-4 py-6 last:pb-0">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/12 bg-white/[0.06] text-[#a9deb5]">
-                  <MessageSquareText
-                    className="h-[18px] w-[18px]"
-                    strokeWidth={1.6}
-                  />
+              <div className="flex items-start gap-3 py-5">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/[0.06] text-[#a9deb5]">
+                  <MessageSquareText className="h-4 w-4" strokeWidth={1.7} />
                 </span>
 
                 <div>
-                  <p className="text-[10px] uppercase tracking-[0.16em] text-white/42">
-                    Response
+                  <p className="text-[10px] uppercase tracking-[0.13em] text-white/40">
+                    การติดต่อกลับ
                   </p>
-                  <p className="mt-2 text-[14px] leading-7 text-white/88">
+                  <p className="mt-1.5 text-[13px] leading-6 text-white/85">
                     ติดต่อกลับผ่านอีเมล
                     <span className="block text-white/50">
                       หลังได้รับรายละเอียดจากคุณ
@@ -148,54 +157,55 @@ export default function ContactExperience() {
           </aside>
 
           {/* Form */}
-          <div className="rounded-[28px] border border-[#203d2b]/10 bg-white p-7 shadow-[0_28px_80px_rgba(26,59,37,0.08)] sm:p-9 lg:p-12">
+          <div className="rounded-2xl border border-[#dbe6de] bg-white p-6 shadow-[0_18px_50px_rgba(32,74,45,0.06)] sm:p-8 lg:p-10">
             {submitted ? (
-              <div className="flex min-h-[560px] flex-col items-center justify-center text-center">
-                <span className="flex h-16 w-16 items-center justify-center rounded-full bg-[#e4f3e8] text-[#248050]">
-                  <CheckCircle2 className="h-7 w-7" strokeWidth={1.6} />
+              <div className="flex min-h-[500px] flex-col items-center justify-center text-center">
+                <span className="flex h-14 w-14 items-center justify-center rounded-full bg-[#e6f3e9] text-[#248050]">
+                  <CheckCircle2 className="h-6 w-6" strokeWidth={1.7} />
                 </span>
 
-                <h2 className="mt-7 text-[32px] font-medium tracking-[-0.04em]">
-                  ขอบคุณสำหรับข้อความ
+                <h2 className="mt-6 text-[26px] font-semibold tracking-[-0.03em]">
+                  ได้รับข้อความแล้ว
                 </h2>
 
-                <p className="mt-4 max-w-[480px] text-[13px] leading-7 text-[#718078]">
-                  แบบฟอร์มตัวอย่างนี้แสดงหน้าสำเร็จแล้ว
-                  เมื่อต่อระบบหลังบ้านจึงจะสามารถส่งข้อมูลจริงได้
+                <p className="mt-3 max-w-[460px] text-[13px] leading-7 text-[#718078]">
+                  ขณะนี้เป็นแบบฟอร์มตัวอย่าง เมื่อต่อระบบหลังบ้านแล้ว
+                  ข้อมูลจะถูกส่งและจัดเก็บจริง
                 </p>
 
                 <button
                   type="button"
                   onClick={() => setSubmitted(false)}
-                  className="mt-8 rounded-full bg-[#1d7d4b] px-6 py-3 text-[12px] font-medium text-white"
+                  className="mt-7 rounded-lg bg-[#1d7d4b] px-5 py-3 text-[12px] font-medium text-white transition hover:bg-[#176a3f]"
                 >
                   ส่งข้อความใหม่
                 </button>
               </div>
             ) : (
               <>
-                <div className="max-w-[720px]">
-                  <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-[#4d7b5c]">
-                    Send a message
+                <div className="border-b border-[#e3ebe5] pb-6">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#4d7b5c]">
+                    แบบฟอร์มติดต่อ
                   </p>
 
-                  <h2 className="mt-4 text-[clamp(2rem,3.2vw,3.4rem)] font-medium leading-[1.1] tracking-[-0.045em]">
-                    เล่าให้เราฟัง
-                    <span className="block text-[#5b8067]">
-                      ว่าองค์กรของคุณต้องการอะไร
-                    </span>
+                  <h2 className="mt-3 text-[26px] font-semibold tracking-[-0.03em] text-[#1b2a20] sm:text-[30px]">
+                    ส่งรายละเอียดให้เรา
                   </h2>
+
+                  <p className="mt-2 text-[13px] leading-6 text-[#77847b]">
+                    กรุณากรอกข้อมูลให้ครบถ้วน เพื่อให้สามารถติดต่อกลับได้สะดวก
+                  </p>
                 </div>
 
-                <form onSubmit={handleSubmit} className="mt-10">
-                  <div className="grid gap-x-8 gap-y-8 md:grid-cols-2">
+                <form onSubmit={handleSubmit} className="mt-8">
+                  <div className="grid gap-x-7 gap-y-7 md:grid-cols-2">
                     <Field label="ชื่อ - นามสกุล" required>
                       <input
                         required
                         name="name"
                         autoComplete="name"
                         placeholder="ชื่อของคุณ"
-                        className="peer w-full border-b border-[#233f2d]/18 bg-transparent py-3 text-[14px] outline-none transition placeholder:text-[#a1aaa4] focus:border-[#238252]"
+                        className="w-full rounded-lg border border-[#dbe5de] bg-[#fbfcfb] px-4 py-3 text-[13px] outline-none transition placeholder:text-[#a1aaa4] focus:border-[#238252] focus:bg-white"
                       />
                     </Field>
 
@@ -206,7 +216,7 @@ export default function ContactExperience() {
                         name="email"
                         autoComplete="email"
                         placeholder="name@company.com"
-                        className="w-full border-b border-[#233f2d]/18 bg-transparent py-3 text-[14px] outline-none transition placeholder:text-[#a1aaa4] focus:border-[#238252]"
+                        className="w-full rounded-lg border border-[#dbe5de] bg-[#fbfcfb] px-4 py-3 text-[13px] outline-none transition placeholder:text-[#a1aaa4] focus:border-[#238252] focus:bg-white"
                       />
                     </Field>
 
@@ -214,7 +224,7 @@ export default function ContactExperience() {
                       <input
                         name="organization"
                         placeholder="ชื่อองค์กรของคุณ"
-                        className="w-full border-b border-[#233f2d]/18 bg-transparent py-3 text-[14px] outline-none transition placeholder:text-[#a1aaa4] focus:border-[#238252]"
+                        className="w-full rounded-lg border border-[#dbe5de] bg-[#fbfcfb] px-4 py-3 text-[13px] outline-none transition placeholder:text-[#a1aaa4] focus:border-[#238252] focus:bg-white"
                       />
                     </Field>
 
@@ -227,39 +237,39 @@ export default function ContactExperience() {
                           onChange={(event) =>
                             setSelectedTopic(event.target.value)
                           }
-                          className="w-full appearance-none border-b border-[#233f2d]/18 bg-transparent py-3 pr-8 text-[14px] outline-none transition focus:border-[#238252]"
+                          className="w-full appearance-none rounded-lg border border-[#dbe5de] bg-[#fbfcfb] px-4 py-3 pr-10 text-[13px] outline-none transition focus:border-[#238252] focus:bg-white"
                         >
                           {topics.map((topic) => (
                             <option key={topic}>{topic}</option>
                           ))}
                         </select>
 
-                        <ChevronDown className="pointer-events-none absolute right-0 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6c7b72]" />
+                        <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6c7b72]" />
                       </div>
                     </Field>
                   </div>
 
-                  <Field label="รายละเอียด" required className="mt-9">
+                  <Field label="รายละเอียด" required className="mt-7">
                     <textarea
                       required
                       name="message"
-                      rows={5}
-                      placeholder="เป้าหมาย ปัญหาที่พบ หรือข้อมูลที่ต้องการบริหาร..."
-                      className="w-full resize-none border-b border-[#233f2d]/18 bg-transparent py-3 text-[14px] leading-7 outline-none transition placeholder:text-[#a1aaa4] focus:border-[#238252]"
+                      rows={6}
+                      placeholder="อธิบายเป้าหมาย ปัญหา หรือข้อมูลที่ต้องการบริหาร"
+                      className="w-full resize-none rounded-lg border border-[#dbe5de] bg-[#fbfcfb] px-4 py-3 text-[13px] leading-7 outline-none transition placeholder:text-[#a1aaa4] focus:border-[#238252] focus:bg-white"
                     />
                   </Field>
 
-                  <div className="mt-9 flex flex-col gap-5 border-t border-[#203d2b]/10 pt-7 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="mt-7 flex flex-col gap-4 border-t border-[#e3ebe5] pt-6 sm:flex-row sm:items-center sm:justify-between">
                     <p className="max-w-[480px] text-[10px] leading-5 text-[#8b958f]">
-                      ข้อมูลที่กรอกจะใช้เพื่อการติดต่อกลับเกี่ยวกับคำขอของคุณเท่านั้น
+                      ข้อมูลจะใช้เพื่อการติดต่อกลับเกี่ยวกับคำขอของคุณเท่านั้น
                     </p>
 
                     <button
                       type="submit"
-                      className="group inline-flex min-h-[52px] items-center justify-center gap-3 rounded-full bg-[#1c7d4a] px-7 text-[13px] font-medium text-white shadow-[0_14px_30px_rgba(24,122,70,0.20)] transition hover:-translate-y-0.5 hover:bg-[#176c40]"
+                      className="group inline-flex min-h-[46px] items-center justify-center gap-2 rounded-lg bg-[#1c7d4a] px-6 text-[12px] font-medium text-white transition hover:bg-[#176c40]"
                     >
                       ส่งข้อความ
-                      <Send className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                      <Send className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
                     </button>
                   </div>
                 </form>
@@ -270,20 +280,19 @@ export default function ContactExperience() {
       </section>
 
       {/* FAQ */}
-      <section className="border-t border-[#203d2b]/10 bg-[#edf4ee] px-5 py-20 sm:px-8 lg:px-12 lg:py-24 xl:px-16">
-        <div className="mx-auto grid max-w-[1380px] gap-12 lg:grid-cols-[0.72fr_1.28fr]">
+      <section className="border-t border-[#dfe8e1] bg-white px-5 py-14 sm:px-8 lg:px-12 lg:py-16 xl:px-16">
+        <div className="mx-auto grid max-w-[1280px] gap-8 lg:grid-cols-[0.72fr_1.28fr]">
           <div>
-            <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-[#4d7b5c]">
-              Frequently asked
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#4d7b5c]">
+              คำถามที่พบบ่อย
             </p>
 
-            <h2 className="mt-4 text-[clamp(2rem,3.4vw,3.8rem)] font-medium leading-[1.08] tracking-[-0.05em]">
-              คำถามก่อน
-              <span className="block text-[#5b8168]">เริ่มพูดคุยกับเรา</span>
+            <h2 className="mt-3 text-[26px] font-semibold tracking-[-0.03em] text-[#1b2a20] sm:text-[30px]">
+              ข้อมูลก่อนเริ่มติดต่อ
             </h2>
           </div>
 
-          <div className="divide-y divide-[#213f2d]/12 border-y border-[#213f2d]/12">
+          <div className="divide-y divide-[#dfe8e1] border-y border-[#dfe8e1]">
             {faqs.map((faq, index) => {
               const isOpen = openFaq === index;
 
@@ -292,14 +301,14 @@ export default function ContactExperience() {
                   <button
                     type="button"
                     onClick={() => setOpenFaq(isOpen ? null : index)}
-                    className="flex w-full items-center justify-between gap-6 py-6 text-left"
+                    className="flex w-full items-center justify-between gap-5 py-5 text-left"
                   >
-                    <span className="text-[15px] font-medium text-[#24362b]">
+                    <span className="text-[14px] font-medium text-[#24362b]">
                       {faq.question}
                     </span>
 
                     <span
-                      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#285039]/15 transition ${
+                      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#dbe5de] transition ${
                         isOpen
                           ? "rotate-180 bg-[#1c7d4a] text-white"
                           : "bg-white text-[#42684f]"
@@ -317,7 +326,7 @@ export default function ContactExperience() {
                     }`}
                   >
                     <div className="min-h-0 overflow-hidden">
-                      <p className="max-w-[720px] pb-6 pr-12 text-[13px] leading-7 text-[#6f7d74]">
+                      <p className="max-w-[720px] pb-5 pr-10 text-[13px] leading-7 text-[#6f7d74]">
                         {faq.answer}
                       </p>
                     </div>
@@ -329,16 +338,16 @@ export default function ContactExperience() {
         </div>
       </section>
 
-      {/* Closing strip */}
-      <section className="bg-[#173426] px-5 py-10 text-white sm:px-8 lg:px-12 xl:px-16">
-        <div className="mx-auto flex max-w-[1380px] flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-[15px] font-medium">
-            มีรายละเอียดเพิ่มเติมที่อยากบอกเรา?
+      {/* Bottom contact strip */}
+      <section className="border-t border-white/10 bg-[#173426] px-5 py-7 text-white sm:px-8 lg:px-12 xl:px-16">
+        <div className="mx-auto flex max-w-[1280px] flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-[13px] font-medium">
+            ต้องการสอบถามเพิ่มเติมเกี่ยวกับโครงการ
           </p>
 
           <a
             href="mailto:kesrin9170@gmail.com"
-            className="group inline-flex items-center gap-2 text-[12px] text-white/72 transition hover:text-white"
+            className="group inline-flex items-center gap-2 text-[12px] text-white/70 transition hover:text-white"
           >
             ส่งอีเมลโดยตรง
             <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
@@ -367,7 +376,7 @@ function Field({
         {required && <span className="ml-1 text-[#2b8555]">*</span>}
       </span>
 
-      <span className="mt-1 block">{children}</span>
+      <span className="mt-2 block">{children}</span>
     </label>
   );
 }
