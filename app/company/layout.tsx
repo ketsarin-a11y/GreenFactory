@@ -1,10 +1,7 @@
 import { redirect } from "next/navigation";
 
-<<<<<<< HEAD
 import CompanyShell from "@/components/company/CompanyShell";
 import { prisma } from "@/lib/prisma";
-=======
->>>>>>> 37ded5974e06fe0a84cce4492d54d7a27a12accd
 import { getSession } from "@/lib/session";
 
 export default async function CompanyLayout({
@@ -26,7 +23,6 @@ export default async function CompanyLayout({
     redirect("/login");
   }
 
-<<<<<<< HEAD
   const company = await prisma.company.findUnique({
     where: {
       companyId: session.companyId,
@@ -57,7 +53,4 @@ export default async function CompanyLayout({
       {children}
     </CompanyShell>
   );
-=======
-  return <>{children}</>;
->>>>>>> 37ded5974e06fe0a84cce4492d54d7a27a12accd
 }

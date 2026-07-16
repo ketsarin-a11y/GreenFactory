@@ -774,7 +774,7 @@ body {
 ::selection {
   color: #ffffff;
   background: #426f51;
-<<<<<<< HEAD
+
 }
 
 .hero-cinematic-image {
@@ -955,6 +955,4 @@ body {
   .hero-opening-curtain {
     display: none;
   }
-=======
->>>>>>> 37ded5974e06fe0a84cce4492d54d7a27a12accd
 }
