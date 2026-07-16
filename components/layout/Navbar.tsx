@@ -4,28 +4,14 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import {
-<<<<<<< HEAD
   ArrowRight,
   ArrowUpRight,
   BarChart3,
   ChevronDown,
-=======
-  Activity,
-  ArrowRight,
-  ArrowUpRight,
-  BarChart3,
-  Building2,
-  ChevronDown,
-  Cpu,
->>>>>>> 37ded5974e06fe0a84cce4492d54d7a27a12accd
   Database,
   Factory,
   Gauge,
   Menu,
-<<<<<<< HEAD
-=======
-  Network,
->>>>>>> 37ded5974e06fe0a84cce4492d54d7a27a12accd
   X,
 } from "lucide-react";
 
@@ -73,19 +59,10 @@ export default function Navbar() {
   const [isMobileSolutionsOpen, setIsMobileSolutionsOpen] = useState(false);
 
   useEffect(() => {
-<<<<<<< HEAD
     const onScroll = () => setIsScrolled(window.scrollY > 10);
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
-=======
-    const handleScroll = () => setIsScrolled(window.scrollY > 12);
-
-    handleScroll();
-    window.addEventListener("scroll", handleScroll, { passive: true });
-
-    return () => window.removeEventListener("scroll", handleScroll);
->>>>>>> 37ded5974e06fe0a84cce4492d54d7a27a12accd
   }, []);
 
   useEffect(() => {

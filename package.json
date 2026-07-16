@@ -19,11 +19,8 @@
     "lucide-react": "^1.24.0",
     "next": "16.2.10",
     "prisma": "^7.8.0",
-<<<<<<< HEAD
     "qrcode": "^1.5.4",
     "qrcode.react": "^4.2.0",
-=======
->>>>>>> 37ded5974e06fe0a84cce4492d54d7a27a12accd
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-hook-form": "^7.81.0",
@@ -37,10 +34,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
-<<<<<<< HEAD
     "@types/qrcode": "^1.5.6",
-=======
->>>>>>> 37ded5974e06fe0a84cce4492d54d7a27a12accd
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
