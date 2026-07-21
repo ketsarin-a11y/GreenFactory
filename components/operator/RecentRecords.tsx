@@ -1,10 +1,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Zap, Droplet, Wind, Flame, ChevronRight, ArrowRight } from "lucide-react";
+import { ChevronRight, ArrowRight } from "lucide-react";
 import type { RecentRecord, ResourceIcon } from "@/constants/dashboard";
+import { RESOURCE_ICONS } from "@/lib/resource-meta";
 
-const ICONS = { zap: Zap, droplet: Droplet, wind: Wind, flame: Flame } as const;
 const ICON_TONE: Record<RecentRecord["iconColor"], string> = {
   amber: "bg-amber-50 text-amber-500",
   blue: "bg-sky-50 text-sky-500",
@@ -31,12 +31,12 @@ export default function RecentRecords({ records }: { records: RecentRecord[] }) 
 
       <ul className="flex flex-col divide-y divide-slate-100">
         {records.map((rec) => {
-          const Icon = ICONS[rec.icon as ResourceIcon];
+          const Icon = RESOURCE_ICONS[rec.icon as ResourceIcon];
           return (
             <li key={rec.id}>
               <button
                 type="button"
-                onClick={() => router.push(`/operator/history/${rec.id}`)}
+                onClick={() => router.push("/operator/history")}
                 className="flex w-full items-center gap-3 py-3.5 text-left hover:bg-slate-50"
               >
                 <span className={`flex h-9 w-9 items-center justify-center rounded-lg ${ICON_TONE[rec.iconColor]}`}>

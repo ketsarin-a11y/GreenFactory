@@ -1,15 +1,20 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { ClipboardList, Zap, Droplet, Flame, Info, ChevronRight, ArrowRight } from "lucide-react";
+import { ClipboardList, Info, ChevronRight, ArrowRight } from "lucide-react";
 import type { TodayTaskSummary, ResourceIcon } from "@/constants/dashboard";
+import { RESOURCE_ICONS } from "@/lib/resource-meta";
 
-const ICONS = { zap: Zap, droplet: Droplet, flame: Flame, wind: Zap } as const;
 const ICON_TONE: Record<ResourceIcon, string> = {
   zap: "bg-amber-50 text-amber-500",
   droplet: "bg-sky-50 text-sky-500",
-  flame: "bg-violet-50 text-violet-500",
+  droplets: "bg-sky-50 text-sky-500",
+  snowflake: "bg-sky-50 text-sky-500",
   wind: "bg-slate-100 text-slate-500",
+  atom: "bg-slate-100 text-slate-500",
+  flame: "bg-violet-50 text-violet-500",
+  waves: "bg-violet-50 text-violet-500",
+  fuel: "bg-violet-50 text-violet-500",
 };
 
 export default function TodayTasks({ summary }: { summary: TodayTaskSummary }) {
@@ -36,7 +41,7 @@ export default function TodayTasks({ summary }: { summary: TodayTaskSummary }) {
 
       <ul className="flex flex-col gap-2">
         {summary.categories.map((cat) => {
-          const Icon = ICONS[cat.icon];
+          const Icon = RESOURCE_ICONS[cat.icon];
           return (
             <li key={cat.key}>
               <button

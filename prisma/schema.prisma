@@ -14,9 +14,15 @@ enum UserStatus {
 }
 
 enum ResourceType {
-  ELECTRICITY // ไฟฟ้า
-  WATER // น้ำ
-  GAS // แก๊ส
+  ELECTRICITY     // ไฟฟ้า
+  WATER           // น้ำประปา
+  DI_WATER        // น้ำ DI (Deionized Water) — ใช้ล้างแผงวงจร/wafer
+  CHILLED_WATER   // น้ำเย็น — หล่อเย็นเครื่องจักร/ห้อง Clean Room
+  COMPRESSED_AIR  // ลมอัด — ขับเครื่องจักรลม
+  NITROGEN        // ไนโตรเจน — กันออกซิเดชันในเตา Reflow/บัดกรี
+  GAS             // แก๊ส LPG
+  STEAM           // ไอน้ำ
+  DIESEL          // ดีเซล — เครื่องปั่นไฟสำรอง
 }
 
 enum RecordStatus {
@@ -62,6 +68,9 @@ model User {
   username     String     @unique
   passwordHash String     @map("password_hash")
   phone        String?
+  department     String?  @map("department")        
+  productionLine String?  @map("production_line")   
+
   failedLogin  Int        @default(0) @map("failed_login")
   lockedUntil  DateTime?  @map("locked_until")
   status       UserStatus @default(ACTIVE)
@@ -80,14 +89,21 @@ model User {
 }
 
 model Equipment {
-  equipmentId  Int          @id @default(autoincrement()) @map("equipment_id")
-  companyId    Int          @map("company_id")
-  name         String
-  location     String
-  resourceType ResourceType @map("resource_type")
-  isActive     Boolean      @default(true) @map("is_active")
-  createdAt    DateTime     @default(now()) @map("created_at")
-  updatedAt    DateTime     @updatedAt @map("updated_at")
+  equipmentId    Int          @id @default(autoincrement()) @map("equipment_id")
+  companyId      Int          @map("company_id")
+  name           String
+  location       String
+  resourceType   ResourceType @map("resource_type")
+  isActive       Boolean      @default(true) @map("is_active")
+
+  equipmentCode  String?      @unique @map("equipment_code")
+  equipmentType  String?      @map("equipment_type")
+  productionLine String?      @map("production_line")
+  department     String?      @map("department")
+  status         String       @default("NORMAL") @map("status")
+
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
 
   company Company          @relation(fields: [companyId], references: [companyId])
   records ResourceRecord[]
@@ -102,6 +118,8 @@ model ResourceRecord {
   recordedById Int          @map("recorded_by_id")
   value        Float
   unit         String
+  note         String?      @db.Text @map("note")
+  attachmentUrl String?      @map("attachment_url") 
   status       RecordStatus @default(RECORDED)
   recordedAt   DateTime     @default(now()) @map("recorded_at")
 

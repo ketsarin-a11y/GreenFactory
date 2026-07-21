@@ -1,8 +1,8 @@
 "use client";
- 
+
 import { useRouter } from "next/navigation";
 import { PenLine, QrCode, Search, ArrowRight, LucideIcon } from "lucide-react";
- 
+
 interface ActionItem {
   href: string;
   title: string;
@@ -10,7 +10,7 @@ interface ActionItem {
   icon: LucideIcon;
   tone: "emerald" | "sky" | "violet";
 }
- 
+
 const ACTIONS: ActionItem[] = [
   {
     href: "/operator/record",
@@ -27,23 +27,23 @@ const ACTIONS: ActionItem[] = [
     tone: "sky",
   },
   {
-    href: "/operator/equipment",
+    href: "/operator/record",
     title: "เลือกเครื่องจักร/จุดตรวจ",
     desc: "ค้นหาและเลือกเครื่องจักรเพื่อบันทึกข้อมูล",
     icon: Search,
     tone: "violet",
   },
 ];
- 
+
 const TONE = {
   emerald: { card: "bg-emerald-50 border-emerald-100", icon: "bg-emerald-600 text-white", arrow: "bg-emerald-600 text-white" },
   sky: { card: "bg-sky-50 border-sky-100", icon: "bg-sky-500 text-white", arrow: "bg-sky-500 text-white" },
   violet: { card: "bg-violet-50 border-violet-100", icon: "bg-violet-500 text-white", arrow: "bg-violet-500 text-white" },
 };
- 
+
 export default function QuickActions() {
   const router = useRouter();
- 
+
   return (
     <section>
       <h2 className="mb-4 text-base font-semibold text-slate-800">เริ่มต้นใช้งาน</h2>
@@ -77,4 +77,3 @@ export default function QuickActions() {
     </section>
   );
 }
- 
