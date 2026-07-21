@@ -6,7 +6,8 @@ export interface AuthUser {
   id: number; // = User.userId
   companyId: number | null;
   name: string; // = firstName + lastName
-  role: string; // = Role.roleName เช่น "Operator" (มาจาก DB จริง ไม่ fix ค่าตายตัว)
+  roleName: string; // ค่าจริงจาก DB เช่น "OPERATOR" — ใช้เช็คสิทธิ์/route guard
+  role: string; // ข้อความที่โชว์ใน UI เช่น "Operator" (แปลงจาก roleName ผ่าน lib/roles.ts)
   avatarInitial: string;
   email: string;
 }
@@ -18,10 +19,6 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-/**
- * AuthProvider รับ user จริงที่ fetch มาจาก server (lib/auth.ts -> getCurrentUser())
- * แล้วส่งต่อผ่าน context ให้ Header/Sidebar ฝั่ง client ใช้งาน
- */
 export function AuthProvider({
   initialUser,
   children,

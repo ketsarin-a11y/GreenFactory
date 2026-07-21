@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
+import { getRedirectPath, isAllowedRole } from "@/lib/roles";
 import { AuthProvider } from "@/contexts/AuthContext";
-import Sidebar from "@/components/operator/sidebar";
-import Header from "@/components/operator/Header";
+import OperatorShell from "@/components/operator/OperatorShell";
 
 export default async function OperatorLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
@@ -12,15 +12,14 @@ export default async function OperatorLayout({ children }: { children: React.Rea
     redirect("/login");
   }
 
+  // ล็อกอินอยู่แต่ role ไม่ใช่ OPERATOR -> เด้งไปหน้าแรกของ role ตัวเอง
+  if (isAllowedRole(user.roleName) && user.roleName !== "OPERATOR") {
+    redirect(getRedirectPath(user.roleName));
+  }
+
   return (
     <AuthProvider initialUser={user}>
-      <div className="flex min-h-screen bg-slate-50">
-        <Sidebar />
-        <main className="flex-1">
-          <Header />
-          <div className="flex flex-col gap-6 px-8 pb-10">{children}</div>
-        </main>
-      </div>
+      <OperatorShell>{children}</OperatorShell>
     </AuthProvider>
   );
 }

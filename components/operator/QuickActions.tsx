@@ -53,7 +53,7 @@ export default function QuickActions() {
           const tone = TONE[action.tone];
           return (
             <button
-              key={action.href}
+              key={action.title}
               type="button"
               onClick={() => router.push(action.href)}
               className={`group relative flex flex-col gap-4 rounded-2xl border p-5 text-left transition-shadow hover:shadow-md ${tone.card}`}

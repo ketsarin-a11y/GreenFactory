@@ -259,25 +259,32 @@ export default function RecordPage({ equipmentList, todayTotals, currentUser, in
   return (
     <div className="flex flex-col gap-6">
       {/* Stepper */}
-      <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-6 py-4">
-        {STEPS.map((s, idx) => (
-          <div key={s.step} className="flex flex-1 items-center gap-3">
-            <div className="flex items-center gap-2">
-              <span
-                className={[
-                  "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-semibold",
-                  s.step <= currentStep ? "bg-emerald-600 text-white" : "border border-slate-300 text-slate-400",
-                ].join(" ")}
-              >
-                {s.step < currentStep ? <Check size={14} /> : s.step}
-              </span>
-              <span className={s.step <= currentStep ? "text-sm font-medium text-slate-800" : "text-sm text-slate-400"}>
-                {s.label}
-              </span>
+      <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 sm:px-6">
+        <div className="flex items-center gap-2 sm:gap-3">
+          {STEPS.map((s, idx) => (
+            <div key={s.step} className="flex flex-1 items-center gap-2 sm:gap-3">
+              <div className="flex items-center gap-2">
+                <span
+                  className={[
+                    "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-semibold",
+                    s.step <= currentStep ? "bg-emerald-600 text-white" : "border border-slate-300 text-slate-400",
+                  ].join(" ")}
+                >
+                  {s.step < currentStep ? <Check size={14} /> : s.step}
+                </span>
+                {/* จอมือถือ: ซ่อนข้อความ label เต็มๆ ไว้ก่อน (ยาวเกินจะพอดีจอ) เหลือแค่วงกลมเลขขั้นตอน */}
+                <span className={`hidden sm:inline text-sm ${s.step <= currentStep ? "font-medium text-slate-800" : "text-slate-400"}`}>
+                  {s.label}
+                </span>
+              </div>
+              {idx < STEPS.length - 1 && <span className="h-px flex-1 bg-slate-200" />}
             </div>
-            {idx < STEPS.length - 1 && <span className="h-px flex-1 bg-slate-200" />}
-          </div>
-        ))}
+          ))}
+        </div>
+        {/* จอมือถือ: โชว์ label ของขั้นตอนปัจจุบันแยกไว้บรรทัดล่างแทน */}
+        <p className="mt-2 text-sm font-medium text-slate-700 sm:hidden">
+          ขั้นตอนที่ {currentStep} จาก {STEPS.length}: {STEPS[currentStep - 1]?.label}
+        </p>
       </div>
 
       {successMessage && (
@@ -418,7 +425,7 @@ export default function RecordPage({ equipmentList, todayTotals, currentUser, in
                       <p className="font-semibold text-slate-800">{selectedEquipment.name}</p>
                       <p className="text-slate-400">{selectedEquipment.equipmentType ?? "-"}</p>
                     </div>
-                    <div className="grid grid-cols-3 gap-6 text-xs text-slate-500">
+                    <div className="grid w-full grid-cols-3 gap-3 text-xs text-slate-500 sm:w-auto sm:gap-6">
                       <div>
                         <p className="text-slate-400">ไลน์การผลิต</p>
                         <p className="font-medium text-slate-700">{selectedEquipment.productionLine ?? "-"}</p>
