@@ -20,16 +20,33 @@ export default function MasterDataPage({
   columns,
   stats,
   categoryLabel,
+  onAdd,
+  onEdit,
+  onDelete,
+  onToggleStatus,
+  statusUpdatingId,
 }: {
   title: string;
   description: string;
   actionLabel: string;
   drawerTitle: string;
-  iconType: "machine" | "sensor" | "resource" | "category" | "unit" | "emission";
+  iconType:
+    | "machine"
+    | "sensor"
+    | "resource"
+    | "category"
+    | "unit"
+    | "emission";
   rows: MasterItem[];
   columns: MasterColumn[];
   stats: MasterStat[];
   categoryLabel: string;
+
+  onAdd?: () => void;
+  onEdit?: (row: MasterItem) => void;
+  onDelete?: (row: MasterItem) => void;
+  onToggleStatus?: (row: MasterItem) => void;
+  statusUpdatingId?: number | null;
 }) {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("ALL");
@@ -38,7 +55,14 @@ export default function MasterDataPage({
   const [selected, setSelected] = useState<MasterItem | null>(null);
 
   const categories = useMemo(
-    () => Array.from(new Set(rows.map((row) => row.category).filter(Boolean))) as string[],
+    () =>
+      Array.from(
+        new Set(
+          rows
+            .map((row) => row.category)
+            .filter(Boolean),
+        ),
+      ) as string[],
     [rows],
   );
 
@@ -73,6 +97,7 @@ export default function MasterDataPage({
         title={title}
         description={description}
         actionLabel={actionLabel}
+        onAction={onAdd}
       />
 
       <MasterStats items={stats} />
@@ -84,9 +109,18 @@ export default function MasterDataPage({
           status={status}
           categories={categories}
           categoryLabel={categoryLabel}
-          onSearchChange={setSearch}
-          onCategoryChange={setCategory}
-          onStatusChange={setStatus}
+          onSearchChange={(value) => {
+            setSearch(value);
+            setPage(1);
+          }}
+          onCategoryChange={(value) => {
+            setCategory(value);
+            setPage(1);
+          }}
+          onStatusChange={(value) => {
+            setStatus(value);
+            setPage(1);
+          }}
           onReset={() => {
             setSearch("");
             setCategory("ALL");
@@ -100,6 +134,10 @@ export default function MasterDataPage({
           columns={columns}
           iconType={iconType}
           onView={setSelected}
+          onEdit={onEdit}
+          onDelete={onDelete}
+          onToggleStatus={onToggleStatus}
+          statusUpdatingId={statusUpdatingId}
         />
 
         <Pagination

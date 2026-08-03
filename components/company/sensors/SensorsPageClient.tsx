@@ -12,6 +12,7 @@ import {
   Search,
   WifiOff,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import SensorDeleteDialog from "./SensorDeleteDialog";
@@ -173,31 +174,54 @@ export default function SensorsPageClient() {
         </header>
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {[
-            ["เซนเซอร์ทั้งหมด", totals.all, Radio, "bg-[#e8f5ed] text-[#2d8057]"],
-            ["เชื่อมต่อปกติ", totals.online, CircleDot, "bg-[#e8f1ff] text-[#4b6db0]"],
-            ["ออฟไลน์", totals.offline, WifiOff, "bg-[#fff4df] text-[#a06c17]"],
-            ["ผิดปกติ", totals.fault, AlertTriangle, "bg-[#fff0f0] text-[#c04e4e]"],
-          ].map(([label, value, Icon, iconClass]) => (
+          {(
+            [
+              {
+                label: "เซนเซอร์ทั้งหมด",
+                value: totals.all,
+                Icon: Radio,
+                iconClass: "bg-[#e8f5ed] text-[#2d8057]",
+              },
+              {
+                label: "เชื่อมต่อปกติ",
+                value: totals.online,
+                Icon: CircleDot,
+                iconClass: "bg-[#e8f1ff] text-[#4b6db0]",
+              },
+              {
+                label: "ออฟไลน์",
+                value: totals.offline,
+                Icon: WifiOff,
+                iconClass: "bg-[#fff4df] text-[#a06c17]",
+              },
+              {
+                label: "ผิดปกติ",
+                value: totals.fault,
+                Icon: AlertTriangle,
+                iconClass: "bg-[#fff0f0] text-[#c04e4e]",
+              },
+            ] satisfies Array<{
+              label: string;
+              value: number;
+              Icon: LucideIcon;
+              iconClass: string;
+            }>
+          ).map(({ label, value, Icon, iconClass }) => (
             <article
-              key={String(label)}
+              key={label}
               className="rounded-[17px] border border-[#e0e5ea] bg-white p-4 shadow-[0_8px_28px_rgba(28,43,61,0.035)]"
             >
               <div className="flex items-center gap-3">
                 <span
-                  className={`flex h-10 w-10 items-center justify-center rounded-[12px] ${String(
-                    iconClass,
-                  )}`}
+                  className={`flex h-10 w-10 items-center justify-center rounded-[12px] ${iconClass}`}
                 >
                   <Icon className="h-[18px] w-[18px]" />
                 </span>
 
                 <div>
-                  <p className="text-[8px] text-[#909aa7]">
-                    {String(label)}
-                  </p>
+                  <p className="text-[8px] text-[#909aa7]">{label}</p>
                   <p className="mt-1 text-[21px] font-semibold text-[#283548]">
-                    {Number(value).toLocaleString("th-TH")}{" "}
+                    {value.toLocaleString("th-TH")}{" "}
                     <span className="text-[9px] font-medium text-[#929ca9]">
                       ตัว
                     </span>

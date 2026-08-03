@@ -12,6 +12,7 @@ import {
   LockKeyhole,
   Mail,
 } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 
@@ -289,8 +290,8 @@ export default function LoginForm() {
                 </span>
               </label>
 
-              {/* Remember */}
-              <div className="mt-5">
+              {/* Remember + Forgot password */}
+              <div className="mt-5 flex items-center justify-between gap-4">
                 <label className="inline-flex cursor-pointer items-center gap-2.5 text-[11px] text-[#66756c]">
                   <input
                     type="checkbox"
@@ -304,6 +305,13 @@ export default function LoginForm() {
 
                   จดจำการเข้าสู่ระบบ
                 </label>
+
+                <Link
+                  href="/forgot-password"
+                  className="text-[11px] font-medium text-[#1c7c4a] transition-colors hover:text-[#145f39] hover:underline hover:underline-offset-4"
+                >
+                  ลืมรหัสผ่าน?
+                </Link>
               </div>
 
               {/* Error */}

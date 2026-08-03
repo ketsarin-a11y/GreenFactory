@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import QRCode from "qrcode";
 import {
@@ -22,6 +22,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { qrCodeService } from "@/services/qr-code.service";
@@ -35,9 +36,9 @@ import { qrTargets } from "./qr-code-data";
 const PAGE_SIZE = 7;
 
 function statusLabel(status: QRCodeStatus) {
-  if (status === "ACTIVE") return "ใช้งานอยู่";
-  if (status === "SUSPENDED") return "ระงับ";
-  return "ยกเลิก";
+  if (status === "ACTIVE") return "เนเธเนเธเธฒเธเธญเธขเธนเน";
+  if (status === "SUSPENDED") return "เธฃเธฐเธเธฑเธ";
+  return "เธขเธเน€เธฅเธดเธ";
 }
 
 function statusClass(status: QRCodeStatus) {
@@ -127,10 +128,10 @@ function QRDrawer({
         <div className="flex h-[74px] items-center justify-between border-b border-[#e5e9ee] px-6">
           <div>
             <h2 className="text-[16px] font-semibold text-[#263247]">
-              {item ? "แก้ไข QR Code" : "สร้าง QR Code"}
+              {item ? "เนเธเนเนเธ QR Code" : "เธชเธฃเนเธฒเธ QR Code"}
             </h2>
             <p className="mt-1 text-[8px] text-[#929ca9]">
-              ระบบจะสร้าง Token แบบ UUID ให้โดยอัตโนมัติ
+              เธฃเธฐเธเธเธเธฐเธชเธฃเนเธฒเธ Token เนเธเธ UUID เนเธซเนเนเธ”เธขเธญเธฑเธ•เนเธเธกเธฑเธ•เธด
             </p>
           </div>
           <button
@@ -145,20 +146,20 @@ function QRDrawer({
         <form onSubmit={submit} className="space-y-5 p-6">
           <label className="block">
             <span className="text-[10px] font-medium text-[#465365]">
-              รหัส QR *
+              เธฃเธซเธฑเธช QR *
             </span>
             <input
               required
               value={code}
               onChange={(event) => setCode(event.target.value.toUpperCase())}
-              placeholder="เช่น INSP-006"
+              placeholder="เน€เธเนเธ INSP-006"
               className="mt-2 h-[48px] w-full rounded-[12px] border border-[#dfe5eb] bg-[#fbfcfd] px-4 text-[11px] uppercase outline-none focus:border-[#4d9c7a] focus:ring-4 focus:ring-[#4d9c7a]/8"
             />
           </label>
 
           <label className="block">
             <span className="text-[10px] font-medium text-[#465365]">
-              เครื่องจักร / จุดตรวจ *
+              เน€เธเธฃเธทเนเธญเธเธเธฑเธเธฃ / เธเธธเธ”เธ•เธฃเธงเธ *
             </span>
             <select
               value={targetCode}
@@ -167,7 +168,7 @@ function QRDrawer({
             >
               {qrTargets.map((current) => (
                 <option key={current.targetCode} value={current.targetCode}>
-                  {current.targetName} · {current.targetCode}
+                  {current.targetName} ยท {current.targetCode}
                 </option>
               ))}
             </select>
@@ -175,10 +176,10 @@ function QRDrawer({
 
           <div className="grid gap-3 rounded-[14px] border border-[#e2e7ec] bg-[#fafbfc] p-4 sm:grid-cols-2">
             {[
-              ["ประเภท", target.targetType === "MACHINE" ? "เครื่องจักร" : "จุดตรวจ"],
-              ["อาคาร", target.building],
-              ["แผนก", target.department],
-              ["สายการผลิต", target.productionLine],
+              ["เธเธฃเธฐเน€เธ เธ—", target.targetType === "MACHINE" ? "เน€เธเธฃเธทเนเธญเธเธเธฑเธเธฃ" : "เธเธธเธ”เธ•เธฃเธงเธ"],
+              ["เธญเธฒเธเธฒเธฃ", target.building],
+              ["เนเธเธเธ", target.department],
+              ["เธชเธฒเธขเธเธฒเธฃเธเธฅเธดเธ•", target.productionLine],
             ].map(([label, value]) => (
               <div key={label}>
                 <p className="text-[7px] text-[#99a2ad]">{label}</p>
@@ -191,7 +192,7 @@ function QRDrawer({
 
           <label className="block">
             <span className="text-[10px] font-medium text-[#465365]">
-              สถานะ
+              เธชเธ–เธฒเธเธฐ
             </span>
             <select
               value={status}
@@ -200,15 +201,15 @@ function QRDrawer({
               }
               className="mt-2 h-[48px] w-full rounded-[12px] border border-[#dfe5eb] bg-[#fbfcfd] px-4 text-[11px]"
             >
-              <option value="ACTIVE">ใช้งานอยู่</option>
-              <option value="SUSPENDED">ระงับ</option>
-              <option value="REVOKED">ยกเลิก</option>
+              <option value="ACTIVE">เนเธเนเธเธฒเธเธญเธขเธนเน</option>
+              <option value="SUSPENDED">เธฃเธฐเธเธฑเธ</option>
+              <option value="REVOKED">เธขเธเน€เธฅเธดเธ</option>
             </select>
           </label>
 
           <label className="block">
             <span className="text-[10px] font-medium text-[#465365]">
-              หมายเหตุ
+              เธซเธกเธฒเธขเน€เธซเธ•เธธ
             </span>
             <textarea
               rows={4}
@@ -224,14 +225,14 @@ function QRDrawer({
               onClick={onClose}
               className="min-h-[44px] rounded-[11px] border border-[#dfe5eb] px-5 text-[10px] text-[#667283]"
             >
-              ยกเลิก
+              เธขเธเน€เธฅเธดเธ
             </button>
             <button
               type="submit"
               className="inline-flex min-h-[44px] items-center gap-2 rounded-[11px] bg-[#1f8f62] px-5 text-[10px] font-semibold text-white"
             >
               <Check className="h-4 w-4" />
-              บันทึก
+              เธเธฑเธเธ—เธถเธ
             </button>
           </div>
         </form>
@@ -289,6 +290,39 @@ export default function QRCodePageClient() {
     [items],
   );
 
+
+  const statCards: Array<{
+    label: string;
+    value: number;
+    Icon: LucideIcon;
+    iconClass: string;
+  }> = [
+    {
+      label: "QR Code ทั้งหมด",
+      value: totals.all,
+      Icon: QrCode,
+      iconClass: "bg-[#e8f5ed] text-[#2d8057]",
+    },
+    {
+      label: "ใช้งานอยู่",
+      value: totals.active,
+      Icon: CheckCircle2,
+      iconClass: "bg-[#e8f7ef] text-[#24734b]",
+    },
+    {
+      label: "ระงับ",
+      value: totals.suspended,
+      Icon: CirclePause,
+      iconClass: "bg-[#fff4df] text-[#9b6a16]",
+    },
+    {
+      label: "ยกเลิก",
+      value: totals.revoked,
+      Icon: ShieldX,
+      iconClass: "bg-[#fff0f0] text-[#b14848]",
+    },
+  ];
+
   const totalPages = Math.max(1, Math.ceil(filteredItems.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
   const visibleItems = filteredItems.slice(
@@ -318,7 +352,7 @@ export default function QRCodePageClient() {
   }
 
   async function regenerate(item: QRCodeItem) {
-    if (!window.confirm("สร้าง Token ใหม่หรือไม่? QR เดิมจะใช้งานไม่ได้")) {
+    if (!window.confirm("เธชเธฃเนเธฒเธ Token เนเธซเธกเนเธซเธฃเธทเธญเนเธกเน? QR เน€เธ”เธดเธกเธเธฐเนเธเนเธเธฒเธเนเธกเนเนเธ”เน")) {
       return;
     }
     const updated = await qrCodeService.regenerateToken(item.id);
@@ -342,7 +376,7 @@ export default function QRCodePageClient() {
   }
 
   async function remove(item: QRCodeItem) {
-    if (!window.confirm(`ยืนยันการลบ ${item.code} หรือไม่?`)) return;
+    if (!window.confirm(`เธขเธทเธเธขเธฑเธเธเธฒเธฃเธฅเธ ${item.code} เธซเธฃเธทเธญเนเธกเน?`)) return;
     await qrCodeService.remove(item.id);
     setItems((current) => current.filter((entry) => entry.id !== item.id));
     if (selected?.id === item.id) setSelected(null);
@@ -377,7 +411,7 @@ export default function QRCodePageClient() {
     popup.document.write(`
       <html><head><title>${selected.code}</title>
       <style>body{font-family:Arial;padding:30px}.label{width:420px;border:2px solid #1f8f62;border-radius:16px;padding:24px}img{width:260px;height:260px;display:block;margin:20px auto}h1{font-size:24px;margin:0}p{font-size:14px}</style>
-      </head><body><div class="label"><p>GreenFactory Insight</p><h1>${selected.targetName}</h1><p>${selected.targetCode} · ${selected.code}</p><img src="${dataUrl}"/><p>อาคาร: ${selected.building}</p><p>แผนก: ${selected.department}</p><p>สายการผลิต: ${selected.productionLine}</p></div></body></html>
+      </head><body><div class="label"><p>GreenFactory Insight</p><h1>${selected.targetName}</h1><p>${selected.targetCode} ยท ${selected.code}</p><img src="${dataUrl}"/><p>เธญเธฒเธเธฒเธฃ: ${selected.building}</p><p>เนเธเธเธ: ${selected.department}</p><p>เธชเธฒเธขเธเธฒเธฃเธเธฅเธดเธ•: ${selected.productionLine}</p></div></body></html>
     `);
     popup.document.close();
     popup.focus();
@@ -393,7 +427,7 @@ export default function QRCodePageClient() {
               QR Code
             </h1>
             <p className="mt-2 text-[10px] text-[#7f8997]">
-              สร้าง QR Code สำหรับเครื่องจักรและจุดตรวจ เพื่อให้ Operator สแกนเข้าใช้งานได้จริง
+              เธชเธฃเนเธฒเธ QR Code เธชเธณเธซเธฃเธฑเธเน€เธเธฃเธทเนเธญเธเธเธฑเธเธฃเนเธฅเธฐเธเธธเธ”เธ•เธฃเธงเธ เน€เธเธทเนเธญเนเธซเน Operator เธชเนเธเธเน€เธเนเธฒเนเธเนเธเธฒเธเนเธ”เนเธเธฃเธดเธ
             </p>
           </div>
           <button
@@ -405,17 +439,12 @@ export default function QRCodePageClient() {
             className="inline-flex min-h-[40px] items-center gap-2 rounded-[10px] bg-[#1f8f62] px-4 text-[9px] font-semibold text-white"
           >
             <Plus className="h-3.5 w-3.5" />
-            สร้าง QR Code
+            เธชเธฃเนเธฒเธ QR Code
           </button>
         </header>
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {[
-            ["QR Code ทั้งหมด", totals.all, QrCode, "bg-[#e8f5ed] text-[#2d8057]"],
-            ["ใช้งานอยู่", totals.active, CheckCircle2, "bg-[#e8f7ef] text-[#24734b]"],
-            ["ระงับ", totals.suspended, CirclePause, "bg-[#fff4df] text-[#9b6a16]"],
-            ["ยกเลิก", totals.revoked, ShieldX, "bg-[#fff0f0] text-[#b14848]"],
-          ].map(([label, value, Icon, iconClass]) => (
+          {statCards.map(({ label, value, Icon, iconClass }) => (
             <article
               key={String(label)}
               className="rounded-[17px] border border-[#e0e5ea] bg-white p-4 shadow-[0_8px_28px_rgba(28,43,61,0.035)]"
@@ -427,7 +456,7 @@ export default function QRCodePageClient() {
                 <div>
                   <p className="text-[8px] text-[#909aa7]">{String(label)}</p>
                   <p className="mt-1 text-[21px] font-semibold text-[#283548]">
-                    {Number(value)} <span className="text-[9px] font-medium text-[#929ca9]">รายการ</span>
+                    {Number(value)} <span className="text-[9px] font-medium text-[#929ca9]">เธฃเธฒเธขเธเธฒเธฃ</span>
                   </p>
                 </div>
               </div>
@@ -447,7 +476,7 @@ export default function QRCodePageClient() {
                       setSearch(event.target.value);
                       setPage(1);
                     }}
-                    placeholder="ค้นหารหัส QR เครื่องจักร หรือจุดตรวจ"
+                    placeholder="เธเนเธเธซเธฒเธฃเธซเธฑเธช QR เน€เธเธฃเธทเนเธญเธเธเธฑเธเธฃ เธซเธฃเธทเธญเธเธธเธ”เธ•เธฃเธงเธ"
                     className="min-w-0 flex-1 bg-transparent text-[9px] outline-none"
                   />
                 </div>
@@ -459,10 +488,10 @@ export default function QRCodePageClient() {
                   }}
                   className="h-[40px] rounded-[10px] border border-[#dfe5eb] bg-white px-3 text-[9px]"
                 >
-                  <option value="ALL">ทุกสถานะ</option>
-                  <option value="ACTIVE">ใช้งานอยู่</option>
-                  <option value="SUSPENDED">ระงับ</option>
-                  <option value="REVOKED">ยกเลิก</option>
+                  <option value="ALL">เธ—เธธเธเธชเธ–เธฒเธเธฐ</option>
+                  <option value="ACTIVE">เนเธเนเธเธฒเธเธญเธขเธนเน</option>
+                  <option value="SUSPENDED">เธฃเธฐเธเธฑเธ</option>
+                  <option value="REVOKED">เธขเธเน€เธฅเธดเธ</option>
                 </select>
                 <select
                   value={departmentFilter}
@@ -472,7 +501,7 @@ export default function QRCodePageClient() {
                   }}
                   className="h-[40px] rounded-[10px] border border-[#dfe5eb] bg-white px-3 text-[9px]"
                 >
-                  <option value="ALL">ทุกแผนก</option>
+                  <option value="ALL">เธ—เธธเธเนเธเธเธ</option>
                   {departments.map((department) => (
                     <option key={department}>{department}</option>
                   ))}
@@ -488,7 +517,7 @@ export default function QRCodePageClient() {
                   className="inline-flex h-[40px] items-center justify-center gap-2 rounded-[10px] border border-[#dfe5eb] bg-white px-3 text-[9px] text-[#596677]"
                 >
                   <RefreshCw className="h-3.5 w-3.5" />
-                  ล้างตัวกรอง
+                  เธฅเนเธฒเธเธ•เธฑเธงเธเธฃเธญเธ
                 </button>
               </div>
             </div>
@@ -497,7 +526,7 @@ export default function QRCodePageClient() {
               <table className="w-full min-w-[960px] border-collapse">
                 <thead>
                   <tr className="border-b border-[#e7ebef] bg-[#fafbfc] text-left">
-                    {["ลำดับ", "เครื่องจักร / จุดตรวจ", "รหัส QR", "แผนก", "สายการผลิต", "สถานะ", "QR", ""].map((label) => (
+                    {["เธฅเธณเธ”เธฑเธ", "เน€เธเธฃเธทเนเธญเธเธเธฑเธเธฃ / เธเธธเธ”เธ•เธฃเธงเธ", "เธฃเธซเธฑเธช QR", "เนเธเธเธ", "เธชเธฒเธขเธเธฒเธฃเธเธฅเธดเธ•", "เธชเธ–เธฒเธเธฐ", "QR", ""].map((label) => (
                       <th key={label} className="px-4 py-3 text-[8px] font-semibold text-[#8b96a4]">{label}</th>
                     ))}
                   </tr>
@@ -512,7 +541,7 @@ export default function QRCodePageClient() {
                       <td className="px-4 py-3 text-[9px] text-[#7f8a98]">{(currentPage - 1) * PAGE_SIZE + index + 1}</td>
                       <td className="px-4 py-3">
                         <p className="text-[9px] font-semibold text-[#3d4a5d]">{item.targetName}</p>
-                        <p className="mt-1 text-[7px] text-[#98a1ac]">{item.targetType === "MACHINE" ? "เครื่องจักร" : "จุดตรวจ"} · {item.targetCode}</p>
+                        <p className="mt-1 text-[7px] text-[#98a1ac]">{item.targetType === "MACHINE" ? "เน€เธเธฃเธทเนเธญเธเธเธฑเธเธฃ" : "เธเธธเธ”เธ•เธฃเธงเธ"} ยท {item.targetCode}</p>
                       </td>
                       <td className="px-4 py-3 text-[9px] font-medium text-[#566274]">{item.code}</td>
                       <td className="px-4 py-3 text-[9px] text-[#667283]">{item.department}</td>
@@ -525,9 +554,9 @@ export default function QRCodePageClient() {
                         <button type="button" onClick={() => setMenuId((current) => current === item.id ? null : item.id)} className="flex h-8 w-8 items-center justify-center rounded-full text-[#7d8896] hover:bg-[#eef2f5]"><MoreHorizontal className="h-4 w-4" /></button>
                         {menuId === item.id && (
                           <div className="absolute right-4 top-[44px] z-30 w-[178px] rounded-[11px] border border-[#dfe5eb] bg-white p-1.5 shadow-[0_16px_42px_rgba(26,38,57,0.14)]">
-                            <button type="button" onClick={() => { setEditing(item); setDrawerOpen(true); setMenuId(null); }} className="flex min-h-[36px] w-full items-center gap-2.5 rounded-[8px] px-3 text-left text-[9px] text-[#566274] hover:bg-[#f4f6f8]"><Pencil className="h-3.5 w-3.5" />แก้ไข</button>
-                            <button type="button" onClick={() => regenerate(item)} className="flex min-h-[36px] w-full items-center gap-2.5 rounded-[8px] px-3 text-left text-[9px] text-[#85611c] hover:bg-[#fff8e9]"><RefreshCw className="h-3.5 w-3.5" />สร้าง Token ใหม่</button>
-                            <button type="button" onClick={() => remove(item)} className="flex min-h-[36px] w-full items-center gap-2.5 rounded-[8px] px-3 text-left text-[9px] text-[#b14848] hover:bg-[#fff1f1]"><Trash2 className="h-3.5 w-3.5" />ลบรายการ</button>
+                            <button type="button" onClick={() => { setEditing(item); setDrawerOpen(true); setMenuId(null); }} className="flex min-h-[36px] w-full items-center gap-2.5 rounded-[8px] px-3 text-left text-[9px] text-[#566274] hover:bg-[#f4f6f8]"><Pencil className="h-3.5 w-3.5" />เนเธเนเนเธ</button>
+                            <button type="button" onClick={() => regenerate(item)} className="flex min-h-[36px] w-full items-center gap-2.5 rounded-[8px] px-3 text-left text-[9px] text-[#85611c] hover:bg-[#fff8e9]"><RefreshCw className="h-3.5 w-3.5" />เธชเธฃเนเธฒเธ Token เนเธซเธกเน</button>
+                            <button type="button" onClick={() => remove(item)} className="flex min-h-[36px] w-full items-center gap-2.5 rounded-[8px] px-3 text-left text-[9px] text-[#b14848] hover:bg-[#fff1f1]"><Trash2 className="h-3.5 w-3.5" />เธฅเธเธฃเธฒเธขเธเธฒเธฃ</button>
                           </div>
                         )}
                       </td>
@@ -538,7 +567,7 @@ export default function QRCodePageClient() {
             </div>
 
             <footer className="flex items-center justify-between border-t border-[#e8ecf0] px-4 py-3">
-              <p className="text-[8px] text-[#929ca9]">แสดง {visibleItems.length} จาก {filteredItems.length} รายการ</p>
+              <p className="text-[8px] text-[#929ca9]">เนเธชเธ”เธ {visibleItems.length} เธเธฒเธ {filteredItems.length} เธฃเธฒเธขเธเธฒเธฃ</p>
               <div className="flex items-center gap-1.5">
                 <button type="button" disabled={currentPage <= 1} onClick={() => setPage((value) => Math.max(1, value - 1))} className="flex h-8 w-8 items-center justify-center rounded-[8px] border border-[#dfe5eb] text-[#6f7b8a] disabled:opacity-35"><ChevronLeft className="h-4 w-4" /></button>
                 <span className="min-w-[64px] text-center text-[8px] text-[#6f7b8a]">{currentPage} / {totalPages}</span>
@@ -562,22 +591,22 @@ export default function QRCodePageClient() {
                 <div className="mt-5 rounded-[16px] border border-[#dfe5eb] bg-[#fafbfc] p-4 text-center"><QRPreview item={selected} /></div>
 
                 <div className="mt-4 grid grid-cols-2 gap-2">
-                  <button type="button" onClick={downloadSelected} className="inline-flex h-[40px] items-center justify-center gap-2 rounded-[10px] border border-[#dfe5eb] text-[9px] font-medium text-[#566274]"><Download className="h-3.5 w-3.5" />ดาวน์โหลด</button>
-                  <button type="button" onClick={printSelected} className="inline-flex h-[40px] items-center justify-center gap-2 rounded-[10px] border border-[#dfe5eb] text-[9px] font-medium text-[#566274]"><Printer className="h-3.5 w-3.5" />พิมพ์ฉลาก</button>
-                  <button type="button" onClick={copyLink} className="inline-flex h-[40px] items-center justify-center gap-2 rounded-[10px] border border-[#dfe5eb] text-[9px] font-medium text-[#566274]"><Copy className="h-3.5 w-3.5" />คัดลอกลิงก์</button>
-                  <a href={scanUrl} target="_blank" rel="noreferrer" className="inline-flex h-[40px] items-center justify-center gap-2 rounded-[10px] border border-[#dfe5eb] text-[9px] font-medium text-[#566274]"><ExternalLink className="h-3.5 w-3.5" />เปิดหน้า Scan</a>
+                  <button type="button" onClick={downloadSelected} className="inline-flex h-[40px] items-center justify-center gap-2 rounded-[10px] border border-[#dfe5eb] text-[9px] font-medium text-[#566274]"><Download className="h-3.5 w-3.5" />เธ”เธฒเธงเธเนเนเธซเธฅเธ”</button>
+                  <button type="button" onClick={printSelected} className="inline-flex h-[40px] items-center justify-center gap-2 rounded-[10px] border border-[#dfe5eb] text-[9px] font-medium text-[#566274]"><Printer className="h-3.5 w-3.5" />เธเธดเธกเธเนเธเธฅเธฒเธ</button>
+                  <button type="button" onClick={copyLink} className="inline-flex h-[40px] items-center justify-center gap-2 rounded-[10px] border border-[#dfe5eb] text-[9px] font-medium text-[#566274]"><Copy className="h-3.5 w-3.5" />เธเธฑเธ”เธฅเธญเธเธฅเธดเธเธเน</button>
+                  <a href={scanUrl} target="_blank" rel="noreferrer" className="inline-flex h-[40px] items-center justify-center gap-2 rounded-[10px] border border-[#dfe5eb] text-[9px] font-medium text-[#566274]"><ExternalLink className="h-3.5 w-3.5" />เน€เธเธดเธ”เธซเธเนเธฒ Scan</a>
                 </div>
 
                 <div className="mt-5 space-y-3">
                   {[
-                    ["ประเภท", selected.targetType === "MACHINE" ? "เครื่องจักร" : "จุดตรวจ"],
-                    ["รหัสอุปกรณ์", selected.targetCode],
-                    ["อาคาร", selected.building],
-                    ["แผนก", selected.department],
-                    ["สายการผลิต", selected.productionLine],
-                    ["สถานะ", statusLabel(selected.status)],
-                    ["สร้างเมื่อ", selected.createdAt],
-                    ["แก้ไขล่าสุด", selected.updatedAt],
+                    ["เธเธฃเธฐเน€เธ เธ—", selected.targetType === "MACHINE" ? "เน€เธเธฃเธทเนเธญเธเธเธฑเธเธฃ" : "เธเธธเธ”เธ•เธฃเธงเธ"],
+                    ["เธฃเธซเธฑเธชเธญเธธเธเธเธฃเธ“เน", selected.targetCode],
+                    ["เธญเธฒเธเธฒเธฃ", selected.building],
+                    ["เนเธเธเธ", selected.department],
+                    ["เธชเธฒเธขเธเธฒเธฃเธเธฅเธดเธ•", selected.productionLine],
+                    ["เธชเธ–เธฒเธเธฐ", statusLabel(selected.status)],
+                    ["เธชเธฃเนเธฒเธเน€เธกเธทเนเธญ", selected.createdAt],
+                    ["เนเธเนเนเธเธฅเนเธฒเธชเธธเธ”", selected.updatedAt],
                   ].map(([label, value]) => (
                     <div key={label} className="rounded-[11px] border border-[#e6eaee] px-3 py-3">
                       <p className="text-[7px] text-[#99a2ad]">{label}</p>
@@ -592,8 +621,8 @@ export default function QRCodePageClient() {
                 </div>
 
                 <div className="mt-5 grid gap-2">
-                  <button type="button" onClick={() => regenerate(selected)} className="inline-flex h-[40px] items-center justify-center gap-2 rounded-[10px] border border-[#e4d8b5] bg-[#fffaf0] text-[9px] font-medium text-[#85611c]"><RefreshCw className="h-3.5 w-3.5" />สร้าง Token ใหม่</button>
-                  <button type="button" onClick={() => toggleSuspend(selected)} className="inline-flex h-[40px] items-center justify-center gap-2 rounded-[10px] border border-[#f0caca] bg-[#fff7f7] text-[9px] font-medium text-[#b14848]"><ShieldBan className="h-3.5 w-3.5" />{selected.status === "SUSPENDED" ? "เปิดใช้งานอีกครั้ง" : "ระงับการใช้งาน"}</button>
+                  <button type="button" onClick={() => regenerate(selected)} className="inline-flex h-[40px] items-center justify-center gap-2 rounded-[10px] border border-[#e4d8b5] bg-[#fffaf0] text-[9px] font-medium text-[#85611c]"><RefreshCw className="h-3.5 w-3.5" />เธชเธฃเนเธฒเธ Token เนเธซเธกเน</button>
+                  <button type="button" onClick={() => toggleSuspend(selected)} className="inline-flex h-[40px] items-center justify-center gap-2 rounded-[10px] border border-[#f0caca] bg-[#fff7f7] text-[9px] font-medium text-[#b14848]"><ShieldBan className="h-3.5 w-3.5" />{selected.status === "SUSPENDED" ? "เน€เธเธดเธ”เนเธเนเธเธฒเธเธญเธตเธเธเธฃเธฑเนเธ" : "เธฃเธฐเธเธฑเธเธเธฒเธฃเนเธเนเธเธฒเธ"}</button>
                 </div>
               </div>
             </aside>
@@ -614,3 +643,4 @@ export default function QRCodePageClient() {
     </>
   );
 }
+

@@ -4,10 +4,12 @@ export default function MasterHeader({
   title,
   description,
   actionLabel,
+  onAction,
 }: {
   title: string;
   description: string;
   actionLabel: string;
+  onAction?: () => void;
 }) {
   return (
     <section className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
@@ -29,7 +31,9 @@ export default function MasterHeader({
 
       <button
         type="button"
-        className="inline-flex h-11 items-center justify-center gap-2 rounded-[12px] bg-[#0d7659] px-4 text-[13px] font-semibold text-white shadow-[0_8px_20px_rgba(13,118,89,0.18)] transition hover:-translate-y-0.5 hover:bg-[#09694f]"
+        onClick={onAction}
+        disabled={!onAction}
+        className="inline-flex h-11 items-center justify-center gap-2 rounded-[12px] bg-[#0d7659] px-4 text-[13px] font-semibold text-white shadow-[0_8px_20px_rgba(13,118,89,0.18)] transition hover:-translate-y-0.5 hover:bg-[#09694f] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
       >
         <Plus className="h-[17px] w-[17px]" />
         {actionLabel}

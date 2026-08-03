@@ -1,129 +1,26 @@
-<<<<<<< HEAD
-=======
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
->>>>>>> 37ded5974e06fe0a84cce4492d54d7a27a12accd
-# dependencies
 /node_modules
-/.pnp
-.pnp.*
-<<<<<<< HEAD
-/jspm_packages
-/web_modules
-
-# package manager caches
-.npm
-.pnpm-store
-=======
->>>>>>> 37ded5974e06fe0a84cce4492d54d7a27a12accd
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-<<<<<<< HEAD
-!.yarn/sdks
-!.yarn/versions
-
-# Next.js
-/.next/
-/out/
-
-# production builds
+/.next
+/out
 /build
 /dist
-.output
-
-# testing and coverage
 /coverage
-/.nyc_output
-*.lcov
 
-# logs
-logs
+.env
+.env.*
+!.env.example
+
+/generated/prisma
+/public/uploads
+
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
-lerna-debug.log*
 
-# environment variables
-.env
-.env.*
-!.env.example
-
-# Prisma generated client
-/generated/prisma
-
-# TypeScript
 *.tsbuildinfo
 next-env.d.ts
 
-# caches
-.cache
-.parcel-cache
-.eslintcache
-.stylelintcache
-.vite
-.svelte-kit
-.nuxt
-.temp
-
-# IDE and OS files
 .DS_Store
 Thumbs.db
-.vscode-test
-
-# Vercel
 .vercel
-
-# runtime files
-pids
-*.pid
-*.seed
-*.pid.lock
-
-# build reports
-report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
-
-# miscellaneous
-*.tgz
-*.pem
-.firebase
-.serverless
-.dynamodb
-=======
-!.yarn/versions
-
-# testing
-/coverage
-
-# next.js
-/.next/
-/out/
-
-# production
-/build
-
-# misc
-.DS_Store
-*.pem
-
-# debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
-
-# env files (can opt-in for committing if needed)
-.env*
-
-# vercel
-.vercel
-
-# typescript
-*.tsbuildinfo
-next-env.d.ts
-
-/generated/prisma
->>>>>>> 37ded5974e06fe0a84cce4492d54d7a27a12accd

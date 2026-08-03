@@ -1,4 +1,4 @@
-import { redirect } from "next/navigation";
+﻿import { redirect } from "next/navigation";
 
 import CompanyShell from "@/components/company/CompanyShell";
 import { prisma } from "@/lib/prisma";
@@ -44,10 +44,6 @@ export default async function CompanyLayout({
         firstName: session.firstName,
         lastName: session.lastName,
         email: session.email,
-      }}
-      company={{
-        companyName: company.companyName,
-        companyCode: company.companyCode,
       }}
     >
       {children}

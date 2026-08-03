@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -21,6 +21,7 @@ import {
   Workflow,
   Wrench,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import type { EquipmentListItem } from "@/lib/record-queries";
 
 type ScanState = "idle" | "success" | "not_found";
@@ -175,7 +176,6 @@ export default function ScanPage({ equipmentList }: ScanPageProps) {
     try {
       const next = !torchOn;
 
-      // @ts-expect-error torch ยังเป็น non-standard constraint ใน TypeScript
       await track.applyConstraints({
         advanced: [{ torch: next }],
       });
@@ -249,7 +249,6 @@ export default function ScanPage({ equipmentList }: ScanPageProps) {
 
   return (
     <div className="space-y-5">
-      {/* Intro */}
       <section className="flex flex-col gap-4 rounded-3xl border border-slate-200/80 bg-white px-5 py-5 shadow-sm shadow-slate-200/40 sm:flex-row sm:items-center sm:justify-between sm:px-6">
         <div className="flex items-center gap-4">
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-violet-50 text-violet-600">
@@ -284,7 +283,6 @@ export default function ScanPage({ equipmentList }: ScanPageProps) {
       </section>
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.5fr)_minmax(320px,0.8fr)]">
-        {/* Scanner */}
         <div className="space-y-4">
           <section className="overflow-hidden rounded-3xl border border-slate-200/80 bg-white p-3 shadow-sm shadow-slate-200/40">
             <div className="relative aspect-[4/3] overflow-hidden rounded-[20px] bg-slate-950">
@@ -297,7 +295,6 @@ export default function ScanPage({ equipmentList }: ScanPageProps) {
                 />
               ) : (
                 <>
-                  {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
                   <video
                     ref={videoRef}
                     muted
@@ -385,7 +382,6 @@ export default function ScanPage({ equipmentList }: ScanPageProps) {
             </div>
           </section>
 
-          {/* Tip */}
           <section className="flex items-start gap-3 rounded-2xl border border-amber-100 bg-amber-50/60 px-4 py-3.5">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-amber-500 shadow-sm ring-1 ring-amber-100">
               <Lightbulb className="h-4 w-4" />
@@ -404,7 +400,6 @@ export default function ScanPage({ equipmentList }: ScanPageProps) {
           </section>
         </div>
 
-        {/* Result */}
         <aside>
           {scanState === "idle" && <IdleState />}
 
@@ -432,16 +427,12 @@ function ScannerFrame() {
     <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
       <div className="relative flex h-[250px] w-[250px] items-center justify-center sm:h-[280px] sm:w-[280px]">
         <CornerBrackets />
-
         <div className="absolute inset-5 rounded-2xl border border-white/10" />
-
         <span className="absolute left-6 right-6 top-1/2 h-[2px] -translate-y-1/2 animate-pulse rounded-full bg-gradient-to-r from-transparent via-emerald-400 to-transparent shadow-[0_0_15px_rgba(52,211,153,0.75)]" />
-
         <div className="absolute -bottom-16 text-center">
           <p className="text-sm font-semibold text-white">
             วาง QR Code ให้อยู่ในกรอบ
           </p>
-
           <p className="mt-1 text-[11px] text-white/60">
             ระบบจะอ่านรหัสให้อัตโนมัติ
           </p>
@@ -477,10 +468,7 @@ function ResultOverlay({
             <AlertCircle className="h-8 w-8" />
           )}
         </span>
-
-        <p className="mt-3 text-sm font-semibold text-white">
-          {title}
-        </p>
+        <p className="mt-3 text-sm font-semibold text-white">{title}</p>
       </div>
     </div>
   );
@@ -498,11 +486,9 @@ function CameraError({
       <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-500/15 text-rose-400">
         <AlertCircle className="h-6 w-6" />
       </span>
-
       <p className="mt-4 max-w-sm text-sm leading-6 text-slate-300">
         {message}
       </p>
-
       <button
         type="button"
         onClick={onOpenGallery}
@@ -519,9 +505,7 @@ function IdleState() {
   return (
     <section className="overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-sm shadow-slate-200/40">
       <div className="border-b border-slate-100 px-5 py-4">
-        <p className="text-sm font-bold text-slate-800">
-          ผลการสแกน
-        </p>
+        <p className="text-sm font-bold text-slate-800">ผลการสแกน</p>
       </div>
 
       <div className="flex min-h-[300px] flex-col items-center justify-center px-7 py-10 text-center">
@@ -529,7 +513,6 @@ function IdleState() {
           <span className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-violet-100 text-violet-500">
             <Sparkles className="h-3 w-3" />
           </span>
-
           <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-violet-50 text-violet-500">
             <ScanLine className="h-7 w-7" />
           </span>
@@ -538,7 +521,6 @@ function IdleState() {
         <p className="mt-5 text-sm font-semibold text-slate-700">
           พร้อมสำหรับการสแกน
         </p>
-
         <p className="mt-2 max-w-[260px] text-xs leading-5 text-slate-400">
           เล็งกล้องไปที่ QR Code บนเครื่องจักร
           แล้วข้อมูลจะแสดงตรงนี้โดยอัตโนมัติ
@@ -562,12 +544,10 @@ function NotFoundState({
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-amber-500 shadow-sm">
             <AlertCircle className="h-5 w-5" />
           </span>
-
           <div>
             <p className="text-sm font-bold text-amber-800">
               ไม่พบเครื่องจักร
             </p>
-
             <p className="mt-0.5 text-xs text-amber-600">
               QR Code นี้ยังไม่ตรงกับข้อมูลในระบบ
             </p>
@@ -581,7 +561,6 @@ function NotFoundState({
             <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
               รหัสที่สแกนได้
             </p>
-
             <p className="mt-1 break-all text-sm font-semibold text-slate-700">
               {lastScannedCode}
             </p>
@@ -610,17 +589,14 @@ function EquipmentResult({
 }) {
   return (
     <section className="overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-sm shadow-slate-200/40">
-      {/* Result header */}
       <div className="border-b border-emerald-100 bg-emerald-50/60 px-5 py-4">
         <div className="flex items-center gap-2 text-emerald-700">
           <CheckCircle2 className="h-4 w-4" />
-
           <p className="text-sm font-bold">สแกนสำเร็จ</p>
         </div>
       </div>
 
       <div className="p-5">
-        {/* Equipment */}
         <div className="flex items-start gap-3">
           <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
             <Package className="h-5 w-5" />
@@ -632,18 +608,15 @@ function EquipmentResult({
                 <p className="truncate text-base font-bold text-slate-900">
                   {equipment.name}
                 </p>
-
                 <p className="mt-0.5 text-xs font-medium text-slate-400">
                   {equipment.equipmentCode}
                 </p>
               </div>
-
               <StatusBadge status={equipment.status} />
             </div>
           </div>
         </div>
 
-        {/* Details */}
         <dl className="mt-5 space-y-1">
           <DetailRow
             icon={Wrench}
@@ -651,41 +624,32 @@ function EquipmentResult({
             label="ประเภท"
             value={equipment.equipmentType ?? "-"}
           />
-
           <DetailRow
             icon={Workflow}
             iconStyle="bg-blue-50 text-blue-500"
             label="ไลน์การผลิต"
             value={equipment.productionLine ?? "-"}
           />
-
           <DetailRow
             icon={Building2}
             iconStyle="bg-amber-50 text-amber-500"
             label="แผนก"
             value={equipment.department ?? "-"}
           />
-
           <DetailRow
             icon={MapPin}
             iconStyle="bg-rose-50 text-rose-500"
             label="ตำแหน่ง"
             value={equipment.location || "-"}
           />
-
           <DetailRow
             icon={CircleDot}
             iconStyle="bg-emerald-50 text-emerald-500"
             label="สถานะ"
-            value={
-              equipment.status === "NORMAL"
-                ? "ปกติ"
-                : equipment.status
-            }
+            value={equipment.status === "NORMAL" ? "ปกติ" : equipment.status}
           />
         </dl>
 
-        {/* Actions */}
         <div className="mt-5 space-y-2.5">
           <Link
             href={`/operator/record?equipment=${equipment.equipmentId}`}
@@ -715,7 +679,7 @@ function DetailRow({
   label,
   value,
 }: {
-  icon: typeof Wrench;
+  icon: LucideIcon;
   iconStyle: string;
   label: string;
   value: string;
@@ -760,7 +724,6 @@ function StatusBadge({ status }: { status: string }) {
           isNormal ? "bg-emerald-500" : "bg-amber-500",
         ].join(" ")}
       />
-
       {isNormal ? "ปกติ" : status}
     </span>
   );
@@ -775,15 +738,12 @@ function CornerBrackets() {
       <span
         className={`${corner} left-0 top-0 rounded-tl-2xl border-l-[5px] border-t-[5px]`}
       />
-
       <span
         className={`${corner} right-0 top-0 rounded-tr-2xl border-r-[5px] border-t-[5px]`}
       />
-
       <span
         className={`${corner} bottom-0 left-0 rounded-bl-2xl border-b-[5px] border-l-[5px]`}
       />
-
       <span
         className={`${corner} bottom-0 right-0 rounded-br-2xl border-b-[5px] border-r-[5px]`}
       />

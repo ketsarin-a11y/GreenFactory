@@ -1,72 +1,139 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import CompanyDrawer from "./CompanyDrawer";
+import { useRouter } from "next/navigation";
+import { AlertTriangle, LoaderCircle } from "lucide-react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
+import {
+  changeCompanyStatus,
+  createCompany,
+  listCompanies,
+  removeCompany,
+} from "./company-api";
+
 import CompanyFilters from "./CompanyFilters";
 import CompanyHeader from "./CompanyHeader";
 import CompanyTable from "./CompanyTable";
 import CreateCompanyModal from "./CreateCompanyModal";
-import SummaryCards from "./SummaryCards";
 import OperationsOverview from "./OperationsOverview";
-import { INITIAL_COMPANIES } from "./data";
-import type { Company, CompanyStatus, NewCompany } from "./types";
+import SummaryCards from "./SummaryCards";
 
-const PAGE_SIZE = 6;
+import type {
+  Company,
+  CompanyStatus,
+  CompanySummary,
+  NewCompany,
+} from "./types";
+
+const PAGE_SIZE = 8;
+
+const emptySummary: CompanySummary = {
+  totalCompanies: 0,
+  activeCompanies: 0,
+  pendingCompanies: 0,
+  suspendedCompanies: 0,
+  totalFactories: 0,
+  totalUsers: 0,
+  totalMachines: 0,
+  totalSensors: 0,
+  unresolvedAlerts: 0,
+};
 
 export default function CompaniesPageClient() {
-  const [companies, setCompanies] = useState<Company[]>(INITIAL_COMPANIES);
+  const router = useRouter();
+
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [summary, setSummary] =
+    useState<CompanySummary>(emptySummary);
+
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState<"ALL" | CompanyStatus>("ALL");
+  const [status, setStatus] =
+    useState<"ALL" | CompanyStatus>("ALL");
   const [industry, setIndustry] = useState("ALL");
   const [page, setPage] = useState(1);
+
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
-  const [drawerCompany, setDrawerCompany] = useState<Company | null>(null);
+
   const [createOpen, setCreateOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState("");
 
-  const industries = useMemo(
-    () => Array.from(new Set(companies.map((item) => item.industry))),
-    [companies],
+  const industries = useMemo(() => {
+    return Array.from(
+      new Set(
+        companies
+          .map((company) => company.industry)
+          .filter(Boolean),
+      ),
+    ).sort((a, b) => a.localeCompare(b));
+  }, [companies]);
+
+  const loadCompanies = useCallback(
+    async (signal?: AbortSignal) => {
+      try {
+        setLoading(true);
+        setError("");
+
+        const response = await listCompanies(
+          {
+            search,
+            status,
+            industry,
+            page,
+            pageSize: PAGE_SIZE,
+          },
+          signal,
+        );
+
+        setCompanies(response.data);
+        setSummary(response.summary);
+        setTotalItems(response.meta.totalItems);
+        setTotalPages(
+          Math.max(1, response.meta.totalPages),
+        );
+
+        setSelectedIds((current) =>
+          current.filter((id) =>
+            response.data.some(
+              (company) => company.id === id,
+            ),
+          ),
+        );
+      } catch (caught) {
+        if (
+          caught instanceof DOMException &&
+          caught.name === "AbortError"
+        ) {
+          return;
+        }
+
+        setError(
+          caught instanceof Error
+            ? caught.message
+            : "โหลดข้อมูลบริษัทไม่สำเร็จ",
+        );
+      } finally {
+        setLoading(false);
+      }
+    },
+    [industry, page, search, status],
   );
 
-  const filteredCompanies = useMemo(() => {
-    const keyword = search.trim().toLowerCase();
+  useEffect(() => {
+    const controller = new AbortController();
 
-    return companies.filter((company) => {
-      const searchable = [
-        company.name,
-        company.email,
-        company.code,
-        company.industry,
-        company.contactName,
-        company.phone,
-        company.province,
-      ]
-        .join(" ")
-        .toLowerCase();
+    void loadCompanies(controller.signal);
 
-      return (
-        (!keyword || searchable.includes(keyword)) &&
-        (status === "ALL" || company.status === status) &&
-        (industry === "ALL" || company.industry === industry)
-      );
-    });
-  }, [companies, industry, search, status]);
-
-  const totalPages = Math.max(1, Math.ceil(filteredCompanies.length / PAGE_SIZE));
-  const visibleCompanies = filteredCompanies.slice(
-    (page - 1) * PAGE_SIZE,
-    page * PAGE_SIZE,
-  );
-
-  const totalFactories = companies.reduce((sum, item) => sum + item.factories, 0);
-  const totalUsers = companies.reduce((sum, item) => sum + item.users, 0);
-
-  function resetFilters() {
-    setSearch("");
-    setStatus("ALL");
-    setIndustry("ALL");
-    setPage(1);
-  }
+    return () => controller.abort();
+  }, [loadCompanies]);
 
   function toggleSelect(id: number) {
     setSelectedIds((current) =>
@@ -77,117 +144,174 @@ export default function CompaniesPageClient() {
   }
 
   function toggleSelectAll() {
-    const ids = visibleCompanies.map((item) => item.id);
-    const allSelected = ids.every((id) => selectedIds.includes(id));
-
-    setSelectedIds((current) =>
-      allSelected
-        ? current.filter((id) => !ids.includes(id))
-        : Array.from(new Set([...current, ...ids])),
+    const visibleIds = companies.map(
+      (company) => company.id,
     );
+
+    const allSelected =
+      visibleIds.length > 0 &&
+      visibleIds.every((id) =>
+        selectedIds.includes(id),
+      );
+
+    setSelectedIds((current) => {
+      if (allSelected) {
+        return current.filter(
+          (id) => !visibleIds.includes(id),
+        );
+      }
+
+      return Array.from(
+        new Set([...current, ...visibleIds]),
+      );
+    });
   }
 
-  function changeStatus(id: number, nextStatus: CompanyStatus) {
-    setCompanies((current) =>
-      current.map((company) =>
-        company.id === id ? { ...company, status: nextStatus } : company,
-      ),
-    );
+  async function handleStatusChange(
+    id: number,
+    nextStatus: CompanyStatus,
+  ) {
+    try {
+      await changeCompanyStatus(id, nextStatus);
+      await loadCompanies();
+    } catch (caught) {
+      window.alert(
+        caught instanceof Error
+          ? caught.message
+          : "เปลี่ยนสถานะไม่สำเร็จ",
+      );
+    }
   }
 
-  function removeCompany(id: number) {
-    const target = companies.find((item) => item.id === id);
+  async function handleDelete(id: number) {
+    const target = companies.find(
+      (company) => company.id === id,
+    );
 
-    if (!target || !window.confirm(`ต้องการลบ “${target.name}” ใช่หรือไม่`)) {
+    if (!target) {
       return;
     }
 
-    setCompanies((current) => current.filter((item) => item.id !== id));
-    setSelectedIds((current) => current.filter((item) => item !== id));
+    const confirmed = window.confirm(
+      `ต้องการลบ “${target.name}” ใช่หรือไม่`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      await removeCompany(id);
+
+      setSelectedIds((current) =>
+        current.filter((item) => item !== id),
+      );
+
+      await loadCompanies();
+    } catch (caught) {
+      window.alert(
+        caught instanceof Error
+          ? caught.message
+          : "ลบบริษัทไม่สำเร็จ",
+      );
+    }
   }
 
-  function createCompany(form: NewCompany) {
-    const nextId = Math.max(0, ...companies.map((item) => item.id)) + 1;
+  async function handleCreate(form: NewCompany) {
+    setCreating(true);
 
-    setCompanies((current) => [
-      {
-        id: nextId,
-        ...form,
-        registeredAt: new Intl.DateTimeFormat("th-TH", {
-          day: "numeric",
-          month: "short",
-          year: "numeric",
-        }).format(new Date()),
-        registeredTime: `${new Date().toLocaleTimeString("th-TH", {
-          hour: "2-digit",
-          minute: "2-digit",
-        })} น.`,
-        status: "ACTIVE",
-        logoText: form.name.replace("บริษัท", "").trim().slice(0, 2).toUpperCase(),
-        logoClass: "bg-slate-100 text-slate-700",
-        factories: 0,
-        users: 1,
-      },
-      ...current,
-    ]);
+    try {
+      await createCompany(form);
 
-    setCreateOpen(false);
-    setPage(1);
+      setCreateOpen(false);
+      setPage(1);
+
+      await loadCompanies();
+    } finally {
+      setCreating(false);
+    }
   }
 
   function exportCsv() {
-    const rows = filteredCompanies.map((company) => [
-      company.code,
-      company.name,
-      company.email,
-      company.industry,
-      company.contactName,
-      company.phone,
-      company.province,
-    ]);
+    const csvRows = [
+      [
+        "รหัส",
+        "ชื่อบริษัท",
+        "อีเมล",
+        "อุตสาหกรรม",
+        "สถานะ",
+      ],
+      ...companies.map((company) => [
+        company.code,
+        company.name,
+        company.email,
+        company.industry,
+        company.status,
+      ]),
+    ];
 
-    const csv = [
-      ["รหัส", "ชื่อบริษัท", "อีเมล", "อุตสาหกรรม", "ผู้ดูแล", "โทรศัพท์", "จังหวัด"],
-      ...rows,
-    ]
-      .map((row) => row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(","))
+    const csv = csvRows
+      .map((row) =>
+        row
+          .map(
+            (value) =>
+              `"${String(value ?? "").replace(
+                /"/g,
+                '""',
+              )}"`,
+          )
+          .join(","),
+      )
       .join("\n");
 
-    const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" });
+    const blob = new Blob([`\uFEFF${csv}`], {
+      type: "text/csv;charset=utf-8",
+    });
+
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
 
     link.href = url;
-    link.download = "companies.csv";
+    link.download = "greenfactory-companies.csv";
+
+    document.body.appendChild(link);
     link.click();
+    link.remove();
 
     URL.revokeObjectURL(url);
   }
 
   return (
-    <div className="min-h-full bg-[#f3f4f6]">
-      <div className="mx-auto max-w-[1600px] space-y-5 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+    <div className="min-h-full bg-[#f3f5f4]">
+      <div className="mx-auto max-w-[1640px] space-y-5 px-4 py-6 lg:px-8">
         <CompanyHeader
-          totalCompanies={companies.length}
-          totalFactories={totalFactories}
-          totalUsers={totalUsers}
-          activeCompanies={companies.filter((item) => item.status === "ACTIVE").length}
+          totalCompanies={summary.totalCompanies}
+          totalFactories={summary.totalFactories}
+          totalUsers={summary.totalUsers}
+          activeCompanies={summary.activeCompanies}
           onCreate={() => setCreateOpen(true)}
           onExport={exportCsv}
         />
 
-        <SummaryCards companies={companies} />
+        <SummaryCards summary={summary} />
 
-        <OperationsOverview companies={companies} />
+        <OperationsOverview summary={summary} />
 
-        <section className="overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-sm">
+        <section className="overflow-hidden rounded-[22px] border border-[#e2e7e4] bg-white shadow-sm">
           <div className="flex items-center justify-between px-5 py-4">
             <div>
-              <h2 className="text-[15px] font-bold text-slate-950">รายชื่อบริษัท</h2>
-              <p className="mt-1 text-[10px] text-slate-400">
-                พบ {filteredCompanies.length} รายการ
+              <h2 className="text-[15px] font-bold">
+                รายชื่อบริษัท
+              </h2>
+
+              <p className="mt-1 text-[10px] text-[#8a9490]">
+                พบ {totalItems} รายการ
               </p>
             </div>
+
+            {loading && (
+              <LoaderCircle className="h-4 w-4 animate-spin text-[#0e7b5b]" />
+            )}
           </div>
 
           <CompanyFilters
@@ -207,32 +331,63 @@ export default function CompaniesPageClient() {
               setIndustry(value);
               setPage(1);
             }}
-            onReset={resetFilters}
+            onReset={() => {
+              setSearch("");
+              setStatus("ALL");
+              setIndustry("ALL");
+              setPage(1);
+            }}
           />
 
-          <CompanyTable
-            companies={visibleCompanies}
-            selectedIds={selectedIds}
-            page={page}
-            totalPages={totalPages}
-            totalItems={filteredCompanies.length}
-            pageSize={PAGE_SIZE}
-            onSelect={toggleSelect}
-            onSelectAll={toggleSelectAll}
-            onPageChange={setPage}
-            onView={setDrawerCompany}
-            onStatusChange={changeStatus}
-            onDelete={removeCompany}
-          />
+          {error ? (
+            <div className="py-16 text-center">
+              <AlertTriangle className="mx-auto h-6 w-6 text-[#c15561]" />
+
+              <p className="mt-3 text-[13px] font-semibold">
+                {error}
+              </p>
+
+              <button
+                type="button"
+                onClick={() =>
+                  void loadCompanies()
+                }
+                className="mt-4 rounded-xl bg-[#0e7b5b] px-4 py-2 text-[11px] font-semibold text-white"
+              >
+                ลองใหม่
+              </button>
+            </div>
+          ) : (
+            <CompanyTable
+              companies={companies}
+              selectedIds={selectedIds}
+              page={page}
+              totalPages={totalPages}
+              totalItems={totalItems}
+              pageSize={PAGE_SIZE}
+              loading={loading}
+              onSelect={toggleSelect}
+              onSelectAll={toggleSelectAll}
+              onPageChange={setPage}
+              onView={(company) => {
+                router.push(
+                  `/platform/companies/${company.id}`,
+                );
+              }}
+              onStatusChange={
+                handleStatusChange
+              }
+              onDelete={handleDelete}
+            />
+          )}
         </section>
       </div>
 
-      <CompanyDrawer company={drawerCompany} onClose={() => setDrawerCompany(null)} />
-
       <CreateCompanyModal
         open={createOpen}
+        submitting={creating}
         onClose={() => setCreateOpen(false)}
-        onCreate={createCompany}
+        onCreate={handleCreate}
       />
     </div>
   );

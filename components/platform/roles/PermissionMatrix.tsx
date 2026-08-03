@@ -1,5 +1,6 @@
 "use client";
 
+import { Fragment } from "react";
 import {
   BarChart3,
   Bell,
@@ -21,6 +22,7 @@ import {
   Waves,
   Zap,
 } from "lucide-react";
+
 import type {
   PermissionGroup,
   PermissionItem,
@@ -29,6 +31,7 @@ import type {
   Role,
   RoleKey,
 } from "./types";
+
 import PermissionCell from "./PermissionCell";
 import RoleIcon from "./RoleIcon";
 
@@ -54,13 +57,20 @@ const iconMap = {
   search: Search,
 };
 
-function PermissionLabel({ item }: { item: PermissionItem }) {
+function PermissionLabel({
+  item,
+}: {
+  item: PermissionItem;
+}) {
   const Icon = iconMap[item.icon];
 
   return (
     <div className="flex items-center gap-2.5">
       <Icon className="h-3.5 w-3.5 text-[#6d7973]" />
-      <span className="text-[11px] font-medium text-[#44504a]">{item.label}</span>
+
+      <span className="text-[11px] font-medium text-[#44504a]">
+        {item.label}
+      </span>
     </div>
   );
 }
@@ -86,6 +96,7 @@ export default function PermissionMatrix({
         <h3 className="text-[14px] font-bold text-[#26312c]">
           เมทริกซ์สิทธิ์การใช้งาน (Permission Matrix)
         </h3>
+
         <p className="mt-1 text-[10px] text-[#8d9692]">
           คลิกที่สัญลักษณ์เพื่อเปลี่ยนระดับสิทธิ์ของแต่ละบทบาท
         </p>
@@ -98,35 +109,50 @@ export default function PermissionMatrix({
               <th className="w-[38%] border-r border-[#e8ece9] px-4 py-3 text-left text-[10px] font-semibold text-[#5c6862]">
                 เมนู / ฟีเจอร์
               </th>
-              <th colSpan={roles.length} className="px-4 py-2 text-center text-[10px] font-semibold text-[#5c6862]">
+
+              <th
+                colSpan={roles.length}
+                className="px-4 py-2 text-center text-[10px] font-semibold text-[#5c6862]"
+              >
                 บทบาท (Role)
               </th>
             </tr>
 
             <tr className="border-b border-[#e8ece9] bg-white">
               <th className="border-r border-[#e8ece9]" />
-              {roles.map((role) => (
-                <th key={role.key} className="px-3 py-3 text-center">
-                  <div className="flex items-center justify-center gap-2">
-                    <RoleIcon role={role} size="sm" />
-                    <div className="text-left">
-                      <p className="text-[9px] font-bold leading-tight text-[#36423c]">
-                        {role.name.split(" ")[0]}
-                      </p>
-                      <p className="text-[9px] font-bold leading-tight text-[#36423c]">
-                        {role.name.split(" ").slice(1).join(" ")}
-                      </p>
+
+              {roles.map((role) => {
+                const [firstName, ...remainingName] =
+                  role.name.split(" ");
+
+                return (
+                  <th
+                    key={role.key}
+                    className="px-3 py-3 text-center"
+                  >
+                    <div className="flex items-center justify-center gap-2">
+                      <RoleIcon role={role} size="sm" />
+
+                      <div className="text-left">
+                        <p className="text-[9px] font-bold leading-tight text-[#36423c]">
+                          {firstName}
+                        </p>
+
+                        <p className="text-[9px] font-bold leading-tight text-[#36423c]">
+                          {remainingName.join(" ")}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                </th>
-              ))}
+                  </th>
+                );
+              })}
             </tr>
           </thead>
 
           <tbody>
             {groups.map((group) => (
-              <>
-                <tr key={`${group.id}-header`} className="bg-[#eef7f2]">
+              <Fragment key={`permission-group-${group.id}`}>
+                <tr className="bg-[#eef7f2]">
                   <td
                     colSpan={roles.length + 1}
                     className="px-4 py-2 text-[10px] font-bold text-[#33443c]"
@@ -137,24 +163,38 @@ export default function PermissionMatrix({
 
                 {group.items.map((item) => (
                   <tr
-                    key={item.id}
+                    key={`${group.id}-${item.id}`}
                     className="border-b border-[#eef1ef] last:border-b-0 hover:bg-[#fbfcfb]"
                   >
                     <td className="border-r border-[#eef1ef] px-4 py-2.5">
                       <PermissionLabel item={item} />
                     </td>
 
-                    {roles.map((role) => (
-                      <td key={role.key} className="px-3 py-2.5 text-center">
-                        <PermissionCell
-                          value={matrix[item.id][role.key]}
-                          onChange={(value) => onChange(item.id, role.key, value)}
-                        />
-                      </td>
-                    ))}
+                    {roles.map((role) => {
+                      const permissionValue =
+                        matrix[item.id]?.[role.key];
+
+                      return (
+                        <td
+                          key={`${item.id}-${role.key}`}
+                          className="px-3 py-2.5 text-center"
+                        >
+                          <PermissionCell
+                            value={permissionValue}
+                            onChange={(value) =>
+                              onChange(
+                                item.id,
+                                role.key,
+                                value,
+                              )
+                            }
+                          />
+                        </td>
+                      );
+                    })}
                   </tr>
                 ))}
-              </>
+              </Fragment>
             ))}
           </tbody>
         </table>

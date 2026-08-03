@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 
 import { hashPassword, verifyPassword } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        message: "กรุณาเข้าสู่ระบบ",
+        message: "เธเธฃเธธเธ“เธฒเน€เธเนเธฒเธชเธนเนเธฃเธฐเธเธ",
       },
       { status: 401 },
     );
@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        message: "คุณไม่มีสิทธิ์ใช้งานส่วนนี้",
+        message: "เธเธธเธ“เนเธกเนเธกเธตเธชเธดเธ—เธเธดเนเนเธเนเธเธฒเธเธชเนเธงเธเธเธตเน",
       },
       { status: 403 },
     );
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        message: "กรุณากรอกข้อมูลให้ครบถ้วน",
+        message: "เธเธฃเธธเธ“เธฒเธเธฃเธญเธเธเนเธญเธกเธนเธฅเนเธซเนเธเธฃเธเธ–เนเธงเธ",
       },
       { status: 400 },
     );
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        message: "รหัสผ่านใหม่และการยืนยันไม่ตรงกัน",
+        message: "เธฃเธซเธฑเธชเธเนเธฒเธเนเธซเธกเนเนเธฅเธฐเธเธฒเธฃเธขเธทเธเธขเธฑเธเนเธกเนเธ•เธฃเธเธเธฑเธ",
       },
       { status: 400 },
     );
@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        message: `รหัสผ่านใหม่ต้องมีอย่างน้อย ${MIN_PASSWORD_LENGTH} ตัวอักษร`,
+        message: `เธฃเธซเธฑเธชเธเนเธฒเธเนเธซเธกเนเธ•เนเธญเธเธกเธตเธญเธขเนเธฒเธเธเนเธญเธข ${MIN_PASSWORD_LENGTH} เธ•เธฑเธงเธญเธฑเธเธฉเธฃ`,
       },
       { status: 400 },
     );
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        message: "รหัสผ่านใหม่ต้องไม่ซ้ำกับรหัสผ่านปัจจุบัน",
+        message: "เธฃเธซเธฑเธชเธเนเธฒเธเนเธซเธกเนเธ•เนเธญเธเนเธกเนเธเนเธณเธเธฑเธเธฃเธซเธฑเธชเธเนเธฒเธเธเธฑเธเธเธธเธเธฑเธ",
       },
       { status: 400 },
     );
@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
     select: {
       userId: true,
       passwordHash: true,
-      isActive: true,
+      status: true,
     },
   });
 
@@ -98,17 +98,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        message: "ไม่พบผู้ใช้งาน",
+        message: "เนเธกเนเธเธเธเธนเนเนเธเนเธเธฒเธ",
       },
       { status: 404 },
     );
   }
 
-  if (!dbUser.isActive) {
+  if (dbUser.status !== "ACTIVE") {
     return NextResponse.json(
       {
         success: false,
-        message: "บัญชีผู้ใช้งานถูกระงับ",
+        message: "เธเธฑเธเธเธตเธเธนเนเนเธเนเธเธฒเธเธ–เธนเธเธฃเธฐเธเธฑเธ",
       },
       { status: 403 },
     );
@@ -123,7 +123,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        message: "รหัสผ่านปัจจุบันไม่ถูกต้อง",
+        message: "เธฃเธซเธฑเธชเธเนเธฒเธเธเธฑเธเธเธธเธเธฑเธเนเธกเนเธ–เธนเธเธ•เนเธญเธ",
       },
       { status: 401 },
     );
@@ -142,6 +142,7 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({
     success: true,
-    message: "เปลี่ยนรหัสผ่านเรียบร้อยแล้ว",
+    message: "เน€เธเธฅเธตเนเธขเธเธฃเธซเธฑเธชเธเนเธฒเธเน€เธฃเธตเธขเธเธฃเนเธญเธขเนเธฅเนเธง",
   });
 }
+
