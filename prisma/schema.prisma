@@ -1253,3 +1253,77 @@ model Report {
   @@index([expiresAt])
   @@map("report")
 }
+
+model BackupRecord {
+  backupId Int @id @default(autoincrement()) @map("backup_id")
+
+  backupCode String @unique @map("backup_code") @db.VarChar(100)
+
+  backupType  String @default("MANUAL") @map("backup_type") @db.VarChar(30)
+  backupScope String @default("FULL") @map("backup_scope") @db.VarChar(30)
+
+  storageType String @default("LOCAL") @map("storage_type") @db.VarChar(30)
+
+  fileName String? @map("file_name") @db.VarChar(255)
+  filePath String? @map("file_path") @db.VarChar(1000)
+
+  fileSize BigInt? @map("file_size")
+
+  status String @default("RUNNING") @db.VarChar(30)
+
+  verified Boolean @default(false)
+
+  startedAt   DateTime  @default(now()) @map("started_at")
+  completedAt DateTime? @map("completed_at")
+
+  durationSeconds Int? @map("duration_seconds")
+
+  createdByUserId Int?    @map("created_by_user_id")
+  createdByName   String? @map("created_by_name") @db.VarChar(200)
+
+  errorMessage String? @map("error_message") @db.Text
+
+  restoredAt       DateTime? @map("restored_at")
+  restoredByUserId Int?      @map("restored_by_user_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@index([backupType])
+  @@index([createdAt])
+  @@index([createdByUserId])
+  @@map("backup_record")
+}
+
+model SystemSetting {
+  systemSettingId Int @id @default(autoincrement()) @map("system_setting_id")
+
+  maintenanceMode Boolean @default(false) @map("maintenance_mode")
+
+  forceMfa         Boolean @default(false) @map("force_mfa")
+  ipProtection     Boolean @default(true) @map("ip_protection")
+  anomalyDetection Boolean @default(true) @map("anomaly_detection")
+  autoBlock        Boolean @default(true) @map("auto_block")
+
+  sessionTimeoutMinutes Int @default(60) @map("session_timeout_minutes")
+  maxLoginAttempts      Int @default(5) @map("max_login_attempts")
+
+  auditRetentionDays Int @default(365) @map("audit_retention_days")
+  loginRetentionDays Int @default(180) @map("login_retention_days")
+
+  backupFrequency String @default("DAILY") @map("backup_frequency") @db.VarChar(20)
+
+  carbonAnalyticsEnabled   Boolean @default(true) @map("carbon_analytics_enabled")
+  sensorMonitoringEnabled  Boolean @default(true) @map("sensor_monitoring_enabled")
+  aiRecommendationsEnabled Boolean @default(false) @map("ai_recommendations_enabled")
+  machineQrEnabled         Boolean @default(true) @map("machine_qr_enabled")
+  reportBuilderEnabled     Boolean @default(false) @map("report_builder_enabled")
+
+  updatedBy Int? @map("updated_by")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("system_setting")
+}

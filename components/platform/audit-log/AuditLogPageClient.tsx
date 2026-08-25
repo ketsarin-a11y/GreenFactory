@@ -2,6 +2,7 @@
 
 import {
   Activity,
+  AlertTriangle,
   CalendarDays,
   CheckCircle2,
   ChevronDown,
@@ -15,6 +16,7 @@ import {
   FileClock,
   FileSpreadsheet,
   Filter,
+  LoaderCircle,
   LogIn,
   RefreshCw,
   Search,
@@ -24,283 +26,237 @@ import {
   UsersRound,
   X,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
-type AuditAction = "CREATE" | "UPDATE" | "DELETE" | "LOGIN";
+type AuditAction = "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | string;
 
 type AuditLogItem = {
-  id: number;
-  date: string;
-  time: string;
+  id: string;
+  createdAt: string;
   userName: string;
   email: string;
-  initials: string;
-  avatarClassName: string;
   role: string;
-  roleClassName: string;
   action: AuditAction;
   module: string;
   reference: string;
   description: string;
   ipAddress: string;
+  userAgent: string;
+  oldData: unknown;
+  newData: unknown;
 };
 
-const AUDIT_LOGS: AuditLogItem[] = [
-  {
-    id: 1,
-    date: "10 พ.ค. 2567",
-    time: "14:55:32",
-    userName: "Platform Admin",
-    email: "admin@greenfactory.com",
-    initials: "PA",
-    avatarClassName: "bg-emerald-700 text-white",
-    role: "Platform Admin",
-    roleClassName: "bg-emerald-50 text-emerald-700",
-    action: "CREATE",
-    module: "ประเภททรัพยากร",
-    reference: "ไฟฟ้า (Electricity)",
-    description: "เพิ่มประเภททรัพยากรใหม่",
-    ipAddress: "192.168.1.10",
-  },
-  {
-    id: 2,
-    date: "10 พ.ค. 2567",
-    time: "14:32:18",
-    userName: "Company Admin",
-    email: "ca@company-a.com",
-    initials: "CA",
-    avatarClassName: "bg-blue-600 text-white",
-    role: "Company Admin",
-    roleClassName: "bg-blue-50 text-blue-700",
-    action: "UPDATE",
-    module: "เครื่องจักรและจุดตรวจ",
-    reference: "Boiler-01",
-    description: "แก้ไขข้อมูลเครื่องจักร",
-    ipAddress: "192.168.1.21",
-  },
-  {
-    id: 3,
-    date: "10 พ.ค. 2567",
-    time: "13:21:07",
-    userName: "Environment Officer",
-    email: "eo1@company-a.com",
-    initials: "EO",
-    avatarClassName: "bg-violet-500 text-white",
-    role: "Environment Officer",
-    roleClassName: "bg-violet-50 text-violet-700",
-    action: "CREATE",
-    module: "บันทึกการใช้ทรัพยากร",
-    reference: "REC-20240510-0012",
-    description: "บันทึกการใช้ไฟฟ้า",
-    ipAddress: "192.168.1.55",
-  },
-  {
-    id: 4,
-    date: "10 พ.ค. 2567",
-    time: "12:15:44",
-    userName: "Factory Manager",
-    email: "fm@company-a.com",
-    initials: "FM",
-    avatarClassName: "bg-rose-400 text-white",
-    role: "Factory Manager",
-    roleClassName: "bg-orange-50 text-orange-700",
-    action: "UPDATE",
-    module: "KPI",
-    reference: "KPI-2024-Q2",
-    description: "อัปเดตค่าเป้าหมาย KPI",
-    ipAddress: "192.168.1.33",
-  },
-  {
-    id: 5,
-    date: "10 พ.ค. 2567",
-    time: "11:08:29",
-    userName: "Company Admin",
-    email: "ca@company-a.com",
-    initials: "CA",
-    avatarClassName: "bg-blue-600 text-white",
-    role: "Company Admin",
-    roleClassName: "bg-blue-50 text-blue-700",
-    action: "DELETE",
-    module: "ผู้ใช้งาน",
-    reference: "user_temp01",
-    description: "ลบผู้ใช้งานออกจากระบบ",
-    ipAddress: "192.168.1.21",
-  },
-  {
-    id: 6,
-    date: "10 พ.ค. 2567",
-    time: "10:45:19",
-    userName: "Platform Admin",
-    email: "admin@greenfactory.com",
-    initials: "PA",
-    avatarClassName: "bg-emerald-700 text-white",
-    role: "Platform Admin",
-    roleClassName: "bg-emerald-50 text-emerald-700",
-    action: "UPDATE",
-    module: "สิทธิ์การใช้งาน",
-    reference: "Company Admin",
-    description: "แก้ไขสิทธิ์การใช้งาน",
-    ipAddress: "192.168.1.10",
-  },
-  {
-    id: 7,
-    date: "10 พ.ค. 2567",
-    time: "09:30:02",
-    userName: "Environment Officer",
-    email: "eo1@company-a.com",
-    initials: "EO",
-    avatarClassName: "bg-violet-500 text-white",
-    role: "Environment Officer",
-    roleClassName: "bg-violet-50 text-violet-700",
-    action: "CREATE",
-    module: "ผลการคำนวณคาร์บอน",
-    reference: "CARB-20240510-0008",
-    description: "คำนวณคาร์บอนฟุตพริ้นท์",
-    ipAddress: "192.168.1.55",
-  },
-  {
-    id: 8,
-    date: "10 พ.ค. 2567",
-    time: "08:22:11",
-    userName: "Factory Manager",
-    email: "fm@company-a.com",
-    initials: "FM",
-    avatarClassName: "bg-rose-400 text-white",
-    role: "Factory Manager",
-    roleClassName: "bg-orange-50 text-orange-700",
-    action: "UPDATE",
-    module: "การแจ้งเตือน",
-    reference: "ALERT-20240510-0003",
-    description: "แก้ไขสถานะการแจ้งเตือน",
-    ipAddress: "192.168.1.33",
-  },
-  {
-    id: 9,
-    date: "10 พ.ค. 2567",
-    time: "08:05:57",
-    userName: "Company Admin",
-    email: "ca@company-a.com",
-    initials: "CA",
-    avatarClassName: "bg-blue-600 text-white",
-    role: "Company Admin",
-    roleClassName: "bg-blue-50 text-blue-700",
-    action: "CREATE",
-    module: "แผนก",
-    reference: "Production",
-    description: "เพิ่มแผนกใหม่",
-    ipAddress: "192.168.1.21",
-  },
-  {
-    id: 10,
-    date: "10 พ.ค. 2567",
-    time: "07:40:33",
-    userName: "Platform Admin",
-    email: "admin@greenfactory.com",
-    initials: "PA",
-    avatarClassName: "bg-emerald-700 text-white",
-    role: "Platform Admin",
-    roleClassName: "bg-emerald-50 text-emerald-700",
-    action: "DELETE",
-    module: "บริษัท",
-    reference: "บริษัท ทดสอบ จำกัด",
-    description: "ลบข้อมูลบริษัท",
-    ipAddress: "192.168.1.10",
-  },
-  {
-    id: 11,
-    date: "9 พ.ค. 2567",
-    time: "17:32:48",
-    userName: "Platform Admin",
-    email: "admin@greenfactory.com",
-    initials: "PA",
-    avatarClassName: "bg-emerald-700 text-white",
-    role: "Platform Admin",
-    roleClassName: "bg-emerald-50 text-emerald-700",
-    action: "LOGIN",
-    module: "ระบบ",
-    reference: "LOGIN-001",
-    description: "เข้าสู่ระบบสำเร็จ",
-    ipAddress: "192.168.1.10",
-  },
-  {
-    id: 12,
-    date: "9 พ.ค. 2567",
-    time: "16:18:09",
-    userName: "Company Admin",
-    email: "ca@company-a.com",
-    initials: "CA",
-    avatarClassName: "bg-blue-600 text-white",
-    role: "Company Admin",
-    roleClassName: "bg-blue-50 text-blue-700",
-    action: "UPDATE",
-    module: "ข้อมูลโรงงาน",
-    reference: "FACTORY-A01",
-    description: "แก้ไขข้อมูลโรงงาน",
-    ipAddress: "192.168.1.21",
-  },
-];
+type AuditSummary = {
+  total: number;
+  uniqueUsers: number;
+  created: number;
+  updatedAndDeleted: number;
+};
 
-const ACTION_LABEL: Record<AuditAction, string> = {
+type AuditApiResponse = {
+  success: boolean;
+  message?: string;
+  data?: AuditLogItem[];
+  summary?: AuditSummary;
+};
+
+const PAGE_SIZE = 10;
+
+const EMPTY_SUMMARY: AuditSummary = {
+  total: 0,
+  uniqueUsers: 0,
+  created: 0,
+  updatedAndDeleted: 0,
+};
+
+const ACTION_LABEL: Record<string, string> = {
   CREATE: "เพิ่มข้อมูล",
   UPDATE: "แก้ไขข้อมูล",
   DELETE: "ลบข้อมูล",
   LOGIN: "เข้าสู่ระบบ",
 };
 
-const ACTION_STYLES: Record<
-  AuditAction,
-  {
-    badge: string;
-    icon: React.ReactNode;
-  }
-> = {
-  CREATE: {
-    badge: "bg-emerald-50 text-emerald-700 ring-emerald-600/10",
-    icon: <CirclePlus className="h-3.5 w-3.5" />,
-  },
-  UPDATE: {
-    badge: "bg-blue-50 text-blue-700 ring-blue-600/10",
-    icon: <Edit3 className="h-3.5 w-3.5" />,
-  },
-  DELETE: {
-    badge: "bg-rose-50 text-rose-700 ring-rose-600/10",
-    icon: <Trash2 className="h-3.5 w-3.5" />,
-  },
-  LOGIN: {
-    badge: "bg-violet-50 text-violet-700 ring-violet-600/10",
-    icon: <LogIn className="h-3.5 w-3.5" />,
-  },
-};
+function getActionLabel(action: string) {
+  return ACTION_LABEL[action] ?? action;
+}
 
-const PAGE_SIZE = 10;
+function getActionStyle(action: string) {
+  switch (action) {
+    case "CREATE":
+      return {
+        badge: "bg-emerald-50 text-emerald-700 ring-emerald-600/10",
+        icon: <CirclePlus className="h-3.5 w-3.5" />,
+      };
+    case "UPDATE":
+      return {
+        badge: "bg-blue-50 text-blue-700 ring-blue-600/10",
+        icon: <Edit3 className="h-3.5 w-3.5" />,
+      };
+    case "DELETE":
+      return {
+        badge: "bg-rose-50 text-rose-700 ring-rose-600/10",
+        icon: <Trash2 className="h-3.5 w-3.5" />,
+      };
+    case "LOGIN":
+      return {
+        badge: "bg-violet-50 text-violet-700 ring-violet-600/10",
+        icon: <LogIn className="h-3.5 w-3.5" />,
+      };
+    default:
+      return {
+        badge: "bg-slate-100 text-slate-700 ring-slate-600/10",
+        icon: <Activity className="h-3.5 w-3.5" />,
+      };
+  }
+}
+
+function roleStyle(role: string) {
+  switch (role) {
+    case "Platform Admin":
+      return "bg-emerald-50 text-emerald-700";
+    case "Company Admin":
+      return "bg-blue-50 text-blue-700";
+    case "Factory Manager":
+      return "bg-orange-50 text-orange-700";
+    case "Environment Officer":
+      return "bg-violet-50 text-violet-700";
+    default:
+      return "bg-slate-100 text-slate-700";
+  }
+}
+
+function avatarStyle(role: string) {
+  switch (role) {
+    case "Platform Admin":
+      return "bg-emerald-700 text-white";
+    case "Company Admin":
+      return "bg-blue-600 text-white";
+    case "Factory Manager":
+      return "bg-rose-400 text-white";
+    case "Environment Officer":
+      return "bg-violet-500 text-white";
+    default:
+      return "bg-slate-500 text-white";
+  }
+}
+
+function getInitials(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "SY";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase();
+}
+
+function formatDate(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+
+  return new Intl.DateTimeFormat("th-TH", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(date);
+}
+
+function formatTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+
+  return new Intl.DateTimeFormat("th-TH", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).format(date);
+}
+
+function prettyJson(value: unknown) {
+  if (value == null) return "ไม่มีข้อมูล";
+
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+}
 
 export default function AuditLogPageClient() {
+  const [logs, setLogs] = useState<AuditLogItem[]>([]);
+  const [summary, setSummary] = useState<AuditSummary>(EMPTY_SUMMARY);
+
   const [search, setSearch] = useState("");
   const [role, setRole] = useState("ทั้งหมด");
   const [action, setAction] = useState("ทั้งหมด");
   const [moduleName, setModuleName] = useState("ทั้งหมด");
   const [page, setPage] = useState(1);
+
   const [selectedLog, setSelectedLog] = useState<AuditLogItem | null>(null);
   const [isExportOpen, setIsExportOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [error, setError] = useState("");
+
+  const loadLogs = useCallback(async (refresh = false) => {
+    try {
+      if (refresh) setIsRefreshing(true);
+      else setLoading(true);
+
+      setError("");
+
+      const response = await fetch("/api/platform/audit-logs", {
+        method: "GET",
+        cache: "no-store",
+      });
+
+      const result = (await response.json()) as AuditApiResponse;
+
+      if (!response.ok || !result.success || !result.data) {
+        throw new Error(result.message ?? "ไม่สามารถโหลด Audit Log ได้");
+      }
+
+      setLogs(result.data);
+      setSummary(result.summary ?? EMPTY_SUMMARY);
+    } catch (caught) {
+      setError(
+        caught instanceof Error ? caught.message : "ไม่สามารถโหลด Audit Log ได้",
+      );
+    } finally {
+      setLoading(false);
+      setIsRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadLogs();
+  }, [loadLogs]);
 
   const roles = useMemo(
-    () => ["ทั้งหมด", ...Array.from(new Set(AUDIT_LOGS.map((item) => item.role)))],
-    [],
+    () => [
+      "ทั้งหมด",
+      ...Array.from(new Set(logs.map((item) => item.role))).sort(),
+    ],
+    [logs],
   );
 
   const modules = useMemo(
     () => [
       "ทั้งหมด",
-      ...Array.from(new Set(AUDIT_LOGS.map((item) => item.module))),
+      ...Array.from(new Set(logs.map((item) => item.module))).sort(),
     ],
-    [],
+    [logs],
+  );
+
+  const actions = useMemo(
+    () => [
+      "ทั้งหมด",
+      ...Array.from(new Set(logs.map((item) => item.action))).sort(),
+    ],
+    [logs],
   );
 
   const filteredLogs = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
 
-    return AUDIT_LOGS.filter((item) => {
+    return logs.filter((item) => {
       const matchesSearch =
         !normalizedSearch ||
         [
@@ -310,49 +266,39 @@ export default function AuditLogPageClient() {
           item.reference,
           item.description,
           item.ipAddress,
+          item.userAgent,
         ].some((value) => value.toLowerCase().includes(normalizedSearch));
-
-      const matchesRole = role === "ทั้งหมด" || item.role === role;
-      const matchesAction =
-        action === "ทั้งหมด" || item.action === action;
-      const matchesModule =
-        moduleName === "ทั้งหมด" || item.module === moduleName;
 
       return (
         matchesSearch &&
-        matchesRole &&
-        matchesAction &&
-        matchesModule
+        (role === "ทั้งหมด" || item.role === role) &&
+        (action === "ทั้งหมด" || item.action === action) &&
+        (moduleName === "ทั้งหมด" || item.module === moduleName)
       );
     });
-  }, [search, role, action, moduleName]);
+  }, [action, logs, moduleName, role, search]);
 
   const totalPages = Math.max(1, Math.ceil(filteredLogs.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
 
   const paginatedLogs = useMemo(() => {
-    const safePage = Math.min(page, totalPages);
     const startIndex = (safePage - 1) * PAGE_SIZE;
-
     return filteredLogs.slice(startIndex, startIndex + PAGE_SIZE);
-  }, [filteredLogs, page, totalPages]);
+  }, [filteredLogs, safePage]);
 
-  const handleReset = () => {
+  useEffect(() => {
+    if (page !== safePage) setPage(safePage);
+  }, [page, safePage]);
+
+  function handleReset() {
     setSearch("");
     setRole("ทั้งหมด");
     setAction("ทั้งหมด");
     setModuleName("ทั้งหมด");
     setPage(1);
-  };
+  }
 
-  const handleRefresh = () => {
-    setIsRefreshing(true);
-
-    window.setTimeout(() => {
-      setIsRefreshing(false);
-    }, 700);
-  };
-
-  const handleExportCsv = () => {
+  function handleExportCsv() {
     const headers = [
       "วันที่",
       "เวลา",
@@ -364,26 +310,27 @@ export default function AuditLogPageClient() {
       "รายการอ้างอิง",
       "รายละเอียด",
       "IP Address",
+      "User Agent",
     ];
 
     const rows = filteredLogs.map((item) => [
-      item.date,
-      item.time,
+      formatDate(item.createdAt),
+      formatTime(item.createdAt),
       item.userName,
       item.email,
       item.role,
-      ACTION_LABEL[item.action],
+      getActionLabel(item.action),
       item.module,
       item.reference,
       item.description,
       item.ipAddress,
+      item.userAgent,
     ]);
 
     const escapeCsv = (value: string) => `"${value.replaceAll('"', '""')}"`;
-
     const csvContent = [
       headers.map(escapeCsv).join(","),
-      ...rows.map((row) => row.map(escapeCsv).join(",")),
+      ...rows.map((row) => row.map((cell) => escapeCsv(String(cell))).join(",")),
     ].join("\n");
 
     const blob = new Blob(["\uFEFF", csvContent], {
@@ -392,16 +339,27 @@ export default function AuditLogPageClient() {
 
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
-
     anchor.href = url;
     anchor.download = "greenfactory-audit-log.csv";
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();
-
     URL.revokeObjectURL(url);
     setIsExportOpen(false);
-  };
+  }
+
+  if (loading) {
+    return (
+      <div className="grid min-h-[520px] place-items-center">
+        <div className="text-center">
+          <LoaderCircle className="mx-auto h-7 w-7 animate-spin text-emerald-700" />
+          <p className="mt-3 text-sm font-medium text-slate-600">
+            กำลังโหลด Audit Log จากฐานข้อมูล
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#f6f8f7] px-4 py-5 text-slate-900 sm:px-6 lg:px-8">
@@ -420,7 +378,7 @@ export default function AuditLogPageClient() {
             </h1>
 
             <p className="mt-1 text-sm text-slate-500">
-              ตรวจสอบประวัติการดำเนินการและความเคลื่อนไหวภายในระบบ
+              ตรวจสอบประวัติการดำเนินการที่บันทึกจริงในฐานข้อมูล
             </p>
           </div>
 
@@ -452,9 +410,7 @@ export default function AuditLogPageClient() {
 
             <button
               type="button"
-              onClick={() => {
-                setPage(1);
-              }}
+              onClick={() => setPage(1)}
               className="inline-flex h-10 items-center gap-2 rounded-xl bg-emerald-800 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-900"
             >
               <Filter className="h-4 w-4" />
@@ -463,52 +419,71 @@ export default function AuditLogPageClient() {
 
             <button
               type="button"
-              onClick={handleRefresh}
-              className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+              onClick={() => void loadLogs(true)}
+              disabled={isRefreshing}
+              className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 disabled:opacity-60"
             >
               <RefreshCw
-                className={`h-4 w-4 ${
-                  isRefreshing ? "animate-spin" : ""
-                }`}
+                className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
               />
               รีเฟรช
             </button>
           </div>
         </div>
 
+        {error && (
+          <div className="mb-5 flex items-center justify-between gap-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-rose-600" />
+              <p className="text-sm font-medium text-rose-700">{error}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => void loadLogs(true)}
+              className="text-sm font-semibold text-rose-700"
+            >
+              ลองใหม่
+            </button>
+          </div>
+        )}
+
         <section className="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <SummaryCard
             label="รายการทั้งหมด"
-            value="1,248"
+            value={summary.total.toLocaleString()}
             helper="รายการ"
-            trend="+12.4% เดือนนี้"
+            trend="ข้อมูลจริงจาก Audit Log"
             icon={<FileClock className="h-5 w-5" />}
             iconClassName="bg-blue-50 text-blue-600"
           />
 
           <SummaryCard
             label="ผู้ใช้งานไม่ซ้ำ"
-            value="45"
+            value={summary.uniqueUsers.toLocaleString()}
             helper="คน"
-            trend="ใช้งานวันนี้ 18 คน"
+            trend="นับจากผู้ใช้งานที่มีรายการ"
             icon={<UsersRound className="h-5 w-5" />}
             iconClassName="bg-emerald-50 text-emerald-600"
           />
 
           <SummaryCard
             label="เพิ่มข้อมูล"
-            value="612"
+            value={summary.created.toLocaleString()}
             helper="รายการ"
-            trend="49.0% ของทั้งหมด"
+            trend={
+              summary.total > 0
+                ? `${((summary.created / summary.total) * 100).toFixed(1)}% ของทั้งหมด`
+                : "ยังไม่มีข้อมูล"
+            }
             icon={<CirclePlus className="h-5 w-5" />}
             iconClassName="bg-orange-50 text-orange-500"
           />
 
           <SummaryCard
             label="แก้ไขและลบ"
-            value="636"
+            value={summary.updatedAndDeleted.toLocaleString()}
             helper="รายการ"
-            trend="ตรวจสอบล่าสุดวันนี้"
+            trend="UPDATE + DELETE"
             icon={<Activity className="h-5 w-5" />}
             iconClassName="bg-violet-50 text-violet-600"
           />
@@ -519,20 +494,19 @@ export default function AuditLogPageClient() {
             <div className="grid gap-3 xl:grid-cols-[minmax(260px,1.4fr)_repeat(3,minmax(150px,0.55fr))_auto]">
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-
                 <input
                   value={search}
                   onChange={(event) => {
                     setSearch(event.target.value);
                     setPage(1);
                   }}
-                  placeholder="ค้นหา ผู้ใช้ รายการ โมดูล หรือ IP Address"
+                  placeholder="ค้นหา ผู้ใช้ รายการ โมดูล IP หรือ User Agent"
                   className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 text-sm outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
                 />
               </div>
 
               <FilterSelect
-                label="ผู้ใช้งาน"
+                label="บทบาท"
                 value={role}
                 options={roles}
                 onChange={(value) => {
@@ -544,17 +518,9 @@ export default function AuditLogPageClient() {
               <FilterSelect
                 label="การกระทำ"
                 value={action}
-                options={[
-                  "ทั้งหมด",
-                  "CREATE",
-                  "UPDATE",
-                  "DELETE",
-                  "LOGIN",
-                ]}
+                options={actions}
                 getLabel={(value) =>
-                  value === "ทั้งหมด"
-                    ? value
-                    : ACTION_LABEL[value as AuditAction]
+                  value === "ทั้งหมด" ? value : getActionLabel(value)
                 }
                 onChange={(value) => {
                   setAction(value);
@@ -584,7 +550,7 @@ export default function AuditLogPageClient() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="min-w-[1280px] w-full border-collapse">
+            <table className="w-full min-w-[1280px] border-collapse">
               <thead className="bg-slate-50/90">
                 <tr className="border-b border-slate-200">
                   <TableHeader className="w-16">#</TableHeader>
@@ -602,7 +568,7 @@ export default function AuditLogPageClient() {
 
               <tbody>
                 {paginatedLogs.map((item, index) => {
-                  const actionStyle = ACTION_STYLES[item.action];
+                  const actionStyle = getActionStyle(item.action);
 
                   return (
                     <tr
@@ -611,27 +577,26 @@ export default function AuditLogPageClient() {
                       className="cursor-pointer border-b border-slate-100 transition last:border-b-0 hover:bg-emerald-50/35"
                     >
                       <TableCell className="font-semibold text-slate-500">
-                        {(page - 1) * PAGE_SIZE + index + 1}
+                        {(safePage - 1) * PAGE_SIZE + index + 1}
                       </TableCell>
 
                       <TableCell>
                         <div className="font-semibold text-slate-700">
-                          {item.date}
+                          {formatDate(item.createdAt)}
                         </div>
                         <div className="mt-0.5 flex items-center gap-1 text-xs text-slate-400">
                           <Clock3 className="h-3.5 w-3.5" />
-                          {item.time}
+                          {formatTime(item.createdAt)}
                         </div>
                       </TableCell>
 
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <div
-                            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${item.avatarClassName}`}
+                            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${avatarStyle(item.role)}`}
                           >
-                            {item.initials}
+                            {getInitials(item.userName)}
                           </div>
-
                           <div className="min-w-0">
                             <div className="font-semibold text-slate-800">
                               {item.userName}
@@ -645,7 +610,7 @@ export default function AuditLogPageClient() {
 
                       <TableCell>
                         <span
-                          className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${item.roleClassName}`}
+                          className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${roleStyle(item.role)}`}
                         >
                           {item.role}
                         </span>
@@ -656,7 +621,7 @@ export default function AuditLogPageClient() {
                           className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${actionStyle.badge}`}
                         >
                           {actionStyle.icon}
-                          {ACTION_LABEL[item.action]}
+                          {getActionLabel(item.action)}
                         </span>
                       </TableCell>
 
@@ -707,8 +672,8 @@ export default function AuditLogPageClient() {
                 <h3 className="font-semibold text-slate-800">
                   ไม่พบข้อมูล Audit Log
                 </h3>
-                <p className="mt-1 text-sm text-slate-500">
-                  ลองเปลี่ยนคำค้นหาหรือล้างตัวกรอง
+                <p className="mt-1 max-w-lg text-sm text-slate-500">
+                  ถ้าฐานข้อมูลยังไม่มีรายการ Audit Log หน้านี้จะแสดงว่างจนกว่าจะมี API ฝั่ง CRUD เขียนประวัติลงตาราง audit_log
                 </p>
               </div>
             )}
@@ -718,11 +683,9 @@ export default function AuditLogPageClient() {
             <p className="text-sm text-slate-500">
               แสดง{" "}
               <span className="font-semibold text-slate-700">
-                {filteredLogs.length === 0
-                  ? 0
-                  : (page - 1) * PAGE_SIZE + 1}
+                {filteredLogs.length === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1}
                 -
-                {Math.min(page * PAGE_SIZE, filteredLogs.length)}
+                {Math.min(safePage * PAGE_SIZE, filteredLogs.length)}
               </span>{" "}
               จาก{" "}
               <span className="font-semibold text-slate-700">
@@ -734,7 +697,7 @@ export default function AuditLogPageClient() {
             <div className="flex items-center gap-1.5">
               <button
                 type="button"
-                disabled={page === 1}
+                disabled={safePage === 1}
                 onClick={() => setPage((current) => Math.max(1, current - 1))}
                 className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
               >
@@ -748,7 +711,7 @@ export default function AuditLogPageClient() {
                     type="button"
                     onClick={() => setPage(pageNumber)}
                     className={`flex h-9 min-w-9 items-center justify-center rounded-lg px-2 text-sm font-semibold transition ${
-                      page === pageNumber
+                      safePage === pageNumber
                         ? "bg-emerald-800 text-white shadow-sm"
                         : "border border-slate-200 text-slate-600 hover:bg-slate-50"
                     }`}
@@ -760,7 +723,7 @@ export default function AuditLogPageClient() {
 
               <button
                 type="button"
-                disabled={page === totalPages}
+                disabled={safePage === totalPages}
                 onClick={() =>
                   setPage((current) => Math.min(totalPages, current + 1))
                 }
@@ -782,7 +745,7 @@ export default function AuditLogPageClient() {
             className="fixed inset-0 z-40 bg-slate-950/25 backdrop-blur-[2px]"
           />
 
-          <aside className="fixed inset-y-0 right-0 z-50 w-full max-w-md overflow-y-auto border-l border-slate-200 bg-white shadow-2xl">
+          <aside className="fixed inset-y-0 right-0 z-50 w-full max-w-lg overflow-y-auto border-l border-slate-200 bg-white shadow-2xl">
             <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white/95 px-6 py-5 backdrop-blur">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">
@@ -806,11 +769,10 @@ export default function AuditLogPageClient() {
               <div className="mb-6 rounded-2xl border border-emerald-100 bg-emerald-50/70 p-5">
                 <div className="flex items-start gap-4">
                   <div
-                    className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-xs font-bold ${selectedLog.avatarClassName}`}
+                    className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-xs font-bold ${avatarStyle(selectedLog.role)}`}
                   >
-                    {selectedLog.initials}
+                    {getInitials(selectedLog.userName)}
                   </div>
-
                   <div>
                     <h3 className="font-bold text-slate-900">
                       {selectedLog.userName}
@@ -818,9 +780,8 @@ export default function AuditLogPageClient() {
                     <p className="mt-0.5 text-sm text-slate-500">
                       {selectedLog.email}
                     </p>
-
                     <span
-                      className={`mt-3 inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${selectedLog.roleClassName}`}
+                      className={`mt-3 inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${roleStyle(selectedLog.role)}`}
                     >
                       {selectedLog.role}
                     </span>
@@ -832,50 +793,51 @@ export default function AuditLogPageClient() {
                 <DetailItem
                   icon={<CalendarDays className="h-4 w-4" />}
                   label="วันที่และเวลา"
-                  value={`${selectedLog.date} เวลา ${selectedLog.time}`}
+                  value={`${formatDate(selectedLog.createdAt)} เวลา ${formatTime(selectedLog.createdAt)}`}
                 />
-
                 <DetailItem
                   icon={<Activity className="h-4 w-4" />}
                   label="การกระทำ"
-                  value={ACTION_LABEL[selectedLog.action]}
+                  value={getActionLabel(selectedLog.action)}
                 />
-
                 <DetailItem
                   icon={<FileClock className="h-4 w-4" />}
                   label="โมดูล"
                   value={selectedLog.module}
                 />
-
                 <DetailItem
                   icon={<Eye className="h-4 w-4" />}
                   label="รายการอ้างอิง"
                   value={selectedLog.reference}
                 />
-
                 <DetailItem
                   icon={<UserRound className="h-4 w-4" />}
                   label="รายละเอียด"
                   value={selectedLog.description}
                 />
-
                 <DetailItem
                   icon={<ShieldCheck className="h-4 w-4" />}
                   label="IP Address"
                   value={selectedLog.ipAddress}
                   mono
                 />
+                <DetailItem
+                  icon={<ShieldCheck className="h-4 w-4" />}
+                  label="User Agent"
+                  value={selectedLog.userAgent}
+                />
               </div>
+
+              <JsonBlock title="ข้อมูลก่อนแก้ไข (Old Data)" value={selectedLog.oldData} />
+              <JsonBlock title="ข้อมูลหลังแก้ไข (New Data)" value={selectedLog.newData} />
 
               <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
                   <CheckCircle2 className="h-4 w-4 text-emerald-600" />
                   สถานะการตรวจสอบ
                 </div>
-
                 <p className="mt-2 text-sm leading-6 text-slate-500">
-                  กิจกรรมนี้ถูกบันทึกโดยระบบโดยอัตโนมัติ
-                  และยังไม่มีการแก้ไขข้อมูล Audit Log
+                  รายการนี้อ่านโดยตรงจากตาราง audit_log และไม่ใช่ Mock Data
                 </p>
               </div>
             </div>
@@ -906,7 +868,6 @@ function SummaryCard({
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-sm font-medium text-slate-500">{label}</p>
-
           <div className="mt-3 flex items-end gap-2">
             <span className="text-3xl font-bold tracking-tight text-slate-950">
               {value}
@@ -916,14 +877,12 @@ function SummaryCard({
             </span>
           </div>
         </div>
-
         <div
           className={`flex h-11 w-11 items-center justify-center rounded-xl ${iconClassName}`}
         >
           {icon}
         </div>
       </div>
-
       <div className="mt-4 flex items-center gap-1.5 text-xs font-medium text-slate-500">
         <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
         {trend}
@@ -950,7 +909,6 @@ function FilterSelect({
       <span className="pointer-events-none absolute left-3 top-1.5 z-10 text-[10px] font-semibold text-slate-400">
         {label}
       </span>
-
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
@@ -962,7 +920,6 @@ function FilterSelect({
           </option>
         ))}
       </select>
-
       <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
     </label>
   );
@@ -1017,14 +974,24 @@ function DetailItem({
         {icon}
         {label}
       </div>
-
       <p
-        className={`mt-2 text-sm font-semibold text-slate-800 ${
+        className={`mt-2 break-words text-sm font-semibold text-slate-800 ${
           mono ? "font-mono" : ""
         }`}
       >
         {value}
       </p>
+    </div>
+  );
+}
+
+function JsonBlock({ title, value }: { title: string; value: unknown }) {
+  return (
+    <div className="mt-4 rounded-xl border border-slate-200 bg-slate-950 p-4">
+      <p className="mb-2 text-xs font-semibold text-slate-300">{title}</p>
+      <pre className="overflow-x-auto whitespace-pre-wrap break-words text-xs leading-5 text-slate-100">
+        {prettyJson(value)}
+      </pre>
     </div>
   );
 }

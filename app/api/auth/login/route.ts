@@ -1,11 +1,9 @@
 import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
 
+import { createLoginLog } from "@/lib/login-log";
 import { prisma } from "@/lib/prisma";
-import {
-  createSessionToken,
-  setSessionCookie,
-} from "@/lib/session";
+import { createSessionToken, setSessionCookie } from "@/lib/session";
 
 type LoginBody = {
   companyCode?: string;
@@ -52,24 +50,23 @@ export async function POST(request: Request) {
     const password = body.password ?? "";
     const rememberMe = Boolean(body.rememberMe);
 
-    /*
-     * ตรวจข้อมูลเบื้องต้น
-     */
     if (!companyCode || !email || !password) {
+      await createLoginLog({
+        request,
+        attemptedEmail: email ?? null,
+        loginStatus: "FAILED",
+        failureReason: "MISSING_CREDENTIALS",
+      });
+
       return NextResponse.json(
         {
           success: false,
           message: "กรุณากรอกรหัสองค์กร อีเมล และรหัสผ่าน",
         },
-        {
-          status: 400,
-        },
+        { status: 400 },
       );
     }
 
-    /*
-     * ค้นหาผู้ใช้จากอีเมล พร้อม Role และ Company
-     */
     const user = await prisma.user.findUnique({
       where: {
         email,
@@ -77,154 +74,207 @@ export async function POST(request: Request) {
       include: {
         role: true,
         company: true,
+        factory: true,
       },
     });
 
-    /*
-     * ไม่ควรบอกตรง ๆ ว่าไม่พบอีเมล
-     * เพื่อไม่ให้ผู้ไม่หวังดีตรวจสอบว่ามีบัญชีใดอยู่ในระบบ
-     */
     if (!user) {
+      await createLoginLog({
+        request,
+        attemptedEmail: email,
+        loginStatus: "FAILED",
+        failureReason: "INVALID_CREDENTIALS",
+      });
+
       return NextResponse.json(
         {
           success: false,
           message: "รหัสองค์กร อีเมล หรือรหัสผ่านไม่ถูกต้อง",
         },
-        {
-          status: 401,
-        },
+        { status: 401 },
       );
     }
 
-    /*
-     * ตรวจสถานะบัญชี
-     */
     if (user.status !== "ACTIVE") {
+      await createLoginLog({
+        request,
+        userId: user.userId,
+        attemptedEmail: email,
+        loginStatus: "FAILED",
+        failureReason: "ACCOUNT_INACTIVE",
+      });
+
       return NextResponse.json(
         {
           success: false,
           message: "บัญชีนี้ไม่สามารถใช้งานได้",
         },
-        {
-          status: 403,
-        },
+        { status: 403 },
       );
     }
 
-    /*
-     * ตรวจว่าบัญชียังถูกล็อกอยู่หรือไม่
-     */
-    if (
-      user.lockedUntil &&
-      user.lockedUntil.getTime() > Date.now()
-    ) {
+    if (user.lockedUntil && user.lockedUntil.getTime() > Date.now()) {
       const remainingMinutes = Math.ceil(
         (user.lockedUntil.getTime() - Date.now()) / 60000,
       );
+
+      await createLoginLog({
+        request,
+        userId: user.userId,
+        attemptedEmail: email,
+        loginStatus: "FAILED",
+        failureReason: "ACCOUNT_LOCKED",
+      });
 
       return NextResponse.json(
         {
           success: false,
           message: `บัญชีถูกล็อกชั่วคราว กรุณาลองใหม่ในอีกประมาณ ${remainingMinutes} นาที`,
         },
-        {
-          status: 423,
-        },
+        { status: 423 },
       );
     }
 
     const roleName = user.role.roleName;
 
-    /*
-     * ป้องกัน Role ที่ไม่รู้จัก
-     */
     if (!isAllowedRole(roleName)) {
+      await createLoginLog({
+        request,
+        userId: user.userId,
+        attemptedEmail: email,
+        loginStatus: "FAILED",
+        failureReason: "UNSUPPORTED_ROLE",
+      });
+
       return NextResponse.json(
         {
           success: false,
           message: "บัญชีนี้ไม่มีบทบาทที่รองรับในระบบ",
         },
-        {
-          status: 403,
-        },
+        { status: 403 },
       );
     }
 
     /*
-     * ตรวจรหัสองค์กร
+     * ============================================================
+     * PLATFORM ADMIN
+     * ============================================================
      *
      * PLATFORM_ADMIN:
-     * - ไม่มี companyId
-     * - ใช้ PLATFORM_ACCESS_CODE จาก .env
-     *
-     * บทบาทอื่น:
-     * - ต้องมี Company
-     * - รหัสที่กรอกต้องตรงกับ companyCode ในฐานข้อมูล
+     * - ไม่สังกัดบริษัท
+     * - ไม่สังกัดโรงงาน
+     * - ใช้ PLATFORM_ACCESS_CODE สำหรับเข้าสู่ระบบ
      */
     if (roleName === "PLATFORM_ADMIN") {
       const platformAccessCode =
         process.env.PLATFORM_ACCESS_CODE?.trim().toUpperCase();
 
       if (!platformAccessCode) {
-        console.error(
-          "PLATFORM_ACCESS_CODE is not configured",
-        );
+        console.error("PLATFORM_ACCESS_CODE is not configured");
+
+        await createLoginLog({
+          request,
+          userId: user.userId,
+          attemptedEmail: email,
+          loginStatus: "FAILED",
+          failureReason: "PLATFORM_ACCESS_CODE_NOT_CONFIGURED",
+        });
 
         return NextResponse.json(
           {
             success: false,
             message: "ระบบยังไม่ได้ตั้งค่ารหัสผู้ดูแลแพลตฟอร์ม",
           },
-          {
-            status: 500,
-          },
+          { status: 500 },
         );
       }
 
       if (companyCode !== platformAccessCode) {
+        await createLoginLog({
+          request,
+          userId: user.userId,
+          attemptedEmail: email,
+          loginStatus: "FAILED",
+          failureReason: "INVALID_PLATFORM_CODE",
+        });
+
         return NextResponse.json(
           {
             success: false,
             message: "รหัสองค์กร อีเมล หรือรหัสผ่านไม่ถูกต้อง",
           },
-          {
-            status: 401,
-          },
+          { status: 401 },
         );
       }
 
-      /*
-       * Platform Admin ไม่ควรสังกัด Company
-       */
       if (user.companyId !== null) {
         console.error(
           `Invalid PLATFORM_ADMIN company assignment: userId=${user.userId}`,
         );
+
+        await createLoginLog({
+          request,
+          userId: user.userId,
+          attemptedEmail: email,
+          loginStatus: "FAILED",
+          failureReason: "INVALID_PLATFORM_ADMIN_ASSIGNMENT",
+        });
 
         return NextResponse.json(
           {
             success: false,
             message: "โครงสร้างบัญชีผู้ดูแลแพลตฟอร์มไม่ถูกต้อง",
           },
+          { status: 500 },
+        );
+      }
+
+      if (user.factoryId !== null) {
+        console.error(
+          `Invalid PLATFORM_ADMIN factory assignment: userId=${user.userId}`,
+        );
+
+        await createLoginLog({
+          request,
+          userId: user.userId,
+          attemptedEmail: email,
+          loginStatus: "FAILED",
+          failureReason: "INVALID_PLATFORM_ADMIN_FACTORY_ASSIGNMENT",
+        });
+
+        return NextResponse.json(
           {
-            status: 500,
+            success: false,
+            message: "โครงสร้างโรงงานของบัญชีผู้ดูแลแพลตฟอร์มไม่ถูกต้อง",
           },
+          { status: 500 },
         );
       }
     } else {
       /*
-       * Company Admin, Manager และ Operator
-       * ต้องมี Company
+       * ============================================================
+       * COMPANY USERS
+       * ============================================================
+       *
+       * COMPANY_ADMIN / MANAGER / OPERATOR
+       * ทุกคนต้องสังกัดบริษัท
        */
+
       if (!user.company || user.companyId === null) {
+        await createLoginLog({
+          request,
+          userId: user.userId,
+          attemptedEmail: email,
+          loginStatus: "FAILED",
+          failureReason: "NO_COMPANY",
+        });
+
         return NextResponse.json(
           {
             success: false,
             message: "บัญชีนี้ยังไม่ได้ถูกกำหนดองค์กร",
           },
-          {
-            status: 403,
-          },
+          { status: 403 },
         );
       }
 
@@ -232,21 +282,93 @@ export async function POST(request: Request) {
         user.company.companyCode.trim().toUpperCase();
 
       if (companyCode !== actualCompanyCode) {
+        await createLoginLog({
+          request,
+          userId: user.userId,
+          attemptedEmail: email,
+          loginStatus: "FAILED",
+          failureReason: "INVALID_COMPANY_CODE",
+        });
+
         return NextResponse.json(
           {
             success: false,
             message: "รหัสองค์กร อีเมล หรือรหัสผ่านไม่ถูกต้อง",
           },
-          {
-            status: 401,
-          },
+          { status: 401 },
         );
+      }
+
+      /*
+       * ============================================================
+       * FACTORY SCOPE
+       * ============================================================
+       *
+       * COMPANY_ADMIN
+       * → ระดับบริษัท
+       * → ไม่ล็อกโรงงานใน Session
+       * → เลือกดูได้ทุกโรงงานภายในบริษัทตัวเอง
+       *
+       * MANAGER / OPERATOR
+       * → ระดับโรงงาน
+       * → ต้องมี factoryId
+       * → ถูกล็อกไว้ที่โรงงานของตัวเอง
+       */
+
+      if (roleName === "MANAGER" || roleName === "OPERATOR") {
+        if (user.factoryId === null || !user.factory) {
+          await createLoginLog({
+            request,
+            userId: user.userId,
+            attemptedEmail: email,
+            loginStatus: "FAILED",
+            failureReason: "NO_FACTORY_ASSIGNMENT",
+          });
+
+          return NextResponse.json(
+            {
+              success: false,
+              message:
+                "บัญชีนี้ยังไม่ได้ถูกกำหนดโรงงาน กรุณาติดต่อผู้ดูแลบริษัท",
+            },
+            { status: 403 },
+          );
+        }
+
+        /*
+         * Defense-in-depth:
+         * โรงงานที่ user ถูกกำหนดต้องอยู่ภายใต้บริษัทเดียวกับ user
+         */
+        if (user.factory.companyId !== user.companyId) {
+          console.error(
+            `Invalid factory/company assignment: userId=${user.userId}, companyId=${user.companyId}, factoryId=${user.factoryId}`,
+          );
+
+          await createLoginLog({
+            request,
+            userId: user.userId,
+            attemptedEmail: email,
+            loginStatus: "FAILED",
+            failureReason: "FACTORY_COMPANY_MISMATCH",
+          });
+
+          return NextResponse.json(
+            {
+              success: false,
+              message: "โครงสร้างบริษัทและโรงงานของบัญชีนี้ไม่ถูกต้อง",
+            },
+            { status: 500 },
+          );
+        }
       }
     }
 
     /*
-     * ตรวจรหัสผ่านที่ Hash ด้วย bcrypt
+     * ============================================================
+     * PASSWORD
+     * ============================================================
      */
+
     const passwordMatches = await bcrypt.compare(
       password,
       user.passwordHash,
@@ -262,31 +384,39 @@ export async function POST(request: Request) {
         },
         data: {
           failedLogin: shouldLock ? 0 : failedLogin,
-
           lockedUntil: shouldLock
             ? new Date(Date.now() + 15 * 60 * 1000)
             : null,
         },
       });
 
+      await createLoginLog({
+        request,
+        userId: user.userId,
+        attemptedEmail: email,
+        loginStatus: "FAILED",
+        failureReason: shouldLock
+          ? "PASSWORD_RETRY_LIMIT_REACHED"
+          : "INVALID_PASSWORD",
+      });
+
       return NextResponse.json(
         {
           success: false,
-
           message: shouldLock
             ? "บัญชีถูกล็อก 15 นาที เนื่องจากกรอกรหัสผ่านผิดหลายครั้ง"
             : "รหัสองค์กร อีเมล หรือรหัสผ่านไม่ถูกต้อง",
         },
-        {
-          status: 401,
-        },
+        { status: 401 },
       );
     }
 
     /*
-     * Login สำเร็จ
-     * รีเซ็ตจำนวนครั้งที่กรอกผิดและบันทึกเวลา Login ล่าสุด
+     * ============================================================
+     * LOGIN SUCCESS
+     * ============================================================
      */
+
     await prisma.user.update({
       where: {
         userId: user.userId,
@@ -304,25 +434,42 @@ export async function POST(request: Request) {
         : user.company?.companyCode ?? null;
 
     /*
-     * สร้าง JWT Session
+     * COMPANY_ADMIN เป็นระดับบริษัท
+     * จึงตั้ง factoryId ใน Session เป็น null
+     *
+     * MANAGER / OPERATOR ใช้ factoryId ที่ถูกกำหนดใน User
      */
+    const sessionFactoryId =
+      roleName === "MANAGER" || roleName === "OPERATOR"
+        ? user.factoryId
+        : null;
+
     const token = await createSessionToken(
       {
         userId: user.userId,
         email: user.email,
         roleName,
+
         companyId: user.companyId,
         companyCode: sessionCompanyCode,
+
+        factoryId: sessionFactoryId,
+
         firstName: user.firstName,
         lastName: user.lastName,
       },
       rememberMe,
     );
 
-    /*
-     * เก็บ Session ใน HttpOnly Cookie
-     */
     await setSessionCookie(token, rememberMe);
+
+    await createLoginLog({
+      request,
+      userId: user.userId,
+      attemptedEmail: email,
+      loginStatus: "SUCCESS",
+      failureReason: null,
+    });
 
     return NextResponse.json({
       success: true,
@@ -336,9 +483,7 @@ export async function POST(request: Request) {
         success: false,
         message: "ระบบเข้าสู่ระบบเกิดข้อผิดพลาด กรุณาลองใหม่",
       },
-      {
-        status: 500,
-      },
+      { status: 500 },
     );
   }
 }

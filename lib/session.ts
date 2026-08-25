@@ -11,6 +11,8 @@ export type SessionPayload = {
   companyId: number | null;
   companyCode: string | null;
 
+  factoryId: number | null;
+
   firstName: string;
   lastName: string;
 };
@@ -83,6 +85,11 @@ export async function getSession(): Promise<SessionPayload | null> {
         payload.companyCode == null
           ? null
           : String(payload.companyCode),
+
+      factoryId:
+        payload.factoryId == null
+          ? null
+          : Number(payload.factoryId),
 
       firstName: String(payload.firstName),
 

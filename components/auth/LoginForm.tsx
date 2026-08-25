@@ -37,46 +37,8 @@ export default function LoginForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    let isMounted = true;
-
     document.title = "เข้าสู่ระบบ | GreenFactory Insight";
-
-    async function resetExistingSession() {
-      try {
-        const response = await fetch("/api/auth/reset-session", {
-          method: "POST",
-          cache: "no-store",
-        });
-
-        if (!response.ok) {
-          throw new Error("Reset session failed");
-        }
-      } catch (resetError) {
-        console.error("Reset session error:", resetError);
-
-        if (isMounted) {
-          setError(
-            "ไม่สามารถเตรียมหน้าเข้าสู่ระบบได้ กรุณารีเฟรชหน้าอีกครั้ง",
-          );
-
-          updateBrowserTitle(
-            "⚠️ ไม่สามารถเตรียมระบบ | GreenFactory Insight",
-            true,
-            3500,
-          );
-        }
-      } finally {
-        if (isMounted) {
-          setIsPreparing(false);
-        }
-      }
-    }
-
-    resetExistingSession();
-
-    return () => {
-      isMounted = false;
-    };
+    setIsPreparing(false);
   }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {

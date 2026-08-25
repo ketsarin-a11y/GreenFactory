@@ -24,20 +24,25 @@ export default function OperatorShell({
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="flex min-h-screen bg-slate-50">
-  <Sidebar
-    isOpen={sidebarOpen}
-    onClose={() => setSidebarOpen(false)}
-  />
+    <div className="flex min-h-screen bg-slate-100/60 antialiased">
+      {/* Sidebar สำหรับ Mobile / Desktop */}
+      <Sidebar
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+      />
 
-  <div className="min-w-0 flex-1">
+      {/* Main Content Wrapper */}
+      <div className="flex min-w-0 flex-1 flex-col">
         <Header
           user={user}
           onMenuClick={() => setSidebarOpen(true)}
         />
 
-        <main className="min-h-screen px-4 py-6 sm:px-6 lg:px-8">
-          {children}
+        {/* Main Content Area */}
+        <main className="flex-1 px-4 py-8 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-7xl">
+            {children}
+          </div>
         </main>
       </div>
     </div>

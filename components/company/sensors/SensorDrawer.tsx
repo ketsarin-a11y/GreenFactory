@@ -1,184 +1,161 @@
 "use client";
 
-import { Check, X } from "lucide-react";
-import { FormEvent, useMemo, useState } from "react";
+import { Check, Sparkles, X } from "lucide-react";
+import { FormEvent, ReactNode, useMemo, useState } from "react";
 
 import {
   protocols,
-  sensorTypes,
+  type MachineOption,
   type SensorItem,
-  type SensorStatus,
+  type SensorTypeOption,
 } from "./sensor-data";
 
-type SensorDrawerProps = {
+type Props = {
   open: boolean;
   sensor: SensorItem | null;
+  machines: MachineOption[];
+  sensorTypes: SensorTypeOption[];
+  busy?: boolean;
   onClose: () => void;
-  onSave: (sensor: SensorItem) => void;
+  onSave: (payload: Record<string, unknown>) => Promise<void>;
 };
 
-const locations = [
-  {
-    building: "อาคารผลิต A",
-    department: "แผนก SMT",
-    productionLine: "SMT Line 1",
-    machines: ["SMT Printer 01", "Reflow Oven 01", "Conveyor 01"],
-  },
-  {
-    building: "อาคารผลิต A",
-    department: "แผนก SMT",
-    productionLine: "SMT Line 2",
-    machines: ["SMT Printer 02", "Reflow Oven 02", "Conveyor 02"],
-  },
-  {
-    building: "อาคารผลิต A",
-    department: "แผนกประกอบ",
-    productionLine: "Assembly Line 1",
-    machines: ["Pneumatic Station 01", "Assembly Cell 01"],
-  },
-  {
-    building: "อาคารผลิต A",
-    department: "แผนกทดสอบ",
-    productionLine: "Testing Line 1",
-    machines: ["Test Bench 01", "Test Bench 02"],
-  },
-  {
-    building: "อาคารผลิต B",
-    department: "แผนกบรรจุภัณฑ์",
-    productionLine: "Packaging Line 1",
-    machines: ["Packaging Room 01", "Sealing Machine 01"],
-  },
-  {
-    building: "อาคารสาธารณูปโภค",
-    department: "ระบบสาธารณูปโภค",
-    productionLine: "ระบบ Chiller",
-    machines: ["Chiller 01", "Chiller Pump 01"],
-  },
-  {
-    building: "อาคารสาธารณูปโภค",
-    department: "ระบบสาธารณูปโภค",
-    productionLine: "ระบบ Air Compressor",
-    machines: ["Air Compressor 01", "Air Dryer 01"],
-  },
-  {
-    building: "อาคารสาธารณูปโภค",
-    department: "ระบบสาธารณูปโภค",
-    productionLine: "ระบบบำบัดน้ำ",
-    machines: ["Water Treatment Pump 01", "Water Tank 01"],
-  },
-];
+function toDateInput(value: string | null | undefined) {
+  if (!value) return "";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  return date.toISOString().slice(0, 10);
+}
 
 export default function SensorDrawer({
   open,
   sensor,
+  machines,
+  sensorTypes,
+  busy = false,
   onClose,
   onSave,
-}: SensorDrawerProps) {
-  const firstLocation = locations[0];
+}: Props) {
+  /*
+   * เพิ่มใหม่:
+   * - ไม่เลือกเครื่องจักรให้อัตโนมัติ
+   * - ไม่เลือก Sensor Type ให้อัตโนมัติ
+   *
+   * แก้ไข:
+   * - ใช้ค่าของ Sensor เดิม
+   */
+  const [machineId, setMachineId] = useState(
+    sensor ? String(sensor.machine.id) : "",
+  );
+
+  const [sensorTypeId, setSensorTypeId] = useState(
+    sensor ? String(sensor.type.id) : "",
+  );
 
   const [code, setCode] = useState(sensor?.code ?? "");
   const [name, setName] = useState(sensor?.name ?? "");
-  const [type, setType] = useState(sensor?.type ?? "Power Meter");
-  const [unit, setUnit] = useState(sensor?.unit ?? "kWh");
+  const [serialNumber, setSerialNumber] = useState(
+    sensor?.serialNumber ?? "",
+  );
+  const [manufacturer, setManufacturer] = useState(
+    sensor?.manufacturer ?? "",
+  );
+
   const [protocol, setProtocol] = useState(
     sensor?.protocol ?? "Modbus TCP",
   );
-  const [building, setBuilding] = useState(
-    sensor?.building ?? firstLocation.building,
-  );
-  const [department, setDepartment] = useState(
-    sensor?.department ?? firstLocation.department,
-  );
-  const [productionLine, setProductionLine] = useState(
-    sensor?.productionLine ?? firstLocation.productionLine,
-  );
-  const [machine, setMachine] = useState(
-    sensor?.machine ?? firstLocation.machines[0],
-  );
-  const [status, setStatus] = useState<SensorStatus>(
-    sensor?.status ?? "ONLINE",
-  );
-  const [description, setDescription] = useState(
-    sensor?.description ?? "",
+
+  const [connectionAddress, setConnectionAddress] = useState(
+    sensor?.connectionAddress ?? "",
   );
 
-  const availableLocations = useMemo(
-    () => locations.filter((item) => item.building === building),
-    [building],
+  const [dataTopic, setDataTopic] = useState(
+    sensor?.dataTopic ?? "",
   );
 
-  const availableDepartments = useMemo(
-    () =>
-      Array.from(
-        new Set(availableLocations.map((item) => item.department)),
-      ),
-    [availableLocations],
+  const [
+    samplingIntervalSeconds,
+    setSamplingIntervalSeconds,
+  ] = useState(
+    sensor?.samplingIntervalSeconds?.toString() ?? "60",
   );
 
-  const availableLines = useMemo(
-    () =>
-      availableLocations.filter(
-        (item) => item.department === department,
-      ),
-    [availableLocations, department],
+  const [installationDate, setInstallationDate] = useState(
+    toDateInput(sensor?.installationDate),
   );
 
-  const selectedLocation =
-    availableLines.find(
-      (item) => item.productionLine === productionLine,
-    ) ?? availableLines[0];
+  const [lastCalibrationDate, setLastCalibrationDate] = useState(
+    toDateInput(sensor?.lastCalibrationDate),
+  );
 
-  if (!open) return null;
+  const [nextCalibrationDate, setNextCalibrationDate] = useState(
+    toDateInput(sensor?.nextCalibrationDate),
+  );
 
-  function handleBuildingChange(value: string) {
-    const next = locations.find((item) => item.building === value);
-    if (!next) return;
+  const [status, setStatus] = useState<"ACTIVE" | "INACTIVE">(
+    sensor?.status === "INACTIVE" ? "INACTIVE" : "ACTIVE",
+  );
 
-    setBuilding(next.building);
-    setDepartment(next.department);
-    setProductionLine(next.productionLine);
-    setMachine(next.machines[0]);
-  }
+  const selectedMachine = useMemo(() => {
+    if (!machineId) {
+      return null;
+    }
 
-  function handleDepartmentChange(value: string) {
-    const next = locations.find(
-      (item) => item.building === building && item.department === value,
+    return (
+      machines.find(
+        (item) => item.id === Number(machineId),
+      ) ?? null
     );
-    if (!next) return;
+  }, [machines, machineId]);
 
-    setDepartment(value);
-    setProductionLine(next.productionLine);
-    setMachine(next.machines[0]);
+  if (!open) {
+    return null;
   }
 
-  function handleLineChange(value: string) {
-    const next = availableLines.find(
-      (item) => item.productionLine === value,
-    );
-    if (!next) return;
-
-    setProductionLine(value);
-    setMachine(next.machines[0]);
-  }
-
-  function submit(event: FormEvent<HTMLFormElement>) {
+  async function submit(
+    event: FormEvent<HTMLFormElement>,
+  ) {
     event.preventDefault();
 
-    onSave({
-      id: sensor?.id ?? `sensor-${Date.now()}`,
-      code: code.trim().toUpperCase(),
-      name: name.trim(),
-      type,
-      unit: unit.trim(),
+    const parsedMachineId = Number(machineId);
+    const parsedSensorTypeId = Number(sensorTypeId);
+
+    if (
+      !parsedMachineId ||
+      !parsedSensorTypeId ||
+      !code.trim() ||
+      !name.trim()
+    ) {
+      return;
+    }
+
+    await onSave({
+      machineId: parsedMachineId,
+      sensorTypeId: parsedSensorTypeId,
+
+      sensorCode: code.trim().toUpperCase(),
+      sensorName: name.trim(),
+
+      serialNumber: serialNumber.trim(),
+      manufacturer: manufacturer.trim(),
+
       protocol,
-      building,
-      department,
-      productionLine,
-      machine,
+
+      connectionAddress: connectionAddress.trim(),
+      dataTopic: dataTopic.trim(),
+
+      samplingIntervalSeconds,
+
+      installationDate,
+      lastCalibrationDate,
+      nextCalibrationDate,
+
       status,
-      lastValue: sensor?.lastValue ?? "-",
-      lastUpdated: sensor?.lastUpdated ?? "ยังไม่เคยเชื่อมต่อ",
-      description: description.trim(),
     });
   }
 
@@ -187,188 +164,317 @@ export default function SensorDrawer({
       <button
         type="button"
         onClick={onClose}
-        className="fixed inset-0 z-[70] bg-[#0d1726]/35 backdrop-blur-[2px]"
+        aria-label="ปิดหน้าต่าง"
+        className="fixed inset-0 z-[70] bg-[#0d1726]/35 backdrop-blur-[3px]"
       />
 
-      <aside className="fixed inset-y-0 right-0 z-[80] w-full max-w-[540px] overflow-y-auto bg-white shadow-[-24px_0_70px_rgba(17,31,51,0.18)]">
-        <div className="flex h-[74px] items-center justify-between border-b border-[#e5e9ee] px-6">
-          <div>
-            <h2 className="text-[16px] font-semibold text-[#263247]">
-              {sensor ? "แก้ไขเซนเซอร์" : "เพิ่มเซนเซอร์"}
-            </h2>
-            <p className="mt-1 text-[8px] text-[#929ca9]">
-              Frontend preview — ยังไม่บันทึกลงฐานข้อมูล
-            </p>
-          </div>
+      <aside className="fixed inset-y-0 right-0 z-[80] w-full max-w-[720px] overflow-y-auto bg-[#f7f9f8] shadow-[-24px_0_70px_rgba(17,31,51,0.18)]">
+        {/* HEADER */}
+        <div className="sticky top-0 z-10 border-b border-[#e5e9ee] bg-white/95 px-7 py-6 backdrop-blur">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-emerald-700">
+                <Sparkles className="h-3.5 w-3.5" />
 
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex h-9 w-9 items-center justify-center rounded-full text-[#718091] hover:bg-[#eef2f5]"
-          >
-            <X className="h-4 w-4" />
-          </button>
+                Sensor Registry
+              </div>
+
+              <h2 className="mt-3 text-[30px] font-bold tracking-[-0.04em] text-[#182334]">
+                {sensor
+                  ? "แก้ไขเซนเซอร์"
+                  : "เพิ่มเซนเซอร์ใหม่"}
+              </h2>
+
+              <p className="mt-2 text-[13px] leading-6 text-[#7f8997]">
+                เลือกเครื่องจักรจริงของบริษัท
+                และเลือกประเภทจาก Master Data ของ Platform
+                Admin
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="ปิด"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#e5e9ee] text-[#718091] transition hover:bg-[#eef2f5]"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
-        <form onSubmit={submit} className="space-y-5 p-6">
-          <div className="grid gap-5 sm:grid-cols-2">
-            <Field label="รหัสเซนเซอร์ *">
-              <input
+        {/* FORM */}
+        <form
+          onSubmit={submit}
+          className="space-y-5 p-7"
+        >
+          {/* LOCATION + SENSOR TYPE */}
+          <Card title="ตำแหน่งและประเภท">
+            <Field label="เครื่องจักร *">
+              <select
                 required
-                value={code}
+                value={machineId}
                 onChange={(event) =>
-                  setCode(event.target.value.toUpperCase())
+                  setMachineId(event.target.value)
                 }
-                placeholder="เช่น SEN-0010"
-                className="h-[48px] w-full rounded-[12px] border border-[#dfe5eb] bg-[#fbfcfd] px-4 text-[11px] text-[#2e3b4f] outline-none focus:border-[#4d9c7a] focus:ring-4 focus:ring-[#4d9c7a]/8 uppercase"
-              />
-            </Field>
-
-            <Field label="สถานะ">
-              <select
-                value={status}
-                onChange={(event) =>
-                  setStatus(event.target.value as SensorStatus)
-                }
-                className="h-[48px] w-full rounded-[12px] border border-[#dfe5eb] bg-[#fbfcfd] px-4 text-[11px] text-[#2e3b4f] outline-none focus:border-[#4d9c7a] focus:ring-4 focus:ring-[#4d9c7a]/8"
+                className="h-[52px] w-full rounded-[13px] border border-[#dfe5eb] bg-[#fbfcfd] px-4 text-[12px] text-[#263247] outline-none transition focus:border-[#4d9c7a]"
               >
-                <option value="ONLINE">เชื่อมต่อ</option>
-                <option value="OFFLINE">ออฟไลน์</option>
-                <option value="MAINTENANCE">บำรุงรักษา</option>
-                <option value="FAULT">ผิดปกติ</option>
-              </select>
-            </Field>
-          </div>
+                <option value="">
+                  เลือกเครื่องจักร
+                </option>
 
-          <Field label="ชื่อเซนเซอร์ *">
-            <input
-              required
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              placeholder="กรอกชื่อเซนเซอร์"
-              className="h-[48px] w-full rounded-[12px] border border-[#dfe5eb] bg-[#fbfcfd] px-4 text-[11px] text-[#2e3b4f] outline-none focus:border-[#4d9c7a] focus:ring-4 focus:ring-[#4d9c7a]/8"
-            />
-          </Field>
-
-          <div className="grid gap-5 sm:grid-cols-3">
-            <Field label="ประเภท *">
-              <select
-                value={type}
-                onChange={(event) => setType(event.target.value)}
-                className="h-[48px] w-full rounded-[12px] border border-[#dfe5eb] bg-[#fbfcfd] px-4 text-[11px] text-[#2e3b4f] outline-none focus:border-[#4d9c7a] focus:ring-4 focus:ring-[#4d9c7a]/8"
-              >
-                {sensorTypes.map((item) => (
-                  <option key={item}>{item}</option>
-                ))}
-              </select>
-            </Field>
-
-            <Field label="หน่วย *">
-              <input
-                required
-                value={unit}
-                onChange={(event) => setUnit(event.target.value)}
-                placeholder="เช่น kWh"
-                className="h-[48px] w-full rounded-[12px] border border-[#dfe5eb] bg-[#fbfcfd] px-4 text-[11px] text-[#2e3b4f] outline-none focus:border-[#4d9c7a] focus:ring-4 focus:ring-[#4d9c7a]/8"
-              />
-            </Field>
-
-            <Field label="Protocol">
-              <select
-                value={protocol}
-                onChange={(event) => setProtocol(event.target.value)}
-                className="h-[48px] w-full rounded-[12px] border border-[#dfe5eb] bg-[#fbfcfd] px-4 text-[11px] text-[#2e3b4f] outline-none focus:border-[#4d9c7a] focus:ring-4 focus:ring-[#4d9c7a]/8"
-              >
-                {protocols.map((item) => (
-                  <option key={item}>{item}</option>
-                ))}
-                <option>BACnet</option>
-              </select>
-            </Field>
-          </div>
-
-          <Field label="อาคาร *">
-            <select
-              value={building}
-              onChange={(event) =>
-                handleBuildingChange(event.target.value)
-              }
-              className="h-[48px] w-full rounded-[12px] border border-[#dfe5eb] bg-[#fbfcfd] px-4 text-[11px] text-[#2e3b4f] outline-none focus:border-[#4d9c7a] focus:ring-4 focus:ring-[#4d9c7a]/8"
-            >
-              {Array.from(new Set(locations.map((item) => item.building))).map(
-                (item) => (
-                  <option key={item}>{item}</option>
-                ),
-              )}
-            </select>
-          </Field>
-
-          <div className="grid gap-5 sm:grid-cols-2">
-            <Field label="แผนก *">
-              <select
-                value={department}
-                onChange={(event) =>
-                  handleDepartmentChange(event.target.value)
-                }
-                className="h-[48px] w-full rounded-[12px] border border-[#dfe5eb] bg-[#fbfcfd] px-4 text-[11px] text-[#2e3b4f] outline-none focus:border-[#4d9c7a] focus:ring-4 focus:ring-[#4d9c7a]/8"
-              >
-                {availableDepartments.map((item) => (
-                  <option key={item}>{item}</option>
-                ))}
-              </select>
-            </Field>
-
-            <Field label="สายการผลิต / ระบบ *">
-              <select
-                value={productionLine}
-                onChange={(event) => handleLineChange(event.target.value)}
-                className="h-[48px] w-full rounded-[12px] border border-[#dfe5eb] bg-[#fbfcfd] px-4 text-[11px] text-[#2e3b4f] outline-none focus:border-[#4d9c7a] focus:ring-4 focus:ring-[#4d9c7a]/8"
-              >
-                {availableLines.map((item) => (
-                  <option key={item.productionLine}>
-                    {item.productionLine}
+                {machines.map((item) => (
+                  <option
+                    key={item.id}
+                    value={item.id}
+                  >
+                    {item.name} ({item.code})
                   </option>
                 ))}
               </select>
             </Field>
-          </div>
 
-          <Field label="เครื่องจักร / จุดตรวจ *">
-            <select
-              value={machine}
-              onChange={(event) => setMachine(event.target.value)}
-              className="h-[48px] w-full rounded-[12px] border border-[#dfe5eb] bg-[#fbfcfd] px-4 text-[11px] text-[#2e3b4f] outline-none focus:border-[#4d9c7a] focus:ring-4 focus:ring-[#4d9c7a]/8"
-            >
-              {(selectedLocation?.machines ?? []).map((item) => (
-                <option key={item}>{item}</option>
-              ))}
-            </select>
-          </Field>
+            {selectedMachine && (
+              <div className="mt-3 rounded-[13px] border border-emerald-100 bg-emerald-50/70 px-4 py-3 text-[10px] leading-5 text-emerald-800">
+                {selectedMachine.factory.name}
+                {" → "}
+                {selectedMachine.building.name}
+                {" → "}
+                {selectedMachine.department.name}
+                {" → "}
+                {selectedMachine.productionLine.name}
+              </div>
+            )}
 
-          <Field label="หมายเหตุ">
-            <textarea
-              rows={4}
-              value={description}
-              onChange={(event) => setDescription(event.target.value)}
-              className="h-[48px] w-full rounded-[12px] border border-[#dfe5eb] bg-[#fbfcfd] px-4 text-[11px] text-[#2e3b4f] outline-none focus:border-[#4d9c7a] focus:ring-4 focus:ring-[#4d9c7a]/8 min-h-[110px] resize-none py-3"
-            />
-          </Field>
+            <div className="mt-4">
+              <Field label="ประเภทเซนเซอร์จาก Master Data *">
+                <select
+                  required
+                  value={sensorTypeId}
+                  onChange={(event) =>
+                    setSensorTypeId(
+                      event.target.value,
+                    )
+                  }
+                  className="h-[52px] w-full rounded-[13px] border border-[#dfe5eb] bg-[#fbfcfd] px-4 text-[12px] text-[#263247] outline-none transition focus:border-[#4d9c7a]"
+                >
+                  <option value="">
+                    เลือกประเภทเซนเซอร์
+                  </option>
 
-          <div className="flex justify-end gap-3 border-t border-[#e6eaf0] pt-5">
+                  {sensorTypes.map((item) => (
+                    <option
+                      key={item.id}
+                      value={item.id}
+                    >
+                      {item.name} ({item.code})
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            </div>
+          </Card>
+
+          {/* SENSOR INFORMATION */}
+          <Card title="ข้อมูลเซนเซอร์">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="รหัสเซนเซอร์ *">
+                <input
+                  required
+                  value={code}
+                  onChange={(event) =>
+                    setCode(
+                      event.target.value.toUpperCase(),
+                    )
+                  }
+                  placeholder="SEN-0001"
+                  className="h-[52px] w-full rounded-[13px] border border-[#dfe5eb] bg-[#fbfcfd] px-4 text-[12px] text-[#263247] outline-none transition placeholder:text-[#a5aeba] focus:border-[#4d9c7a]"
+                />
+              </Field>
+
+              <Field label="ชื่อเซนเซอร์ *">
+                <input
+                  required
+                  value={name}
+                  onChange={(event) =>
+                    setName(event.target.value)
+                  }
+                  placeholder="Power Meter SMT-01"
+                  className="h-[52px] w-full rounded-[13px] border border-[#dfe5eb] bg-[#fbfcfd] px-4 text-[12px] text-[#263247] outline-none transition placeholder:text-[#a5aeba] focus:border-[#4d9c7a]"
+                />
+              </Field>
+
+              <Field label="Serial Number">
+                <input
+                  value={serialNumber}
+                  onChange={(event) =>
+                    setSerialNumber(
+                      event.target.value,
+                    )
+                  }
+                  placeholder="Serial Number"
+                  className="h-[52px] w-full rounded-[13px] border border-[#dfe5eb] bg-[#fbfcfd] px-4 text-[12px] text-[#263247] outline-none transition placeholder:text-[#a5aeba] focus:border-[#4d9c7a]"
+                />
+              </Field>
+
+              <Field label="ผู้ผลิต">
+                <input
+                  value={manufacturer}
+                  onChange={(event) =>
+                    setManufacturer(
+                      event.target.value,
+                    )
+                  }
+                  placeholder="ชื่อผู้ผลิต"
+                  className="h-[52px] w-full rounded-[13px] border border-[#dfe5eb] bg-[#fbfcfd] px-4 text-[12px] text-[#263247] outline-none transition placeholder:text-[#a5aeba] focus:border-[#4d9c7a]"
+                />
+              </Field>
+            </div>
+          </Card>
+
+          {/* CONNECTION */}
+          <Card title="การเชื่อมต่อ">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Protocol">
+                <select
+                  value={protocol}
+                  onChange={(event) =>
+                    setProtocol(event.target.value)
+                  }
+                  className="h-[52px] w-full rounded-[13px] border border-[#dfe5eb] bg-[#fbfcfd] px-4 text-[12px] text-[#263247] outline-none transition focus:border-[#4d9c7a]"
+                >
+                  {protocols.map((item) => (
+                    <option
+                      key={item}
+                      value={item}
+                    >
+                      {item}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+
+              <Field label="Sampling Interval (วินาที)">
+                <input
+                  type="number"
+                  min="1"
+                  value={
+                    samplingIntervalSeconds
+                  }
+                  onChange={(event) =>
+                    setSamplingIntervalSeconds(
+                      event.target.value,
+                    )
+                  }
+                  placeholder="60"
+                  className="h-[52px] w-full rounded-[13px] border border-[#dfe5eb] bg-[#fbfcfd] px-4 text-[12px] text-[#263247] outline-none transition placeholder:text-[#a5aeba] focus:border-[#4d9c7a]"
+                />
+              </Field>
+
+              <Field label="Connection Address">
+                <input
+                  value={connectionAddress}
+                  onChange={(event) =>
+                    setConnectionAddress(
+                      event.target.value,
+                    )
+                  }
+                  placeholder="192.168.1.100:502"
+                  className="h-[52px] w-full rounded-[13px] border border-[#dfe5eb] bg-[#fbfcfd] px-4 text-[12px] text-[#263247] outline-none transition placeholder:text-[#a5aeba] focus:border-[#4d9c7a]"
+                />
+              </Field>
+
+              <Field label="Data Topic">
+                <input
+                  value={dataTopic}
+                  onChange={(event) =>
+                    setDataTopic(event.target.value)
+                  }
+                  placeholder="factory/smt/machine01/power"
+                  className="h-[52px] w-full rounded-[13px] border border-[#dfe5eb] bg-[#fbfcfd] px-4 text-[12px] text-[#263247] outline-none transition placeholder:text-[#a5aeba] focus:border-[#4d9c7a]"
+                />
+              </Field>
+            </div>
+          </Card>
+
+          {/* INSTALLATION */}
+          <Card title="การติดตั้งและสอบเทียบ">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <DateField
+                label="วันที่ติดตั้ง"
+                value={installationDate}
+                onChange={setInstallationDate}
+              />
+
+              <DateField
+                label="สอบเทียบล่าสุด"
+                value={lastCalibrationDate}
+                onChange={
+                  setLastCalibrationDate
+                }
+              />
+
+              <DateField
+                label="สอบเทียบครั้งถัดไป"
+                value={nextCalibrationDate}
+                onChange={
+                  setNextCalibrationDate
+                }
+              />
+
+              <Field label="สถานะ Registry">
+                <select
+                  value={status}
+                  onChange={(event) =>
+                    setStatus(
+                      event.target.value as
+                        | "ACTIVE"
+                        | "INACTIVE",
+                    )
+                  }
+                  className="h-[52px] w-full rounded-[13px] border border-[#dfe5eb] bg-[#fbfcfd] px-4 text-[12px] text-[#263247] outline-none transition focus:border-[#4d9c7a]"
+                >
+                  <option value="ACTIVE">
+                    เปิดใช้งาน
+                  </option>
+
+                  <option value="INACTIVE">
+                    ปิดใช้งาน
+                  </option>
+                </select>
+              </Field>
+            </div>
+          </Card>
+
+          {/* ACTIONS */}
+          <div className="sticky bottom-0 -mx-7 flex justify-end gap-3 border-t border-[#e6eaf0] bg-white/95 px-7 py-5 backdrop-blur">
             <button
               type="button"
               onClick={onClose}
-              className="min-h-[44px] rounded-[11px] border border-[#dfe5eb] px-5 text-[10px] text-[#667283]"
+              disabled={busy}
+              className="min-h-[46px] rounded-[11px] border border-[#dfe5eb] bg-white px-5 text-[11px] font-medium text-[#667283] transition hover:bg-[#f7f9fa] disabled:cursor-not-allowed disabled:opacity-50"
             >
               ยกเลิก
             </button>
 
             <button
               type="submit"
-              className="inline-flex min-h-[44px] items-center gap-2 rounded-[11px] bg-[#1f8f62] px-5 text-[10px] font-semibold text-white"
+              disabled={
+                busy ||
+                !machineId ||
+                !sensorTypeId ||
+                !code.trim() ||
+                !name.trim()
+              }
+              className="inline-flex min-h-[46px] items-center gap-2 rounded-[11px] bg-[#1f8f62] px-6 text-[11px] font-semibold text-white transition hover:bg-[#197a54] disabled:cursor-not-allowed disabled:opacity-40"
             >
               <Check className="h-4 w-4" />
-              บันทึก
+
+              {busy
+                ? "กำลังบันทึก..."
+                : sensor
+                  ? "บันทึกการแก้ไข"
+                  : "เพิ่มเซนเซอร์"}
             </button>
           </div>
         </form>
@@ -377,17 +483,65 @@ export default function SensorDrawer({
   );
 }
 
+function Card({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="rounded-[18px] border border-[#e2e7eb] bg-white p-5 shadow-sm">
+      <h3 className="text-[15px] font-semibold text-[#263247]">
+        {title}
+      </h3>
+
+      <div className="mt-4">
+        {children}
+      </div>
+    </section>
+  );
+}
+
 function Field({
   label,
   children,
 }: {
   label: string;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <label className="block">
-      <span className="text-[10px] font-medium text-[#465365]">{label}</span>
-      <div className="mt-2">{children}</div>
+      <span className="text-[11px] font-medium text-[#465365]">
+        {label}
+      </span>
+
+      <div className="mt-2">
+        {children}
+      </div>
     </label>
+  );
+}
+
+function DateField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <Field label={label}>
+      <input
+        type="date"
+        value={value}
+        onChange={(event) =>
+          onChange(event.target.value)
+        }
+        className="h-[52px] w-full rounded-[13px] border border-[#dfe5eb] bg-[#fbfcfd] px-4 text-[12px] text-[#263247] outline-none transition focus:border-[#4d9c7a]"
+      />
+    </Field>
   );
 }

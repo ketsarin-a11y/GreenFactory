@@ -15,6 +15,7 @@ import {
   Filter,
   HardDrive,
   History,
+  LoaderCircle,
   RefreshCw,
   RotateCcw,
   Search,
@@ -23,23 +24,35 @@ import {
   UploadCloud,
   X,
 } from "lucide-react";
-import { useMemo, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 
 type BackupStatus = "COMPLETED" | "RUNNING" | "FAILED";
 type BackupType = "AUTOMATIC" | "MANUAL";
-type StorageType = "CLOUD" | "LOCAL";
+type StorageType = "LOCAL" | "CLOUD";
 
 type BackupRecord = {
   id: string;
+  databaseId: number;
   createdAt: string;
   createdDate: string;
   type: BackupType;
+  scope: string;
   size: string;
   duration: string;
   status: BackupStatus;
   storage: StorageType;
   createdBy: string;
   verified: boolean;
+  canDownload: boolean;
+  canRestore: boolean;
+  errorMessage: string | null;
+  restoredAt: string | null;
 };
 
 type RecoveryPoint = {
@@ -47,122 +60,123 @@ type RecoveryPoint = {
   label: string;
   createdAt: string;
   size: string;
-  status: "READY" | "VERIFYING";
+  status: "READY";
   databases: number;
   files: number;
 };
 
-const BACKUP_SEED: BackupRecord[] = [
-  {
-    id: "BKP-20260724-0200",
-    createdAt: "24 ก.ค. 2569 02:00 น.",
-    createdDate: "2026-07-24",
-    type: "AUTOMATIC",
-    size: "3.82 GB",
-    duration: "4 นาที 18 วินาที",
-    status: "COMPLETED",
-    storage: "CLOUD",
-    createdBy: "System Scheduler",
-    verified: true,
-  },
-  {
-    id: "BKP-20260723-1830",
-    createdAt: "23 ก.ค. 2569 18:30 น.",
-    createdDate: "2026-07-23",
-    type: "MANUAL",
-    size: "3.79 GB",
-    duration: "4 นาที 06 วินาที",
-    status: "COMPLETED",
-    storage: "CLOUD",
-    createdBy: "Platform Admin",
-    verified: true,
-  },
-  {
-    id: "BKP-20260723-0200",
-    createdAt: "23 ก.ค. 2569 02:00 น.",
-    createdDate: "2026-07-23",
-    type: "AUTOMATIC",
-    size: "3.75 GB",
-    duration: "4 นาที 11 วินาที",
-    status: "COMPLETED",
-    storage: "LOCAL",
-    createdBy: "System Scheduler",
-    verified: true,
-  },
-  {
-    id: "BKP-20260722-0200",
-    createdAt: "22 ก.ค. 2569 02:00 น.",
-    createdDate: "2026-07-22",
-    type: "AUTOMATIC",
-    size: "—",
-    duration: "1 นาที 22 วินาที",
-    status: "FAILED",
-    storage: "CLOUD",
-    createdBy: "System Scheduler",
-    verified: false,
-  },
-  {
-    id: "BKP-20260721-0200",
-    createdAt: "21 ก.ค. 2569 02:00 น.",
-    createdDate: "2026-07-21",
-    type: "AUTOMATIC",
-    size: "3.67 GB",
-    duration: "3 นาที 58 วินาที",
-    status: "COMPLETED",
-    storage: "CLOUD",
-    createdBy: "System Scheduler",
-    verified: true,
-  },
-];
+type BackupSummary = {
+  total: number;
+  completed: number;
+  failed: number;
+  running: number;
+  successRate: number;
+  storageUsed: string;
+  recoveryPointCount: number;
+  latestCompletedAt: string | null;
+};
 
-const RECOVERY_POINTS: RecoveryPoint[] = [
-  {
-    id: "RP-20260724-0200",
-    label: "Latest verified recovery point",
-    createdAt: "24 ก.ค. 2569 02:00 น.",
-    size: "3.82 GB",
-    status: "READY",
-    databases: 1,
-    files: 1247,
-  },
-  {
-    id: "RP-20260723-1830",
-    label: "Manual recovery point",
-    createdAt: "23 ก.ค. 2569 18:30 น.",
-    size: "3.79 GB",
-    status: "READY",
-    databases: 1,
-    files: 1238,
-  },
-  {
-    id: "RP-20260723-0200",
-    label: "Daily recovery point",
-    createdAt: "23 ก.ค. 2569 02:00 น.",
-    size: "3.75 GB",
-    status: "VERIFYING",
-    databases: 1,
-    files: 1224,
-  },
-];
+type BackupApiResponse = {
+  success: boolean;
+  message?: string;
+  data?: BackupRecord[];
+  recoveryPoints?: RecoveryPoint[];
+  summary?: BackupSummary;
+};
+
+const EMPTY_SUMMARY: BackupSummary = {
+  total: 0,
+  completed: 0,
+  failed: 0,
+  running: 0,
+  successRate: 0,
+  storageUsed: "0 B",
+  recoveryPointCount: 0,
+  latestCompletedAt: null,
+};
 
 export default function BackupRecoveryPageClient() {
-  const [records, setRecords] = useState(BACKUP_SEED);
+  const [records, setRecords] = useState<BackupRecord[]>([]);
+  const [recoveryPoints, setRecoveryPoints] = useState<RecoveryPoint[]>([]);
+  const [summary, setSummary] = useState<BackupSummary>(EMPTY_SUMMARY);
+
   const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"ALL" | BackupStatus>("ALL");
-  const [typeFilter, setTypeFilter] = useState<"ALL" | BackupType>("ALL");
+  const [statusFilter, setStatusFilter] =
+    useState<"ALL" | BackupStatus>("ALL");
+  const [typeFilter, setTypeFilter] =
+    useState<"ALL" | BackupType>("ALL");
   const [page, setPage] = useState(1);
+
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
-  const [selectedRecovery, setSelectedRecovery] = useState<RecoveryPoint | null>(null);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  const [selectedRecovery, setSelectedRecovery] =
+    useState<RecoveryPoint | null>(null);
   const [showBackupModal, setShowBackupModal] = useState(false);
   const [showPolicyModal, setShowPolicyModal] = useState(false);
-  const [backupScope, setBackupScope] = useState("FULL");
-  const [backupStorage, setBackupStorage] = useState<StorageType>("CLOUD");
-  const [retentionDays, setRetentionDays] = useState(30);
-  const [backupTime, setBackupTime] = useState("02:00");
+
+  const [backupScope, setBackupScope] = useState<"FULL" | "DATABASE">(
+    "FULL",
+  );
+  const [backupStorage, setBackupStorage] =
+    useState<StorageType>("LOCAL");
   const [autoVerify, setAutoVerify] = useState(true);
 
+  const [retentionDays, setRetentionDays] = useState(30);
+  const [backupTime, setBackupTime] = useState("02:00");
+
+  const [restoreReason, setRestoreReason] = useState("");
+  const [restoreConfirmation, setRestoreConfirmation] =
+    useState("");
+
   const pageSize = 4;
+
+  const notify = useCallback((message: string) => {
+    setToast(message);
+    window.setTimeout(() => setToast(null), 2600);
+  }, []);
+
+  const loadData = useCallback(async (silent = false) => {
+    try {
+      if (!silent) {
+        setLoading(true);
+      }
+
+      setError("");
+
+      const response = await fetch("/api/platform/backups", {
+        method: "GET",
+        cache: "no-store",
+        credentials: "include",
+      });
+
+      const result = (await response.json()) as BackupApiResponse;
+
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.message ?? "ไม่สามารถโหลดข้อมูล Backup ได้",
+        );
+      }
+
+      setRecords(result.data ?? []);
+      setRecoveryPoints(result.recoveryPoints ?? []);
+      setSummary(result.summary ?? EMPTY_SUMMARY);
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "ไม่สามารถโหลดข้อมูล Backup ได้",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadData();
+  }, [loadData]);
 
   const filteredRecords = useMemo(() => {
     const keyword = query.trim().toLowerCase();
@@ -174,108 +188,158 @@ export default function BackupRecoveryPageClient() {
         record.createdBy.toLowerCase().includes(keyword);
 
       const matchesStatus =
-        statusFilter === "ALL" || record.status === statusFilter;
+        statusFilter === "ALL" ||
+        record.status === statusFilter;
 
-      const matchesType = typeFilter === "ALL" || record.type === typeFilter;
+      const matchesType =
+        typeFilter === "ALL" ||
+        record.type === typeFilter;
 
       return matchesKeyword && matchesStatus && matchesType;
     });
-  }, [records, query, statusFilter, typeFilter]);
+  }, [query, records, statusFilter, typeFilter]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredRecords.length / pageSize));
-
-  const paginatedRecords = filteredRecords.slice(
-    (page - 1) * pageSize,
-    page * pageSize,
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredRecords.length / pageSize),
   );
 
-  const completedCount = records.filter(
-    (record) => record.status === "COMPLETED",
-  ).length;
+  const safePage = Math.min(page, totalPages);
 
-  const failedCount = records.filter(
-    (record) => record.status === "FAILED",
-  ).length;
+  const paginatedRecords = filteredRecords.slice(
+    (safePage - 1) * pageSize,
+    safePage * pageSize,
+  );
 
-  function notify(message: string) {
-    setToast(message);
-    window.setTimeout(() => setToast(null), 2600);
-  }
+  useEffect(() => {
+    if (page !== safePage) {
+      setPage(safePage);
+    }
+  }, [page, safePage]);
 
-  function runAction(
-    id: string,
-    message: string,
-    callback?: () => void,
-  ) {
-    setBusyAction(id);
-
-    window.setTimeout(() => {
-      callback?.();
-      setBusyAction(null);
-      notify(message);
-    }, 750);
-  }
-
-  function startBackup() {
-    const newRecord: BackupRecord = {
-      id: `BKP-${Date.now()}`,
-      createdAt: "กำลังสำรองข้อมูล...",
-      createdDate: "2026-07-24",
-      type: "MANUAL",
-      size: "กำลังคำนวณ",
-      duration: "กำลังทำงาน",
-      status: "RUNNING",
-      storage: backupStorage,
-      createdBy: "Platform Admin",
-      verified: false,
-    };
+  async function startBackup() {
+    if (busyAction) return;
 
     setShowBackupModal(false);
-    setRecords((current) => [newRecord, ...current]);
-    setBusyAction(newRecord.id);
+    setBusyAction("create-backup");
+    setError("");
 
-    window.setTimeout(() => {
-      setRecords((current) =>
-        current.map((record) =>
-          record.id === newRecord.id
-            ? {
-                ...record,
-                createdAt: "24 ก.ค. 2569 13:30 น.",
-                size: backupScope === "FULL" ? "3.84 GB" : "1.26 GB",
-                duration: "4 นาที 02 วินาที",
-                status: "COMPLETED",
-                verified: autoVerify,
-              }
-            : record,
-        ),
-      );
+    try {
+      const response = await fetch("/api/platform/backups", {
+        method: "POST",
+        cache: "no-store",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          scope: backupScope,
+          storage: backupStorage,
+          autoVerify,
+        }),
+      });
 
+      const result = (await response.json()) as BackupApiResponse;
+
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.message ?? "ไม่สามารถสำรองข้อมูลได้",
+        );
+      }
+
+      notify(result.message ?? "สำรองข้อมูลเสร็จสมบูรณ์แล้ว");
+      await loadData(true);
+    } catch (caught) {
+      const message =
+        caught instanceof Error
+          ? caught.message
+          : "ไม่สามารถสำรองข้อมูลได้";
+
+      setError(message);
+      notify(message);
+    } finally {
       setBusyAction(null);
-      notify("สำรองข้อมูลเสร็จสมบูรณ์แล้ว");
-    }, 1800);
+    }
   }
 
-  function retryBackup(record: BackupRecord) {
-    runAction(`retry-${record.id}`, "เริ่มสำรองข้อมูลใหม่แล้ว", () => {
-      setRecords((current) =>
-        current.map((item) =>
-          item.id === record.id
-            ? {
-                ...item,
-                status: "COMPLETED",
-                size: "3.71 GB",
-                duration: "4 นาที 09 วินาที",
-                verified: true,
-              }
-            : item,
-        ),
+  async function retryBackup(record: BackupRecord) {
+    setBackupScope(
+      record.scope === "DATABASE" ? "DATABASE" : "FULL",
+    );
+    setBackupStorage("LOCAL");
+    setShowBackupModal(true);
+  }
+
+  function downloadBackup(record: BackupRecord) {
+    if (!record.canDownload) {
+      notify("Backup นี้ยังไม่พร้อมให้ดาวน์โหลด");
+      return;
+    }
+
+    window.location.href = `/api/platform/backups/${encodeURIComponent(
+      record.id,
+    )}/download`;
+  }
+
+  async function restoreRecoveryPoint(point: RecoveryPoint) {
+    if (busyAction) return;
+
+    setBusyAction(`restore-${point.id}`);
+    setError("");
+
+    try {
+      const response = await fetch(
+        `/api/platform/backups/${encodeURIComponent(
+          point.id,
+        )}/restore`,
+        {
+          method: "POST",
+          cache: "no-store",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            confirmation: restoreConfirmation,
+            reason: restoreReason,
+          }),
+        },
       );
-    });
+
+      const result = (await response.json()) as {
+        success: boolean;
+        message?: string;
+      };
+
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.message ?? "ไม่สามารถกู้คืนระบบได้",
+        );
+      }
+
+      setSelectedRecovery(null);
+      setRestoreReason("");
+      setRestoreConfirmation("");
+
+      notify(result.message ?? "กู้คืนระบบเรียบร้อยแล้ว");
+
+      await loadData(true);
+    } catch (caught) {
+      const message =
+        caught instanceof Error
+          ? caught.message
+          : "ไม่สามารถกู้คืนระบบได้";
+
+      setError(message);
+      notify(message);
+    } finally {
+      setBusyAction(null);
+    }
   }
 
   function exportCsv() {
     const header =
-      "Backup ID,Created At,Type,Size,Duration,Status,Storage,Created By\n";
+      "Backup ID,Created At,Type,Scope,Size,Duration,Status,Storage,Created By,Verified\n";
 
     const rows = filteredRecords
       .map((record) =>
@@ -283,36 +347,49 @@ export default function BackupRecoveryPageClient() {
           record.id,
           record.createdAt,
           record.type,
+          record.scope,
           record.size,
           record.duration,
           record.status,
           record.storage,
           record.createdBy,
+          record.verified ? "YES" : "NO",
         ]
-          .map((value) => `"${String(value).replaceAll('"', '""')}"`)
+          .map((value) =>
+            `"${String(value).replaceAll('"', '""')}"`,
+          )
           .join(","),
       )
       .join("\n");
 
-    const blob = new Blob([header + rows], {
+    const blob = new Blob(["\uFEFF", header + rows], {
       type: "text/csv;charset=utf-8;",
     });
 
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
+
     link.href = url;
     link.download = "backup-history.csv";
-    link.click();
-    URL.revokeObjectURL(url);
 
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    URL.revokeObjectURL(url);
     notify("ส่งออกประวัติการสำรองข้อมูลแล้ว");
   }
 
-  function restoreRecoveryPoint(point: RecoveryPoint) {
-    setSelectedRecovery(null);
-    runAction(
-      `restore-${point.id}`,
-      "เริ่มกระบวนการกู้คืนข้อมูลแล้ว",
+  if (loading) {
+    return (
+      <div className="grid min-h-[520px] place-items-center">
+        <div className="text-center">
+          <LoaderCircle className="mx-auto h-7 w-7 animate-spin text-emerald-700" />
+          <p className="mt-3 text-sm font-semibold text-slate-600">
+            กำลังโหลดข้อมูล Backup
+          </p>
+        </div>
+      </div>
     );
   }
 
@@ -325,7 +402,9 @@ export default function BackupRecoveryPageClient() {
               <ShieldCheck className="h-4 w-4" />
               Platform Administration
               <ChevronRight className="h-3.5 w-3.5 text-slate-400" />
-              <span className="text-slate-500">Backup & Recovery</span>
+              <span className="text-slate-500">
+                Backup & Recovery
+              </span>
             </div>
 
             <h1 className="text-2xl font-bold tracking-tight text-slate-950 sm:text-[30px]">
@@ -333,8 +412,8 @@ export default function BackupRecoveryPageClient() {
             </h1>
 
             <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-500">
-              จัดการข้อมูลสำรอง ตรวจสอบ Recovery Point
-              และกู้คืนระบบของทุกบริษัทจากศูนย์กลาง
+              สำรองฐานข้อมูลจริง ดาวน์โหลดไฟล์ SQL และกู้คืนระบบจาก
+              Recovery Point ที่ตรวจสอบแล้ว
             </p>
           </div>
 
@@ -351,45 +430,55 @@ export default function BackupRecoveryPageClient() {
             <button
               type="button"
               onClick={() => setShowBackupModal(true)}
-              className="inline-flex h-10 items-center gap-2 rounded-xl bg-emerald-800 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-900"
+              disabled={busyAction === "create-backup"}
+              className="inline-flex h-10 items-center gap-2 rounded-xl bg-emerald-800 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-900 disabled:opacity-50"
             >
-              <UploadCloud className="h-4 w-4" />
+              {busyAction === "create-backup" ? (
+                <LoaderCircle className="h-4 w-4 animate-spin" />
+              ) : (
+                <UploadCloud className="h-4 w-4" />
+              )}
               สำรองข้อมูลตอนนี้
             </button>
           </div>
         </header>
 
+        {error && (
+          <div className="mb-5 flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
+
         <section className="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <MetricCard
             label="สำรองล่าสุด"
-            value="วันนี้ 02:00 น."
-            description="ตรวจสอบความสมบูรณ์แล้ว"
+            value={summary.latestCompletedAt ?? "ยังไม่มีข้อมูล"}
+            description="อ่านจาก backup_record จริง"
             icon={<CheckCircle2 className="h-5 w-5" />}
             iconClassName="bg-emerald-50 text-emerald-600"
           />
 
           <MetricCard
             label="Recovery Point"
-            value={String(RECOVERY_POINTS.length)}
-            description="พร้อมใช้งาน 2 จุด"
+            value={String(summary.recoveryPointCount)}
+            description="Backup ที่ผ่านการ Verify"
             icon={<RotateCcw className="h-5 w-5" />}
             iconClassName="bg-blue-50 text-blue-600"
           />
 
           <MetricCard
             label="พื้นที่จัดเก็บ"
-            value="68.4 GB"
-            description="ใช้ไป 42% จากโควตา"
+            value={summary.storageUsed}
+            description="รวมขนาดไฟล์ Backup ที่สำเร็จ"
             icon={<HardDrive className="h-5 w-5" />}
             iconClassName="bg-violet-50 text-violet-600"
           />
 
           <MetricCard
             label="ความสำเร็จ"
-            value={`${Math.round(
-              (completedCount / Math.max(records.length, 1)) * 100,
-            )}%`}
-            description={`${failedCount} รายการล้มเหลว`}
+            value={`${summary.successRate}%`}
+            description={`${summary.failed} รายการล้มเหลว`}
             icon={<Archive className="h-5 w-5" />}
             iconClassName="bg-amber-50 text-amber-600"
           />
@@ -398,48 +487,36 @@ export default function BackupRecoveryPageClient() {
         <section className="mb-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
           <Panel
             title="สถานะระบบสำรองข้อมูล"
-            description="ภาพรวมการทำงานของ Backup Infrastructure"
+            description="ตรวจสอบบริการที่ใช้สร้าง Backup บนเครื่องนี้"
             icon={<Cloud className="h-5 w-5" />}
             action={
               <button
                 type="button"
-                onClick={() =>
-                  runAction(
-                    "health-check",
-                    "ตรวจสอบระบบสำรองข้อมูลเรียบร้อยแล้ว",
-                  )
-                }
-                disabled={busyAction === "health-check"}
-                className="inline-flex h-9 items-center gap-2 rounded-xl border border-slate-200 px-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
+                onClick={() => void loadData(true)}
+                className="inline-flex h-9 items-center gap-2 rounded-xl border border-slate-200 px-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
               >
-                <RefreshCw
-                  className={`h-4 w-4 ${
-                    busyAction === "health-check" ? "animate-spin" : ""
-                  }`}
-                />
-                ตรวจสอบใหม่
+                <RefreshCw className="h-4 w-4" />
+                รีเฟรช
               </button>
             }
           >
             <div className="grid gap-4 md:grid-cols-3">
               <HealthCard
                 title="Backup Service"
-                value="Healthy"
-                detail="พร้อมทำงาน"
+                value="Ready"
+                detail="mysqldump พร้อมใช้งาน"
                 tone="success"
               />
-
+              <HealthCard
+                title="Local Storage"
+                value="Connected"
+                detail="storage/backups"
+                tone="success"
+              />
               <HealthCard
                 title="Cloud Storage"
-                value="Connected"
-                detail="Latency 84 ms"
-                tone="success"
-              />
-
-              <HealthCard
-                title="Verification Queue"
-                value="1 Pending"
-                detail="กำลังตรวจสอบ"
+                value="Not configured"
+                detail="ยังไม่ได้เชื่อม Cloud"
                 tone="warning"
               />
             </div>
@@ -454,20 +531,26 @@ export default function BackupRecoveryPageClient() {
               Recovery readiness
             </p>
 
-            <h2 className="mt-1 text-2xl font-bold">พร้อมกู้คืนระบบ</h2>
+            <h2 className="mt-1 text-2xl font-bold">
+              {summary.recoveryPointCount > 0
+                ? "พร้อมกู้คืนระบบ"
+                : "ยังไม่มี Recovery Point"}
+            </h2>
 
             <p className="mt-2 text-sm leading-6 text-emerald-100">
-              Recovery Point ล่าสุดผ่านการตรวจสอบแล้ว
-              และพร้อมใช้งานเมื่อเกิดเหตุฉุกเฉิน
+              {summary.recoveryPointCount > 0
+                ? "มีข้อมูลสำรองที่ผ่านการตรวจสอบและพร้อมใช้กู้คืน"
+                : "สร้าง Backup พร้อมเปิดการตรวจสอบความสมบูรณ์ก่อน"}
             </p>
 
             <div className="mt-5 h-2 overflow-hidden rounded-full bg-white/15">
-              <div className="h-full w-[92%] rounded-full bg-white" />
-            </div>
-
-            <div className="mt-2 flex justify-between text-xs text-emerald-100">
-              <span>Recovery score</span>
-              <span>92%</span>
+              <div
+                className="h-full rounded-full bg-white"
+                style={{
+                  width:
+                    summary.recoveryPointCount > 0 ? "100%" : "0%",
+                }}
+              />
             </div>
           </div>
         </section>
@@ -475,59 +558,68 @@ export default function BackupRecoveryPageClient() {
         <section className="mb-5">
           <Panel
             title="Recovery Points"
-            description="เลือกจุดกู้คืนที่ตรวจสอบแล้วเพื่อเริ่มกระบวนการ Restore"
+            description="เลือก Backup ที่ผ่านการตรวจสอบเพื่อกู้คืนฐานข้อมูล"
             icon={<History className="h-5 w-5" />}
           >
-            <div className="grid gap-4 lg:grid-cols-3">
-              {RECOVERY_POINTS.map((point) => (
-                <div
-                  key={point.id}
-                  className="rounded-2xl border border-slate-200 p-4 transition hover:border-emerald-300 hover:shadow-sm"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-                      <Database className="h-5 w-5" />
-                    </span>
-
-                    <RecoveryBadge status={point.status} />
-                  </div>
-
-                  <p className="mt-4 text-sm font-bold text-slate-900">
-                    {point.label}
-                  </p>
-
-                  <p className="mt-1 text-xs font-semibold text-slate-400">
-                    {point.id}
-                  </p>
-
-                  <div className="mt-4 space-y-2 text-sm text-slate-500">
-                    <InfoLine label="สร้างเมื่อ" value={point.createdAt} />
-                    <InfoLine label="ขนาด" value={point.size} />
-                    <InfoLine
-                      label="องค์ประกอบ"
-                      value={`${point.databases} DB · ${point.files} files`}
-                    />
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setSelectedRecovery(point)}
-                    disabled={point.status !== "READY"}
-                    className="mt-5 inline-flex h-9 w-full items-center justify-center gap-2 rounded-xl bg-slate-100 text-sm font-bold text-slate-700 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
+            {recoveryPoints.length > 0 ? (
+              <div className="grid gap-4 lg:grid-cols-3">
+                {recoveryPoints.map((point) => (
+                  <div
+                    key={point.id}
+                    className="rounded-2xl border border-slate-200 p-4 transition hover:border-emerald-300 hover:shadow-sm"
                   >
-                    <RotateCcw className="h-4 w-4" />
-                    เริ่มกู้คืนจากจุดนี้
-                  </button>
-                </div>
-              ))}
-            </div>
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                        <Database className="h-5 w-5" />
+                      </span>
+                      <RecoveryBadge status={point.status} />
+                    </div>
+
+                    <p className="mt-4 text-sm font-bold text-slate-900">
+                      {point.label}
+                    </p>
+
+                    <p className="mt-1 text-xs font-semibold text-slate-400">
+                      {point.id}
+                    </p>
+
+                    <div className="mt-4 space-y-2 text-sm text-slate-500">
+                      <InfoLine
+                        label="สร้างเมื่อ"
+                        value={point.createdAt}
+                      />
+                      <InfoLine label="ขนาด" value={point.size} />
+                      <InfoLine
+                        label="ฐานข้อมูล"
+                        value={`${point.databases} DB`}
+                      />
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedRecovery(point);
+                        setRestoreReason("");
+                        setRestoreConfirmation("");
+                      }}
+                      className="mt-5 inline-flex h-9 w-full items-center justify-center gap-2 rounded-xl bg-slate-100 text-sm font-bold text-slate-700 transition hover:bg-slate-200"
+                    >
+                      <RotateCcw className="h-4 w-4" />
+                      เริ่มกู้คืนจากจุดนี้
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <EmptyState text="ยังไม่มี Recovery Point" />
+            )}
           </Panel>
         </section>
 
         <section>
           <Panel
             title="ประวัติการสำรองข้อมูล"
-            description="ตรวจสอบ สำรองซ้ำ และส่งออกประวัติทั้งหมด"
+            description="ประวัติจากฐานข้อมูลจริง ดาวน์โหลด และสำรองซ้ำ"
             icon={<FileArchive className="h-5 w-5" />}
             action={
               <button
@@ -543,7 +635,6 @@ export default function BackupRecoveryPageClient() {
             <div className="mb-5 grid gap-3 lg:grid-cols-[minmax(0,1fr)_180px_180px]">
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-
                 <input
                   value={query}
                   onChange={(event) => {
@@ -559,7 +650,9 @@ export default function BackupRecoveryPageClient() {
                 value={statusFilter}
                 onChange={(event) => {
                   setStatusFilter(
-                    event.target.value as "ALL" | BackupStatus,
+                    event.target.value as
+                      | "ALL"
+                      | BackupStatus,
                   );
                   setPage(1);
                 }}
@@ -574,7 +667,11 @@ export default function BackupRecoveryPageClient() {
               <select
                 value={typeFilter}
                 onChange={(event) => {
-                  setTypeFilter(event.target.value as "ALL" | BackupType);
+                  setTypeFilter(
+                    event.target.value as
+                      | "ALL"
+                      | BackupType,
+                  );
                   setPage(1);
                 }}
                 className="h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600 outline-none"
@@ -586,7 +683,7 @@ export default function BackupRecoveryPageClient() {
             </div>
 
             <div className="overflow-x-auto rounded-2xl border border-slate-200">
-              <table className="min-w-[1050px] w-full border-collapse">
+              <table className="w-full min-w-[1050px] border-collapse">
                 <thead className="bg-slate-50">
                   <tr className="text-left text-xs font-bold uppercase tracking-wide text-slate-500">
                     <th className="px-4 py-3">Backup ID</th>
@@ -596,7 +693,9 @@ export default function BackupRecoveryPageClient() {
                     <th className="px-4 py-3">ระยะเวลา</th>
                     <th className="px-4 py-3">Storage</th>
                     <th className="px-4 py-3">สถานะ</th>
-                    <th className="px-4 py-3 text-right">การจัดการ</th>
+                    <th className="px-4 py-3 text-right">
+                      การจัดการ
+                    </th>
                   </tr>
                 </thead>
 
@@ -604,7 +703,9 @@ export default function BackupRecoveryPageClient() {
                   {paginatedRecords.map((record) => (
                     <tr key={record.id} className="text-sm">
                       <td className="px-4 py-4">
-                        <p className="font-bold text-slate-900">{record.id}</p>
+                        <p className="font-bold text-slate-900">
+                          {record.id}
+                        </p>
                         <p className="mt-1 text-xs text-slate-400">
                           {record.createdBy}
                         </p>
@@ -633,12 +734,19 @@ export default function BackupRecoveryPageClient() {
                           ) : (
                             <Server className="h-4 w-4 text-violet-500" />
                           )}
-                          {record.storage === "CLOUD" ? "Cloud" : "Local"}
+                          {record.storage === "CLOUD"
+                            ? "Cloud"
+                            : "Local"}
                         </span>
                       </td>
 
                       <td className="px-4 py-4">
                         <StatusBadge status={record.status} />
+                        {record.errorMessage && (
+                          <p className="mt-1 max-w-[220px] truncate text-xs text-rose-500">
+                            {record.errorMessage}
+                          </p>
+                        )}
                       </td>
 
                       <td className="px-4 py-4">
@@ -647,25 +755,18 @@ export default function BackupRecoveryPageClient() {
                             <button
                               type="button"
                               onClick={() => retryBackup(record)}
-                              disabled={busyAction === `retry-${record.id}`}
-                              className="inline-flex h-9 items-center gap-2 rounded-xl bg-amber-50 px-3 text-xs font-bold text-amber-700 transition hover:bg-amber-100 disabled:opacity-50"
+                              className="inline-flex h-9 items-center gap-2 rounded-xl bg-amber-50 px-3 text-xs font-bold text-amber-700 transition hover:bg-amber-100"
                             >
-                              <RefreshCw
-                                className={`h-3.5 w-3.5 ${
-                                  busyAction === `retry-${record.id}`
-                                    ? "animate-spin"
-                                    : ""
-                                }`}
-                              />
+                              <RefreshCw className="h-3.5 w-3.5" />
                               สำรองใหม่
                             </button>
                           ) : (
                             <button
                               type="button"
                               onClick={() =>
-                                notify(`ดาวน์โหลดข้อมูลสำรอง ${record.id}`)
+                                downloadBackup(record)
                               }
-                              disabled={record.status !== "COMPLETED"}
+                              disabled={!record.canDownload}
                               className="inline-flex h-9 items-center gap-2 rounded-xl border border-slate-200 px-3 text-xs font-bold text-slate-600 transition hover:bg-slate-50 disabled:opacity-40"
                             >
                               <Download className="h-3.5 w-3.5" />
@@ -685,38 +786,42 @@ export default function BackupRecoveryPageClient() {
                   <p className="mt-3 text-sm font-bold text-slate-700">
                     ไม่พบรายการสำรองข้อมูล
                   </p>
-                  <p className="mt-1 text-sm text-slate-400">
-                    ลองเปลี่ยนคำค้นหาหรือตัวกรอง
-                  </p>
                 </div>
               )}
             </div>
 
             <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm text-slate-500">
-                แสดง {paginatedRecords.length} จาก {filteredRecords.length} รายการ
+                แสดง {paginatedRecords.length} จาก{" "}
+                {filteredRecords.length} รายการ
               </p>
 
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setPage((current) => Math.max(1, current - 1))}
-                  disabled={page === 1}
+                  onClick={() =>
+                    setPage((current) =>
+                      Math.max(1, current - 1),
+                    )
+                  }
+                  disabled={safePage === 1}
                   className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 disabled:opacity-40"
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </button>
 
                 <span className="min-w-20 text-center text-sm font-semibold text-slate-600">
-                  หน้า {page} / {totalPages}
+                  หน้า {safePage} / {totalPages}
                 </span>
 
                 <button
                   type="button"
                   onClick={() =>
-                    setPage((current) => Math.min(totalPages, current + 1))
+                    setPage((current) =>
+                      Math.min(totalPages, current + 1),
+                    )
                   }
-                  disabled={page === totalPages}
+                  disabled={safePage === totalPages}
                   className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 disabled:opacity-40"
                 >
                   <ChevronRight className="h-4 w-4" />
@@ -732,8 +837,9 @@ export default function BackupRecoveryPageClient() {
           <span className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
             <Check className="h-5 w-5" />
           </span>
-
-          <p className="text-sm font-semibold text-slate-700">{toast}</p>
+          <p className="text-sm font-semibold text-slate-700">
+            {toast}
+          </p>
         </div>
       )}
 
@@ -742,7 +848,7 @@ export default function BackupRecoveryPageClient() {
           <ModalHeader
             icon={<UploadCloud className="h-6 w-6" />}
             title="สร้างข้อมูลสำรองใหม่"
-            description="เลือกขอบเขตและตำแหน่งจัดเก็บข้อมูลสำรอง"
+            description="สร้างไฟล์ SQL จริงจากฐานข้อมูล GreenFactory"
             onClose={() => setShowBackupModal(false)}
           />
 
@@ -750,11 +856,22 @@ export default function BackupRecoveryPageClient() {
             <SelectField
               label="ขอบเขตข้อมูล"
               value={backupScope}
-              onChange={setBackupScope}
+              onChange={(value) =>
+                setBackupScope(
+                  value === "DATABASE"
+                    ? "DATABASE"
+                    : "FULL",
+                )
+              }
               options={[
-                { value: "FULL", label: "Full Platform Backup" },
-                { value: "DATABASE", label: "Database Only" },
-                { value: "FILES", label: "Files and Attachments Only" },
+                {
+                  value: "FULL",
+                  label: "Full Database Backup",
+                },
+                {
+                  value: "DATABASE",
+                  label: "Database Only",
+                },
               ]}
             />
 
@@ -765,14 +882,20 @@ export default function BackupRecoveryPageClient() {
                 setBackupStorage(value as StorageType)
               }
               options={[
-                { value: "CLOUD", label: "Cloud Storage" },
-                { value: "LOCAL", label: "Local Backup Server" },
+                {
+                  value: "LOCAL",
+                  label: "Local Backup Server",
+                },
+                {
+                  value: "CLOUD",
+                  label: "Cloud Storage (ยังไม่เชื่อมต่อ)",
+                },
               ]}
             />
 
             <ToggleRow
               title="ตรวจสอบความสมบูรณ์หลังสำรอง"
-              description="ระบบจะตรวจสอบไฟล์และฐานข้อมูลโดยอัตโนมัติ"
+              description="กำหนด Backup นี้เป็น Recovery Point เมื่อสำเร็จ"
               checked={autoVerify}
               onChange={setAutoVerify}
             />
@@ -791,7 +914,7 @@ export default function BackupRecoveryPageClient() {
           <ModalHeader
             icon={<CalendarClock className="h-6 w-6" />}
             title="นโยบายการสำรองข้อมูล"
-            description="กำหนดเวลาและระยะเวลาเก็บรักษาข้อมูลสำรอง"
+            description="หน้านี้บันทึกเฉพาะค่าหน้าจอ จนกว่าจะเชื่อม Scheduler ในขั้นถัดไป"
             onClose={() => setShowPolicyModal(false)}
           />
 
@@ -804,7 +927,9 @@ export default function BackupRecoveryPageClient() {
               <input
                 type="time"
                 value={backupTime}
-                onChange={(event) => setBackupTime(event.target.value)}
+                onChange={(event) =>
+                  setBackupTime(event.target.value)
+                }
                 className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm font-semibold text-slate-700 outline-none focus:border-emerald-500"
               />
             </label>
@@ -817,20 +942,13 @@ export default function BackupRecoveryPageClient() {
             />
           </div>
 
-          <div className="mt-5">
-            <ToggleRow
-              title="ตรวจสอบ Recovery Point อัตโนมัติ"
-              description="ตรวจสอบความพร้อมในการกู้คืนหลังสำรองทุกครั้ง"
-              checked={autoVerify}
-              onChange={setAutoVerify}
-            />
-          </div>
-
           <ModalFooter
             onCancel={() => setShowPolicyModal(false)}
             onConfirm={() => {
               setShowPolicyModal(false);
-              notify("บันทึกนโยบายการสำรองข้อมูลแล้ว");
+              notify(
+                "บันทึกค่าหน้าจอแล้ว — Scheduler จะเชื่อมในขั้นต่อไป",
+              );
             }}
             confirmLabel="บันทึกนโยบาย"
           />
@@ -841,8 +959,8 @@ export default function BackupRecoveryPageClient() {
         <Modal onClose={() => setSelectedRecovery(null)}>
           <ModalHeader
             icon={<AlertTriangle className="h-6 w-6" />}
-            title="ยืนยันการกู้คืนระบบ"
-            description="คำสั่งนี้อาจกระทบผู้ใช้งานทุกบริษัท"
+            title="ยืนยันการกู้คืนฐานข้อมูล"
+            description="การกู้คืนจะเขียนข้อมูลจากไฟล์ SQL กลับเข้าสู่ MySQL"
             onClose={() => setSelectedRecovery(null)}
             warning
           />
@@ -853,21 +971,62 @@ export default function BackupRecoveryPageClient() {
             </p>
 
             <div className="mt-3 space-y-2 text-sm text-amber-800">
-              <InfoLine label="Recovery Point" value={selectedRecovery.id} />
-              <InfoLine label="สร้างเมื่อ" value={selectedRecovery.createdAt} />
-              <InfoLine label="ขนาด" value={selectedRecovery.size} />
+              <InfoLine
+                label="Recovery Point"
+                value={selectedRecovery.id}
+              />
+              <InfoLine
+                label="สร้างเมื่อ"
+                value={selectedRecovery.createdAt}
+              />
+              <InfoLine
+                label="ขนาด"
+                value={selectedRecovery.size}
+              />
             </div>
           </div>
 
-          <p className="mt-5 text-sm leading-6 text-slate-500">
-            ก่อนกู้คืนระบบจริงควรเปิด Maintenance Mode
-            แจ้งบริษัททั้งหมด และบันทึกเหตุผลลง Audit Log
-          </p>
+          <div className="mt-5 space-y-4">
+            <label className="block">
+              <span className="mb-2 block text-sm font-bold text-slate-700">
+                เหตุผลในการกู้คืน
+              </span>
+              <textarea
+                value={restoreReason}
+                onChange={(event) =>
+                  setRestoreReason(event.target.value)
+                }
+                rows={3}
+                placeholder="เช่น กู้คืนหลังข้อมูลผิดพลาดจากการทดสอบ"
+                className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-amber-500"
+              />
+            </label>
+
+            <label className="block">
+              <span className="mb-2 block text-sm font-bold text-slate-700">
+                พิมพ์ RESTORE เพื่อยืนยัน
+              </span>
+              <input
+                value={restoreConfirmation}
+                onChange={(event) =>
+                  setRestoreConfirmation(event.target.value)
+                }
+                placeholder="RESTORE"
+                className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm font-bold outline-none focus:border-amber-500"
+              />
+            </label>
+          </div>
 
           <ModalFooter
             onCancel={() => setSelectedRecovery(null)}
-            onConfirm={() => restoreRecoveryPoint(selectedRecovery)}
-            confirmLabel="เริ่มกู้คืนระบบ"
+            onConfirm={() =>
+              void restoreRecoveryPoint(selectedRecovery)
+            }
+            confirmLabel={
+              busyAction === `restore-${selectedRecovery.id}`
+                ? "กำลังกู้คืน..."
+                : "เริ่มกู้คืนระบบ"
+            }
             warning
           />
         </Modal>
@@ -898,8 +1057,12 @@ function Panel({
           </span>
 
           <div>
-            <h2 className="text-lg font-bold text-slate-950">{title}</h2>
-            <p className="mt-1 text-sm text-slate-500">{description}</p>
+            <h2 className="text-lg font-bold text-slate-950">
+              {title}
+            </h2>
+            <p className="mt-1 text-sm text-slate-500">
+              {description}
+            </p>
           </div>
         </div>
 
@@ -928,8 +1091,12 @@ function MetricCard({
     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-sm font-medium text-slate-500">{label}</p>
-          <p className="mt-2 text-xl font-bold text-slate-950">{value}</p>
+          <p className="text-sm font-medium text-slate-500">
+            {label}
+          </p>
+          <p className="mt-2 text-xl font-bold text-slate-950">
+            {value}
+          </p>
           <p className="mt-1 text-xs leading-5 text-slate-400">
             {description}
           </p>
@@ -964,9 +1131,26 @@ function HealthCard({
           : "border-amber-100 bg-amber-50/60"
       }`}
     >
-      <p className="text-sm font-semibold text-slate-500">{title}</p>
-      <p className="mt-2 text-xl font-bold text-slate-950">{value}</p>
-      <p className="mt-1 text-xs text-slate-500">{detail}</p>
+      <p className="text-sm font-semibold text-slate-500">
+        {title}
+      </p>
+      <p className="mt-2 text-xl font-bold text-slate-950">
+        {value}
+      </p>
+      <p className="mt-1 text-xs text-slate-500">
+        {detail}
+      </p>
+    </div>
+  );
+}
+
+function EmptyState({ text }: { text: string }) {
+  return (
+    <div className="py-12 text-center">
+      <Database className="mx-auto h-8 w-8 text-slate-300" />
+      <p className="mt-3 text-sm font-bold text-slate-700">
+        {text}
+      </p>
     </div>
   );
 }
@@ -986,7 +1170,11 @@ function InfoLine({
   );
 }
 
-function StatusBadge({ status }: { status: BackupStatus }) {
+function StatusBadge({
+  status,
+}: {
+  status: BackupStatus;
+}) {
   const config = {
     COMPLETED: {
       label: "สำเร็จ",
@@ -1020,7 +1208,9 @@ function TypeBadge({ type }: { type: BackupType }) {
           : "bg-blue-50 text-blue-700"
       }`}
     >
-      {type === "AUTOMATIC" ? "อัตโนมัติ" : "สั่งด้วยตนเอง"}
+      {type === "AUTOMATIC"
+        ? "อัตโนมัติ"
+        : "สั่งด้วยตนเอง"}
     </span>
   );
 }
@@ -1031,14 +1221,8 @@ function RecoveryBadge({
   status: RecoveryPoint["status"];
 }) {
   return (
-    <span
-      className={`rounded-full px-2.5 py-1 text-xs font-bold ${
-        status === "READY"
-          ? "bg-emerald-50 text-emerald-700"
-          : "bg-amber-50 text-amber-700"
-      }`}
-    >
-      {status === "READY" ? "พร้อมกู้คืน" : "กำลังตรวจสอบ"}
+    <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">
+      พร้อมกู้คืน
     </span>
   );
 }
@@ -1088,7 +1272,10 @@ function SelectField({
   label: string;
   value: string;
   onChange: (value: string) => void;
-  options: Array<{ value: string; label: string }>;
+  options: Array<{
+    value: string;
+    label: string;
+  }>;
 }) {
   return (
     <label className="block">
@@ -1098,11 +1285,16 @@ function SelectField({
 
       <select
         value={value}
-        onChange={(event) => onChange(event.target.value)}
+        onChange={(event) =>
+          onChange(event.target.value)
+        }
         className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 outline-none focus:border-emerald-500"
       >
         {options.map((option) => (
-          <option key={option.value} value={option.value}>
+          <option
+            key={option.value}
+            value={option.value}
+          >
             {option.label}
           </option>
         ))}
@@ -1125,8 +1317,12 @@ function ToggleRow({
   return (
     <div className="flex items-center justify-between gap-5 rounded-xl border border-slate-200 p-4">
       <div>
-        <p className="text-sm font-bold text-slate-800">{title}</p>
-        <p className="mt-1 text-sm text-slate-500">{description}</p>
+        <p className="text-sm font-bold text-slate-800">
+          {title}
+        </p>
+        <p className="mt-1 text-sm text-slate-500">
+          {description}
+        </p>
       </div>
 
       <button
@@ -1206,7 +1402,9 @@ function ModalHeader({
         </button>
       </div>
 
-      <h2 className="mt-5 text-xl font-bold text-slate-950">{title}</h2>
+      <h2 className="mt-5 text-xl font-bold text-slate-950">
+        {title}
+      </h2>
       <p className="mt-2 text-sm leading-6 text-slate-500">
         {description}
       </p>

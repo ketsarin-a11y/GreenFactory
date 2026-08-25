@@ -2,34 +2,31 @@
 
 import {
   Bell,
-  Boxes,
   Building2,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   CircleUserRound,
-  ClipboardList,
-  DatabaseBackup,
   Factory,
   Gauge,
   Leaf,
   LoaderCircle,
   LogOut,
   Menu,
-  Ruler,
+  Settings2,
+  QrCode,
   Search,
   Settings,
   ShieldCheck,
   Users,
   Waves,
   X,
-  Zap,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ReactNode, useMemo, useState } from "react";
 
-type PlatformShellProps = {
+type CompanyShellProps = {
   children: ReactNode;
   user: {
     firstName: string;
@@ -57,114 +54,62 @@ const navigationSections: NavigationSection[] = [
     items: [
       {
         label: "แดชบอร์ด",
-        href: "/platform/dashboard",
+        href: "/company/dashboard",
         icon: Gauge,
-        color: "text-[#22a06b]",
-        activeColor: "bg-[#e8fbf1]",
+        color: "text-[#10b981]",
+        activeColor: "bg-gradient-to-r from-[#e8fbf1] to-[#f0fff4] text-[#065f46] shadow-sm",
       },
     ],
   },
   {
-    label: "การจัดการบริษัท",
+    label: "จัดการองค์กร",
     items: [
       {
-        label: "จัดการข้อมูลบริษัท",
-        href: "/platform/companies",
+        label: "ข้อมูลบริษัท",
+        href: "/company/profile",
         icon: Building2,
-        color: "text-[#4f7df3]",
-        activeColor: "bg-[#edf2ff]",
+        color: "text-[#3b82f6]",
+        activeColor: "bg-gradient-to-r from-[#eff6ff] to-[#f8fafc] text-[#1e40af] shadow-sm",
       },
-    ],
-  },
-  {
-    label: "ผู้ใช้งานและสิทธิ์",
-    items: [
       {
-        label: "จัดการผู้ใช้งาน",
-        href: "/platform/users",
+        label: "โรงงาน",
+        href: "/company/factories",
+        icon: Factory,
+        color: "text-[#f97316]",
+        activeColor: "bg-gradient-to-r from-[#fff7ed] to-[#fffbeb] text-[#9a3412] shadow-sm",
+      },
+      {
+        label: "ผู้ใช้งาน",
+        href: "/company/users",
         icon: Users,
         color: "text-[#8b5cf6]",
-        activeColor: "bg-[#f3edff]",
-      },
-      {
-        label: "กำหนดสิทธิ์การใช้งาน",
-        href: "/platform/roles",
-        icon: ShieldCheck,
-        color: "text-[#ef7c45]",
-        activeColor: "bg-[#fff2e8]",
+        activeColor: "bg-gradient-to-r from-[#f5f3ff] to-[#faf5ff] text-[#5b21b6] shadow-sm",
       },
     ],
   },
   {
-    label: "ข้อมูลมาตรฐานกลาง",
+    label: "ข้อมูลโรงงาน",
     items: [
       {
-        label: "ประเภทเครื่องจักร",
-        href: "/platform/master-data/machine-types",
-        icon: Factory,
-        color: "text-[#ef6c57]",
-        activeColor: "bg-[#fff0ec]",
+        label: "เครื่องจักร",
+        href: "/company/machines",
+        icon: Settings2,
+        color: "text-[#10b981]",
+        activeColor: "bg-gradient-to-r from-[#e8fbf1] to-[#f0fff4] text-[#065f46] shadow-sm",
       },
       {
-        label: "ประเภทเซนเซอร์",
-        href: "/platform/master-data/sensor-types",
+        label: "เซนเซอร์",
+        href: "/company/sensors",
         icon: Waves,
-        color: "text-[#06a5a5]",
-        activeColor: "bg-[#e7fbfb]",
-      },
-      {
-        label: "ประเภททรัพยากร",
-        href: "/platform/master-data/resource-types",
-        icon: Zap,
-        color: "text-[#f59e0b]",
-        activeColor: "bg-[#fff6df]",
-      },
-      {
-        label: "หมวดหมู่ทรัพยากร",
-        href: "/platform/master-data/resource-categories",
-        icon: Boxes,
-        color: "text-[#3b82f6]",
-        activeColor: "bg-[#eaf3ff]",
-      },
-      {
-        label: "หน่วยวัด",
-        href: "/platform/master-data/units",
-        icon: Ruler,
-        color: "text-[#64748b]",
-        activeColor: "bg-[#eef2f6]",
-      },
-      {
-        label: "ค่า Emission Factor",
-        href: "/platform/master-data/emission-factors",
-        icon: Leaf,
-        color: "text-[#16a34a]",
-        activeColor: "bg-[#eaf8ee]",
-      },
-    ],
-  },
-  {
-    label: "การติดตามระบบ",
-    items: [
-      {
-        label: "Audit Log",
-        href: "/platform/audit-logs",
-        icon: ClipboardList,
-        color: "text-[#ec4899]",
-        activeColor: "bg-[#fdeef6]",
-      },
-      {
-        label: "Login Log",
-        href: "/platform/login-logs",
-        icon: CircleUserRound,
-        color: "text-[#5b7cfa]",
-        activeColor: "bg-[#edf1ff]",
-      },
-      {
-        label: "สำรองและกู้คืนข้อมูล",
-        href: "/platform/backups",
-        icon: DatabaseBackup,
         color: "text-[#14b8a6]",
-        activeColor: "bg-[#e8fbf8]",
+        activeColor: "bg-gradient-to-r from-[#f0fdfa] to-[#f8fafc] text-[#115e59] shadow-sm",
+      },
+      {
+        label: "QR Code",
+        href: "/company/qr-codes",
+        icon: QrCode,
+        color: "text-[#f59e0b]",
+        activeColor: "bg-gradient-to-r from-[#fffbeb] to-[#fefce8] text-[#92400e] shadow-sm",
       },
     ],
   },
@@ -172,31 +117,25 @@ const navigationSections: NavigationSection[] = [
     label: "การตั้งค่า",
     items: [
       {
-        label: "ตั้งค่าระบบ",
-        href: "/platform/settings",
+        label: "ตั้งค่าบริษัท",
+        href: "/company/settings",
         icon: Settings,
         color: "text-[#64748b]",
-        activeColor: "bg-[#eef2f6]",
+        activeColor: "bg-gradient-to-r from-[#f1f5f9] to-[#f8fafc] text-[#334155] shadow-sm",
       },
     ],
   },
 ];
 
 const pageTitles: Array<[string, string]> = [
-  ["/platform/dashboard", "แดชบอร์ด"],
-  ["/platform/companies", "จัดการข้อมูลบริษัท"],
-  ["/platform/users", "จัดการผู้ใช้งาน"],
-  ["/platform/roles", "กำหนดสิทธิ์การใช้งาน"],
-  ["/platform/master-data/machine-types", "ประเภทเครื่องจักร"],
-  ["/platform/master-data/sensor-types", "ประเภทเซนเซอร์"],
-  ["/platform/master-data/resource-types", "ประเภททรัพยากร"],
-  ["/platform/master-data/resource-categories", "หมวดหมู่ทรัพยากร"],
-  ["/platform/master-data/units", "หน่วยวัด"],
-  ["/platform/master-data/emission-factors", "ค่า Emission Factor"],
-  ["/platform/audit-logs", "Audit Log"],
-  ["/platform/login-logs", "Login Log"],
-  ["/platform/backups", "สำรองและกู้คืนข้อมูล"],
-  ["/platform/settings", "ตั้งค่าระบบ"],
+  ["/company/dashboard", "แดชบอร์ด"],
+  ["/company/profile", "ข้อมูลบริษัท"],
+  ["/company/factories", "โรงงาน"],
+  ["/company/users", "จัดการผู้ใช้งาน"],
+  ["/company/machines", "เครื่องจักร"],
+  ["/company/sensors", "เซนเซอร์"],
+  ["/company/qr-codes", "QR Code"],
+  ["/company/settings", "ตั้งค่าบริษัท"],
 ];
 
 function getPageTitle(pathname: string) {
@@ -204,17 +143,17 @@ function getPageTitle(pathname: string) {
     ([path]) => pathname === path || pathname.startsWith(`${path}/`),
   );
 
-  return matched?.[1] ?? "Platform Administrator";
+  return matched?.[1] ?? "Company Administrator";
 }
 
 function isPathActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export default function PlatformShell({
+export default function CompanyShell({
   children,
   user,
-}: PlatformShellProps) {
+}: CompanyShellProps) {
   const pathname = usePathname();
 
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -223,19 +162,19 @@ export default function PlatformShell({
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const fullName =
-    `${user.firstName} ${user.lastName}`.trim() || "Platform Admin";
+    `${user.firstName} ${user.lastName}`.trim() || "Company Admin";
 
   const initials =
     `${user.firstName?.[0] ?? ""}${user.lastName?.[0] ?? ""}`.toUpperCase() ||
-    "PA";
+    "CA";
 
   const pageTitle = getPageTitle(pathname);
 
-  const sidebarWidthClass = collapsed ? "lg:w-[92px]" : "lg:w-[304px]";
-  const contentPaddingClass = collapsed ? "lg:pl-[92px]" : "lg:pl-[304px]";
+  const sidebarWidthClass = collapsed ? "lg:w-[86px]" : "lg:w-[288px]";
+  const contentPaddingClass = collapsed ? "lg:pl-[86px]" : "lg:pl-[288px]";
 
   const currentBreadcrumb = useMemo(
-    () => ["Platform Administrator", pageTitle],
+    () => ["Company Administrator", pageTitle],
     [pageTitle],
   );
 
@@ -245,7 +184,7 @@ export default function PlatformShell({
     setIsLoggingOut(true);
 
     try {
-      const response = await fetch("/api/auth/reset-session", {
+      const response = await fetch("/api/auth/logout", {
         method: "POST",
         cache: "no-store",
         credentials: "include",
@@ -255,7 +194,7 @@ export default function PlatformShell({
         throw new Error("Logout failed");
       }
 
-      window.location.replace("/");
+      window.location.replace("/login");
     } catch (error) {
       console.error("Logout error:", error);
       setIsLoggingOut(false);
@@ -263,292 +202,266 @@ export default function PlatformShell({
   }
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_#ecfff3_0,_#f8fbf9_34%,_#f4f7f6_100%)] text-[#1f2d25]">
+    <div className="min-h-screen bg-[#f8faf9] text-[#1e293b] selection:bg-[#10b981] selection:text-white">
       {mobileSidebarOpen && (
-        <button
-          type="button"
-          aria-label="ปิดเมนู"
+        <div
+          aria-hidden="true"
           onClick={() => setMobileSidebarOpen(false)}
-          className="fixed inset-0 z-40 bg-[#102218]/35 backdrop-blur-[2px] lg:hidden"
+          className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-xs transition-opacity lg:hidden"
         />
       )}
 
+      {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-[304px] flex-col border-r border-[#e7eee9] bg-white/95 shadow-[18px_0_50px_rgba(31,71,48,0.07)] backdrop-blur-2xl transition-[width,transform] duration-300 ${sidebarWidthClass} ${
+        className={`fixed inset-y-0 left-0 z-50 flex flex-col border-r border-slate-200/60 bg-white/95 backdrop-blur-xl shadow-[12px_0_40px_rgba(15,23,42,0.03)] transition-all duration-300 ${sidebarWidthClass} ${
           mobileSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         }`}
       >
-        <div
-          className={`flex h-[84px] items-center border-b border-[#edf2ee] ${
-            collapsed ? "justify-center px-3" : "justify-between px-5"
-          }`}
-        >
-          <Link
-            href="/platform/dashboard"
-            className={`flex min-w-0 items-center ${
-              collapsed ? "justify-center" : "gap-3.5"
-            }`}
-          >
-            <span className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-[18px] bg-gradient-to-br from-[#34d399] via-[#20b26b] to-[#138754] text-white shadow-[0_16px_30px_rgba(30,177,101,0.25)]">
-              <span className="absolute inset-0 bg-white/10" />
-              <Leaf className="relative h-[22px] w-[22px]" strokeWidth={2.1} />
-            </span>
-
-            {!collapsed && (
-              <span className="min-w-0">
-                <span className="block truncate text-[18px] font-extrabold tracking-[-0.03em] text-[#1c2c22]">
-                  GreenFactory
-                </span>
-                <span className="mt-1 block text-[11px] font-bold uppercase tracking-[0.22em] text-[#1ea563]">
-                  Insight
-                </span>
-              </span>
-            )}
-          </Link>
-
-          <button
-            type="button"
-            onClick={() => setMobileSidebarOpen(false)}
-            aria-label="ปิดเมนู"
-            className="flex h-10 w-10 items-center justify-center rounded-2xl text-[#718078] transition hover:bg-[#f0f7f2] hover:text-[#1f8e59] lg:hidden"
-          >
-            <X className="h-[18px] w-[18px]" />
-          </button>
-        </div>
-
-        <div className={collapsed ? "px-3 py-4" : "px-4 py-4"}>
-          <div
-            className={`relative overflow-hidden border border-[#e4ece7] bg-[linear-gradient(135deg,#ffffff_0%,#f1fff6_55%,#eff7ff_100%)] shadow-[0_12px_34px_rgba(42,94,62,0.06)] ${
-              collapsed
-                ? "flex h-14 items-center justify-center rounded-[20px] px-2"
-                : "rounded-[20px] px-4 py-4"
-            }`}
-          >
-            <span className="absolute -right-8 -top-8 h-24 w-24 rounded-full bg-[#bfead0]/35 blur-2xl" />
-            <span className="absolute -bottom-10 left-10 h-20 w-20 rounded-full bg-[#c9dcff]/35 blur-2xl" />
-
-            {collapsed ? (
-              <span className="relative flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-[#dff8e9] to-[#dcecff] text-[#1e9f62] shadow-sm">
-                <ShieldCheck className="h-[20px] w-[20px]" strokeWidth={1.9} />
-              </span>
-            ) : (
-              <div className="relative flex items-center gap-3.5">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#dff8e9] to-[#dcecff] text-[#1e9f62] shadow-sm">
-                  <ShieldCheck className="h-[20px] w-[20px]" strokeWidth={1.9} />
-                </span>
-
-                <span className="min-w-0 flex-1">
-                  <span className="block text-[10px] font-bold uppercase tracking-[0.14em] text-[#7f8f86]">
-                    Platform Administrator
-                  </span>
-                  <span className="mt-1 block truncate text-[13px] font-bold text-[#26372d]">
-                    ศูนย์ควบคุมระบบส่วนกลาง
-                  </span>
-                  <span className="mt-1 block text-[10px] font-medium text-[#93a098]">
-                    จัดการบริษัท ผู้ใช้ และข้อมูลมาตรฐาน
-                  </span>
-                </span>
+        {/* Sidebar Header */}
+        <div className={`flex flex-col border-b border-slate-100/80 ${collapsed ? "p-3 items-center" : "p-5 pb-4"}`}>
+          <div className="flex items-center justify-between w-full">
+            <Link
+              href="/company/dashboard"
+              className={`flex items-center gap-3 group min-w-0 ${collapsed ? "justify-center" : ""}`}
+            >
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-[#059669] to-[#10b981] text-white shadow-md shadow-emerald-500/25 transition-transform duration-300 group-hover:scale-105">
+                <Leaf className="h-5 w-5" strokeWidth={2.3} />
               </div>
-            )}
+
+              {!collapsed && (
+                <div className="flex flex-col min-w-0">
+                  <span className="truncate text-base font-extrabold tracking-tight text-slate-900">
+                    GreenFactory
+                  </span>
+                  <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#059669]">
+                    Insight
+                  </span>
+                </div>
+              )}
+            </Link>
+
+            <button
+              type="button"
+              onClick={() => setMobileSidebarOpen(false)}
+              aria-label="ปิดเมนู"
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 lg:hidden transition"
+            >
+              <X className="h-4 w-4" />
+            </button>
           </div>
+
+          {!collapsed && (
+            <div className="mt-4 relative overflow-hidden rounded-2xl border border-emerald-500/15 bg-gradient-to-br from-emerald-50/60 via-white to-emerald-50/25 p-3.5 shadow-xs">
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-[#059669] shadow-xs border border-emerald-500/20">
+                  <ShieldCheck className="h-4 w-4" strokeWidth={2} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="truncate text-[11px] font-bold text-slate-800">
+                      ศูนย์จัดการข้อมูลบริษัท
+                    </span>
+                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#10b981] animate-pulse" />
+                  </div>
+                  <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">
+                    Company Administrator
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
-        <nav className="flex-1 overflow-y-auto px-3 pb-4 [scrollbar-width:thin]">
-          <div className="space-y-5">
-            {navigationSections.map((section) => (
-              <section key={section.label}>
-                {!collapsed && (
-                  <p className="mb-2.5 px-3 text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#a2ada6]">
-                    {section.label}
-                  </p>
-                )}
+        {/* Navigation Menu */}
+        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-6 [scrollbar-width:thin]">
+          {navigationSections.map((section) => (
+            <div key={section.label} className="space-y-1.5">
+              {!collapsed && (
+                <p className="px-3 text-[10px] font-extrabold uppercase tracking-[0.18em] text-slate-400">
+                  {section.label}
+                </p>
+              )}
 
-                <div className="space-y-2">
-                  {section.items.map((item) => {
-                    const Icon = item.icon;
-                    const active = isPathActive(pathname, item.href);
+              <div className="space-y-1">
+                {section.items.map((item) => {
+                  const Icon = item.icon;
+                  const active = isPathActive(pathname, item.href);
 
-                    return (
-                      <Link
-                        key={item.href}
-                        href={item.href}
-                        onClick={() => setMobileSidebarOpen(false)}
-                        title={collapsed ? item.label : undefined}
-                        className={`group relative flex min-h-[52px] items-center overflow-hidden rounded-[18px] transition-all ${
-                          collapsed ? "justify-center px-2" : "gap-3.5 px-3.5"
-                        } ${
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setMobileSidebarOpen(false)}
+                      title={collapsed ? item.label : undefined}
+                      className={`group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-semibold transition-all duration-200 ${
+                        collapsed ? "justify-center px-2" : ""
+                      } ${
+                        active
+                          ? `${item.activeColor} font-bold`
+                          : "text-slate-600 hover:bg-slate-100/70 hover:text-slate-900"
+                      }`}
+                    >
+                      {active && !collapsed && (
+                        <div className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 rounded-r-full bg-[#059669]" />
+                      )}
+
+                      <div
+                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-transform duration-200 group-hover:scale-105 ${
                           active
-                            ? `${item.activeColor} font-bold text-[#174c34] shadow-[inset_0_0_0_1px_rgba(35,120,76,0.06)]`
-                            : "text-[#5f6f65] hover:bg-[#f4f8f6] hover:text-[#267b54]"
+                            ? `bg-white ${item.color} shadow-xs border border-black/5`
+                            : `bg-white ${item.color} shadow-xs border border-slate-200/60`
                         }`}
                       >
-                        {active && !collapsed && (
-                          <span className="absolute left-0 top-1/2 h-7 w-[4px] -translate-y-1/2 rounded-r-full bg-gradient-to-b from-[#34d399] to-[#16a34a]" />
-                        )}
+                        <Icon className="h-4 w-4" strokeWidth={2} />
+                      </div>
 
-                        <span
-                          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[14px] transition ${
-                            active
-                              ? `bg-white ${item.color} shadow-[0_7px_18px_rgba(29,150,87,0.12)]`
-                              : `${item.color} bg-white/70 group-hover:bg-white group-hover:shadow-sm`
-                          }`}
-                        >
-                          <Icon className="h-[18px] w-[18px]" strokeWidth={1.9} />
-                        </span>
-
-                        {!collapsed && (
-                          <span className="truncate text-[13px] font-semibold">
-                            {item.label}
-                          </span>
-                        )}
-                      </Link>
-                    );
-                  })}
-                </div>
-              </section>
-            ))}
-          </div>
+                      {!collapsed && (
+                        <span className="truncate flex-1">{item.label}</span>
+                      )}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </nav>
 
-        <div className="border-t border-[#edf2ee] p-3">
+        {/* Sidebar Footer */}
+        <div className="p-3 border-t border-slate-100/80 bg-slate-50/50">
           <button
             type="button"
             onClick={() => setCollapsed((current) => !current)}
-            className={`hidden min-h-[42px] w-full items-center rounded-[14px] text-[#89968e] transition hover:bg-[#f3f8f5] hover:text-[#258c5b] lg:flex ${
-              collapsed ? "justify-center" : "gap-3 px-2.5"
+            className={`hidden lg:flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-slate-500 hover:bg-slate-200/50 hover:text-slate-900 transition ${
+              collapsed ? "justify-center" : "justify-between"
             }`}
           >
+            {!collapsed && <span>ย่อเมนู</span>}
             {collapsed ? (
-              <ChevronRight className="h-[18px] w-[18px]" />
+              <ChevronRight className="h-4 w-4" />
             ) : (
-              <>
-                <ChevronLeft className="h-[18px] w-[18px]" />
-                <span className="text-[11px] font-semibold">ซ่อนเมนู</span>
-              </>
+              <ChevronLeft className="h-4 w-4" />
             )}
           </button>
         </div>
       </aside>
 
-      <div
-        className={`min-h-screen transition-[padding] duration-300 ${contentPaddingClass}`}
-      >
-        <header className="sticky top-0 z-30 flex h-[82px] items-center border-b border-[#e5ece7] bg-white/80 px-5 shadow-[0_2px_16px_rgba(35,75,49,0.04)] backdrop-blur-2xl sm:px-7 lg:px-8">
-          <button
-            type="button"
-            onClick={() => setMobileSidebarOpen(true)}
-            aria-label="เปิดเมนู"
-            className="mr-3 flex h-11 w-11 items-center justify-center rounded-[16px] text-[#5f7066] transition hover:bg-[#eef7f1] hover:text-[#1f965d] lg:hidden"
-          >
-            <Menu className="h-[20px] w-[20px]" />
-          </button>
+      {/* Main Content Area */}
+      <div className={`min-h-screen transition-all duration-300 ${contentPaddingClass}`}>
+        {/* Top Header */}
+        <header className="sticky top-0 z-30 flex h-20 items-center justify-between border-b border-slate-200/60 bg-white/85 px-5 backdrop-blur-xl sm:px-7 lg:px-8 shadow-xs">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setMobileSidebarOpen(true)}
+              aria-label="เปิดเมนู"
+              className="flex h-10 w-10 items-center justify-center rounded-xl text-slate-600 hover:bg-slate-100 hover:text-slate-900 lg:hidden transition"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
 
-          <div className="min-w-0">
-            <h1 className="truncate text-[22px] font-extrabold tracking-[-0.03em] text-[#24342b]">
-              {pageTitle}
-            </h1>
-
-            <div className="mt-1.5 hidden items-center gap-1.5 text-[11px] font-medium text-[#8e9b93] sm:flex">
-              {currentBreadcrumb.map((item, index) => (
-                <span key={`${item}-${index}`} className="flex items-center gap-1.5">
-                  {index > 0 && <span className="text-[#c1cac4]">/</span>}
-                  <span className="truncate">{item}</span>
-                </span>
-              ))}
+            <div>
+              <h1 className="text-[20px] font-extrabold tracking-tight text-slate-900">
+                {pageTitle}
+              </h1>
+              <div className="hidden sm:flex items-center gap-1.5 text-[11px] font-medium text-slate-400">
+                {currentBreadcrumb.map((item, index) => (
+                  <span key={`${item}-${index}`} className="flex items-center gap-1.5">
+                    {index > 0 && <span className="text-slate-300">/</span>}
+                    <span className="truncate">{item}</span>
+                  </span>
+                ))}
+              </div>
             </div>
           </div>
 
-          <div className="ml-auto flex items-center gap-2.5">
+          <div className="flex items-center gap-3">
+            {/* Search Box */}
             <button
               type="button"
-              className="hidden min-w-[270px] items-center gap-3 rounded-[18px] border border-[#e1e9e4] bg-[#f8fbf9] px-4 py-3 text-left transition hover:border-[#cfe0d5] hover:bg-white xl:flex"
+              className="hidden xl:flex items-center gap-3 w-64 rounded-xl border border-slate-200/80 bg-slate-50/60 px-3.5 py-2 text-left text-xs text-slate-400 hover:bg-white hover:border-slate-300 transition shadow-2xs"
             >
-              <Search className="h-[18px] w-[18px] text-[#8b9890]" strokeWidth={1.8} />
-              <span className="text-[12px] text-[#94a098]">
-                ค้นหาเมนูหรือข้อมูล...
-              </span>
-              <span className="ml-auto rounded-[10px] border border-[#dfe7e2] bg-white px-2.5 py-1 text-[9px] font-bold text-[#8f9a93] shadow-sm">
+              <Search className="h-4 w-4 text-slate-400" />
+              <span className="flex-1 truncate">ค้นหาเมนูหรือข้อมูล...</span>
+              <kbd className="rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-[9px] font-bold text-slate-500 shadow-2xs">
                 Ctrl K
-              </span>
+              </kbd>
             </button>
 
+            {/* Notification Bell */}
             <Link
-              href="/platform/notifications"
+              href="/company/notifications"
               aria-label="การแจ้งเตือน"
-              className="relative flex h-11 w-11 items-center justify-center rounded-[16px] border border-[#dfe8e2] bg-white text-[#607168] shadow-sm transition hover:-translate-y-0.5 hover:border-[#c9ddd0] hover:bg-[#f2faf5] hover:text-[#1f925a]"
+              className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200/80 bg-white text-slate-600 shadow-2xs transition hover:border-emerald-500/30 hover:bg-emerald-50/30 hover:text-[#059669]"
             >
-              <Bell className="h-[19px] w-[19px]" strokeWidth={1.8} />
-              <span className="absolute right-[7px] top-[7px] h-2.5 w-2.5 rounded-full bg-gradient-to-br from-[#ff7a7a] to-[#f04444] ring-2 ring-white" />
+              <Bell className="h-4 w-4" strokeWidth={1.8} />
+              <span className="absolute top-2 right-2 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white" />
             </Link>
 
+            {/* Profile Dropdown */}
             <div className="relative">
               <button
                 type="button"
                 onClick={() => setProfileMenuOpen((current) => !current)}
                 aria-expanded={profileMenuOpen}
                 aria-label="เปิดเมนูผู้ใช้"
-                className="flex items-center gap-3 rounded-[18px] px-2 py-1.5 transition hover:bg-[#f1f6f3] sm:px-2.5 sm:py-2"
+                className="flex items-center gap-2.5 rounded-xl p-1.5 hover:bg-slate-100/80 transition"
               >
-                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#e6f4eb] text-[11px] font-extrabold text-[#176c48]">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-100 text-emerald-800 text-xs font-extrabold shadow-inner">
                   {initials}
-                </span>
-
-                <span className="hidden text-left md:block">
-                  <span className="block max-w-[150px] truncate text-[12px] font-bold text-[#314139]">
+                </div>
+                <div className="hidden text-left md:block">
+                  <span className="block max-w-[130px] truncate text-xs font-bold text-slate-800">
                     {fullName}
                   </span>
-                  <span className="mt-1 block text-[10px] font-medium text-[#8b9890]">
-                    Platform Admin
+                  <span className="block text-[10px] text-slate-400 font-medium">
+                    Company Admin
                   </span>
-                </span>
-
-                <ChevronDown
-                  className={`hidden h-4 w-4 text-[#87938c] transition-transform sm:block ${
-                    profileMenuOpen ? "rotate-180" : ""
-                  }`}
-                />
+                </div>
+                <ChevronDown className={`hidden sm:block h-4 w-4 text-slate-400 transition-transform duration-200 ${profileMenuOpen ? "rotate-180" : ""}`} />
               </button>
 
               {profileMenuOpen && (
                 <>
-                  <button
-                    type="button"
-                    aria-label="ปิดเมนูผู้ใช้"
+                  <div
+                    aria-hidden="true"
                     onClick={() => setProfileMenuOpen(false)}
-                    className="fixed inset-0 z-40 cursor-default"
+                    className="fixed inset-0 z-40"
                   />
-
-                  <div className="absolute right-0 top-[calc(100%+10px)] z-50 w-[248px] rounded-[16px] border border-[#dfe8e2] bg-white p-2 shadow-[0_18px_48px_rgba(29,62,41,0.16)]">
-                    <div className="border-b border-[#edf2ee] px-3 py-3">
-                      <p className="truncate text-[13px] font-bold text-[#2b3b31]">
+                  <div className="absolute right-0 top-full mt-2 z-50 w-60 rounded-2xl border border-slate-200/80 bg-white p-2 shadow-2xl shadow-slate-900/10">
+                    <div className="border-b border-slate-100 px-3 py-3">
+                      <p className="truncate text-xs font-bold text-slate-900">
                         {fullName}
                       </p>
-                      <p className="mt-1 truncate text-[10px] text-[#8a9790]">
+                      <p className="mt-0.5 truncate text-[11px] text-slate-400">
                         {user.email}
                       </p>
                     </div>
 
-                    <button
-                      type="button"
-                      className="mt-1 flex min-h-[44px] w-full items-center gap-3 rounded-[12px] px-3 text-left text-[12px] font-semibold text-[#405047] transition hover:bg-[#f2f7f4]"
-                    >
-                      <CircleUserRound className="h-[18px] w-[18px]" strokeWidth={1.8} />
-                      บัญชีผู้ใช้งาน
-                    </button>
+                    <div className="py-1">
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100/80 transition"
+                      >
+                        <CircleUserRound className="h-4 w-4 text-slate-400" />
+                        บัญชีผู้ใช้งาน
+                      </button>
+                    </div>
 
-                    <button
-                      type="button"
-                      onClick={handleLogout}
-                      disabled={isLoggingOut}
-                      className="flex min-h-[44px] w-full items-center gap-3 rounded-[12px] px-3 text-left text-[12px] font-semibold text-[#b84f4f] transition hover:bg-[#fff3f3] disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {isLoggingOut ? (
-                        <LoaderCircle className="h-[18px] w-[18px] animate-spin" />
-                      ) : (
-                        <LogOut className="h-[18px] w-[18px]" strokeWidth={1.8} />
-                      )}
-                      {isLoggingOut ? "กำลังออกจากระบบ" : "ออกจากระบบ"}
-                    </button>
+                    <div className="border-t border-slate-100 pt-1">
+                      <button
+                        type="button"
+                        onClick={handleLogout}
+                        disabled={isLoggingOut}
+                        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition disabled:opacity-50"
+                      >
+                        {isLoggingOut ? (
+                          <LoaderCircle className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <LogOut className="h-4 w-4" />
+                        )}
+                        {isLoggingOut ? "กำลังออกจากระบบ..." : "ออกจากระบบ"}
+                      </button>
+                    </div>
                   </div>
                 </>
               )}
@@ -556,8 +469,9 @@ export default function PlatformShell({
           </div>
         </header>
 
-        <main className="min-h-[calc(100vh-82px)] p-5 sm:p-7 lg:p-8">
-          <div className="mx-auto w-full max-w-[1600px]">{children}</div>
+        {/* Content Body */}
+        <main className="p-5 sm:p-7 lg:p-8">
+          <div className="mx-auto max-w-[1600px]">{children}</div>
         </main>
       </div>
     </div>

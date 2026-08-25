@@ -2,315 +2,805 @@
 
 import {
   Building2,
-  Check,
+  CheckCircle2,
   ChevronDown,
-  ChevronLeft,
   ChevronRight,
+  CircleAlert,
   Factory,
-  FileDown,
   Layers3,
   MoreHorizontal,
+  Network,
   Pencil,
   Plus,
   Search,
+  Sparkles,
   Trash2,
+  Workflow,
   X,
 } from "lucide-react";
-import { FormEvent, useMemo, useState } from "react";
+import {
+  FormEvent,
+  ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 type Status = "ACTIVE" | "INACTIVE";
-type Tab = "DEPARTMENT" | "LINE";
-type DrawerMode =
-  | "ADD_DEPARTMENT"
-  | "EDIT_DEPARTMENT"
-  | "ADD_LINE"
-  | "EDIT_LINE";
+type EntityType = "BUILDING" | "DEPARTMENT" | "LINE";
 
-type ProductionLine = {
-  id: string;
-  name: string;
-  code: string;
+type Line = {
+  lineId: number;
+  lineCode: string;
+  lineName: string;
+  description: string | null;
   status: Status;
+  _count: { machines: number; checkpoints: number };
 };
 
 type Department = {
-  id: string;
-  name: string;
-  code: string;
+  departmentId: number;
+  departmentCode: string;
+  departmentName: string;
+  description: string | null;
   status: Status;
-  lines: ProductionLine[];
+  _count: { productionLines: number; users: number };
+  productionLines: Line[];
 };
 
 type Building = {
-  id: string;
-  name: string;
-  code: string;
+  buildingId: number;
+  buildingCode: string;
+  buildingName: string;
+  buildingType: string | null;
+  floorCount: number | null;
+  description: string | null;
+  status: Status;
+  _count: { departments: number };
   departments: Department[];
 };
 
-type DepartmentRow = Department & {
-  buildingId: string;
-  buildingName: string;
+type FactoryItem = {
+  factoryId: number;
+  factoryCode: string;
+  factoryName: string;
+  status: Status;
+  buildings: Building[];
 };
 
-type LineRow = ProductionLine & {
-  buildingId: string;
-  buildingName: string;
-  departmentId: string;
-  departmentName: string;
+type ApiResponse = {
+  success: boolean;
+  message?: string;
+  data?: FactoryItem[];
+  summary?: {
+    factories: number;
+    buildings: number;
+    departments: number;
+    lines: number;
+    machines: number;
+  };
 };
 
-const PAGE_SIZE = 8;
+type SelectedNode =
+  | { type: "FACTORY"; factory: FactoryItem }
+  | { type: "BUILDING"; factory: FactoryItem; building: Building }
+  | {
+      type: "DEPARTMENT";
+      factory: FactoryItem;
+      building: Building;
+      department: Department;
+    }
+  | {
+      type: "LINE";
+      factory: FactoryItem;
+      building: Building;
+      department: Department;
+      line: Line;
+    };
 
-const initialBuildings: Building[] = [
-  {
-    id: "building-a",
-    name: "อาคารผลิต A",
-    code: "BLD-A",
-    departments: [
-      {
-        id: "dept-smt",
-        name: "แผนก SMT",
-        code: "SMT",
-        status: "ACTIVE",
-        lines: [
-          {
-            id: "line-smt-1",
-            name: "SMT Line 1",
-            code: "SMT-L01",
-            status: "ACTIVE",
-          },
-          {
-            id: "line-smt-2",
-            name: "SMT Line 2",
-            code: "SMT-L02",
-            status: "ACTIVE",
-          },
-        ],
-      },
-      {
-        id: "dept-assembly",
-        name: "แผนกประกอบ",
-        code: "ASM",
-        status: "ACTIVE",
-        lines: [
-          {
-            id: "line-assembly-1",
-            name: "Assembly Line 1",
-            code: "ASM-L01",
-            status: "ACTIVE",
-          },
-        ],
-      },
-      {
-        id: "dept-testing",
-        name: "แผนกทดสอบ",
-        code: "TEST",
-        status: "ACTIVE",
-        lines: [
-          {
-            id: "line-testing-1",
-            name: "Testing Line 1",
-            code: "TEST-L01",
-            status: "ACTIVE",
-          },
-        ],
-      },
-    ],
-  },
-  {
-    id: "building-b",
-    name: "อาคารผลิต B",
-    code: "BLD-B",
-    departments: [
-      {
-        id: "dept-packaging",
-        name: "แผนกบรรจุภัณฑ์",
-        code: "PACK",
-        status: "ACTIVE",
-        lines: [
-          {
-            id: "line-packaging-1",
-            name: "Packaging Line 1",
-            code: "PACK-L01",
-            status: "ACTIVE",
-          },
-        ],
-      },
-      {
-        id: "dept-quality",
-        name: "แผนกควบคุมคุณภาพ",
-        code: "QC",
-        status: "ACTIVE",
-        lines: [],
-      },
-    ],
-  },
-  {
-    id: "building-utility",
-    name: "อาคารสาธารณูปโภค",
-    code: "UTL-01",
-    departments: [
-      {
-        id: "dept-utility",
-        name: "ระบบสาธารณูปโภค",
-        code: "UTILITY",
-        status: "ACTIVE",
-        lines: [
-          {
-            id: "line-chiller",
-            name: "ระบบ Chiller",
-            code: "UTL-CHILLER",
-            status: "ACTIVE",
-          },
-          {
-            id: "line-air",
-            name: "ระบบ Air Compressor",
-            code: "UTL-AIR",
-            status: "ACTIVE",
-          },
-          {
-            id: "line-water",
-            name: "ระบบบำบัดน้ำ",
-            code: "UTL-WATER",
-            status: "ACTIVE",
-          },
-        ],
-      },
-    ],
-  },
-];
+type DrawerState =
+  | null
+  | {
+      mode: "CREATE" | "EDIT";
+      type: EntityType;
+      factoryId?: number;
+      buildingId?: number;
+      departmentId?: number;
+      entity?: Building | Department | Line;
+    };
 
-function StatusBadge({ status }: { status: Status }) {
-  const active = status === "ACTIVE";
+export default function FactoryStructureClient() {
+  const [factories, setFactories] = useState<FactoryItem[]>([]);
+  const [summary, setSummary] = useState({
+    factories: 0,
+    buildings: 0,
+    departments: 0,
+    lines: 0,
+    machines: 0,
+  });
+
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("ALL");
+
+  const [selectedKey, setSelectedKey] = useState("");
+  const [expandedFactories, setExpandedFactories] = useState<number[]>([]);
+  const [expandedBuildings, setExpandedBuildings] = useState<number[]>([]);
+  const [expandedDepartments, setExpandedDepartments] = useState<number[]>([]);
+
+  const [drawer, setDrawer] = useState<DrawerState>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError("");
+
+      const response = await fetch("/api/company/structure", {
+        cache: "no-store",
+        credentials: "include",
+      });
+
+      const result = (await response.json()) as ApiResponse;
+
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.message ?? "ไม่สามารถโหลดโครงสร้างโรงงานได้",
+        );
+      }
+
+      const next = result.data ?? [];
+      setFactories(next);
+      setSummary(
+        result.summary ?? {
+          factories: 0,
+          buildings: 0,
+          departments: 0,
+          lines: 0,
+          machines: 0,
+        },
+      );
+
+      setExpandedFactories((current) =>
+        current.length ? current : next.map((item) => item.factoryId),
+      );
+
+      setExpandedBuildings((current) =>
+        current.length
+          ? current
+          : next.flatMap((factory) =>
+              factory.buildings.map((item) => item.buildingId),
+            ),
+      );
+
+      setSelectedKey((current) =>
+        current || (next[0] ? `factory:${next[0].factoryId}` : ""),
+      );
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "ไม่สามารถโหลดโครงสร้างโรงงานได้",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const selectedNode = useMemo<SelectedNode | null>(() => {
+    if (!selectedKey) return null;
+
+    const [kind, rawId] = selectedKey.split(":");
+    const id = Number(rawId);
+
+    for (const factory of factories) {
+      if (kind === "factory" && factory.factoryId === id) {
+        return { type: "FACTORY", factory };
+      }
+
+      for (const building of factory.buildings) {
+        if (kind === "building" && building.buildingId === id) {
+          return { type: "BUILDING", factory, building };
+        }
+
+        for (const department of building.departments) {
+          if (
+            kind === "department" &&
+            department.departmentId === id
+          ) {
+            return {
+              type: "DEPARTMENT",
+              factory,
+              building,
+              department,
+            };
+          }
+
+          for (const line of department.productionLines) {
+            if (kind === "line" && line.lineId === id) {
+              return {
+                type: "LINE",
+                factory,
+                building,
+                department,
+                line,
+              };
+            }
+          }
+        }
+      }
+    }
+
+    return null;
+  }, [factories, selectedKey]);
+
+  const filteredFactories = useMemo(() => {
+    const keyword = search.trim().toLowerCase();
+
+    if (!keyword && statusFilter === "ALL") return factories;
+
+    return factories
+      .map((factory) => ({
+        ...factory,
+        buildings: factory.buildings
+          .map((building) => ({
+            ...building,
+            departments: building.departments
+              .map((department) => ({
+                ...department,
+                productionLines: department.productionLines.filter(
+                  (line) =>
+                    (statusFilter === "ALL" ||
+                      line.status === statusFilter) &&
+                    (!keyword ||
+                      `${line.lineName} ${line.lineCode} ${department.departmentName} ${building.buildingName} ${factory.factoryName}`
+                        .toLowerCase()
+                        .includes(keyword)),
+                ),
+              }))
+              .filter(
+                (department) =>
+                  (statusFilter === "ALL" ||
+                    department.status === statusFilter) &&
+                  (!keyword ||
+                    `${department.departmentName} ${department.departmentCode} ${building.buildingName} ${factory.factoryName}`
+                      .toLowerCase()
+                      .includes(keyword) ||
+                    department.productionLines.length > 0),
+              ),
+          }))
+          .filter(
+            (building) =>
+              (statusFilter === "ALL" ||
+                building.status === statusFilter) &&
+              (!keyword ||
+                `${building.buildingName} ${building.buildingCode} ${factory.factoryName}`
+                  .toLowerCase()
+                  .includes(keyword) ||
+                building.departments.length > 0),
+          ),
+      }))
+      .filter(
+        (factory) =>
+          !keyword ||
+          `${factory.factoryName} ${factory.factoryCode}`
+            .toLowerCase()
+            .includes(keyword) ||
+          factory.buildings.length > 0,
+      );
+  }, [factories, search, statusFilter]);
+
+  async function mutate(
+    url: string,
+    method: "POST" | "PATCH" | "DELETE",
+    payload?: unknown,
+  ) {
+    if (busy) return false;
+
+    try {
+      setBusy(true);
+      setError("");
+      setSuccess("");
+
+      const response = await fetch(url, {
+        method,
+        cache: "no-store",
+        credentials: "include",
+        headers:
+          payload === undefined
+            ? undefined
+            : { "Content-Type": "application/json" },
+        body:
+          payload === undefined ? undefined : JSON.stringify(payload),
+      });
+
+      const result = (await response.json()) as ApiResponse;
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.message ?? "ดำเนินการไม่สำเร็จ");
+      }
+
+      setSuccess(result.message ?? "บันทึกเรียบร้อยแล้ว");
+      await load();
+      window.setTimeout(() => setSuccess(""), 3000);
+      return true;
+    } catch (caught) {
+      setError(
+        caught instanceof Error ? caught.message : "ดำเนินการไม่สำเร็จ",
+      );
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function openCreate(type: EntityType) {
+    if (!selectedNode) return;
+
+    if (type === "BUILDING") {
+      setDrawer({
+        mode: "CREATE",
+        type,
+        factoryId: selectedNode.factory.factoryId,
+      });
+      return;
+    }
+
+    if (type === "DEPARTMENT") {
+      const buildingId =
+        selectedNode.type === "BUILDING"
+          ? selectedNode.building.buildingId
+          : selectedNode.type === "DEPARTMENT" ||
+              selectedNode.type === "LINE"
+            ? selectedNode.building.buildingId
+            : selectedNode.factory.buildings[0]?.buildingId;
+
+      if (!buildingId) {
+        setError("กรุณาสร้างอาคารก่อนเพิ่มแผนก");
+        return;
+      }
+
+      setDrawer({
+        mode: "CREATE",
+        type,
+        factoryId: selectedNode.factory.factoryId,
+        buildingId,
+      });
+      return;
+    }
+
+    const departmentId =
+      selectedNode.type === "DEPARTMENT"
+        ? selectedNode.department.departmentId
+        : selectedNode.type === "LINE"
+          ? selectedNode.department.departmentId
+          : selectedNode.type === "BUILDING"
+            ? selectedNode.building.departments[0]?.departmentId
+            : selectedNode.factory.buildings[0]?.departments[0]
+                ?.departmentId;
+
+    if (!departmentId) {
+      setError("กรุณาสร้างแผนกก่อนเพิ่มสายการผลิต");
+      return;
+    }
+
+    setDrawer({
+      mode: "CREATE",
+      type,
+      factoryId: selectedNode.factory.factoryId,
+      departmentId,
+    });
+  }
+
+  function openEdit(node: SelectedNode) {
+    if (node.type === "FACTORY") return;
+
+    if (node.type === "BUILDING") {
+      setDrawer({
+        mode: "EDIT",
+        type: "BUILDING",
+        factoryId: node.factory.factoryId,
+        buildingId: node.building.buildingId,
+        entity: node.building,
+      });
+    } else if (node.type === "DEPARTMENT") {
+      setDrawer({
+        mode: "EDIT",
+        type: "DEPARTMENT",
+        factoryId: node.factory.factoryId,
+        buildingId: node.building.buildingId,
+        entity: node.department,
+      });
+    } else {
+      setDrawer({
+        mode: "EDIT",
+        type: "LINE",
+        factoryId: node.factory.factoryId,
+        buildingId: node.building.buildingId,
+        departmentId: node.department.departmentId,
+        entity: node.line,
+      });
+    }
+
+    setMenuOpen(false);
+  }
+
+  async function removeNode(node: SelectedNode) {
+    if (node.type === "FACTORY") return;
+
+    const label =
+      node.type === "BUILDING"
+        ? node.building.buildingName
+        : node.type === "DEPARTMENT"
+          ? node.department.departmentName
+          : node.line.lineName;
+
+    if (
+      !window.confirm(
+        `ยืนยันการลบหรือปิดใช้งาน "${label}" ใช่หรือไม่?`,
+      )
+    ) {
+      return;
+    }
+
+    const url =
+      node.type === "BUILDING"
+        ? `/api/company/structure/buildings/${node.building.buildingId}`
+        : node.type === "DEPARTMENT"
+          ? `/api/company/structure/departments/${node.department.departmentId}`
+          : `/api/company/structure/production-lines/${node.line.lineId}`;
+
+    const ok = await mutate(url, "DELETE");
+
+    if (ok) {
+      setSelectedKey(`factory:${node.factory.factoryId}`);
+      setMenuOpen(false);
+    }
+  }
 
   return (
-    <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[8px] font-medium ${
-        active
-          ? "bg-[#e8f7ef] text-[#24734b]"
-          : "bg-[#f1f3f5] text-[#747f8d]"
-      }`}
-    >
-      <span
-        className={`h-1.5 w-1.5 rounded-full ${
-          active ? "bg-[#2ca56c]" : "bg-[#9aa3ae]"
-        }`}
-      />
-      {active ? "ใช้งานอยู่" : "ปิดใช้งาน"}
-    </span>
+    <>
+      <section className="mx-auto w-full max-w-[1680px] pb-12">
+        <header className="mb-6 rounded-[26px] border border-slate-200/80 bg-white px-5 py-5 shadow-[0_18px_55px_rgba(15,23,42,0.045)] sm:px-7 sm:py-6">
+          <div className="flex flex-col gap-5 2xl:flex-row 2xl:items-end 2xl:justify-between">
+            <div className="min-w-0">
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3.5 py-2 text-[11px] font-black uppercase tracking-[0.14em] text-slate-600">
+                <Network className="h-3.5 w-3.5 text-violet-600" />
+                Organization Blueprint
+              </div>
+
+              <h1 className="text-[38px] font-black tracking-[-0.05em] text-slate-950 sm:text-[44px]">
+                โครงสร้างโรงงาน
+              </h1>
+
+              <p className="mt-2 max-w-[760px] text-[13px] leading-6 text-slate-500">
+                จัดลำดับ โรงงาน → อาคาร → แผนก → สายการผลิต ให้ทุกข้อมูลอ้างอิงโครงสร้างเดียวกัน
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+            <ActionButton
+              label="เพิ่มอาคาร"
+              icon={<Building2 className="h-4 w-4" />}
+              onClick={() => openCreate("BUILDING")}
+              secondary
+            />
+            <ActionButton
+              label="เพิ่มแผนก"
+              icon={<Layers3 className="h-4 w-4" />}
+              onClick={() => openCreate("DEPARTMENT")}
+              secondary
+            />
+            <ActionButton
+              label="เพิ่มสายการผลิต"
+              icon={<Workflow className="h-4 w-4" />}
+              onClick={() => openCreate("LINE")}
+            />
+            </div>
+          </div>
+        </header>
+
+        {(error || success) && (
+          <div
+            className={`mb-5 flex items-center gap-3 rounded-[15px] border px-5 py-4 text-[14px] font-semibold ${
+              error
+                ? "border-red-200 bg-red-50 text-red-700"
+                : "border-emerald-200 bg-emerald-50 text-emerald-700"
+            }`}
+          >
+            {error ? (
+              <CircleAlert className="h-5 w-5 shrink-0" />
+            ) : (
+              <CheckCircle2 className="h-5 w-5 shrink-0" />
+            )}
+            {error || success}
+          </div>
+        )}
+
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <StatCard icon={<Factory className="h-5 w-5" />} value={summary.factories} label="โรงงาน" detail="Company scope" tone="emerald" />
+          <StatCard icon={<Building2 className="h-5 w-5" />} value={summary.buildings} label="อาคาร" detail="Building registry" tone="blue" />
+          <StatCard icon={<Layers3 className="h-5 w-5" />} value={summary.departments} label="แผนก" detail="Organization units" tone="violet" />
+          <StatCard icon={<Workflow className="h-5 w-5" />} value={summary.lines} label="สายการผลิต" detail="Production lines" tone="orange" />
+          <StatCard icon={<Sparkles className="h-5 w-5" />} value={summary.machines} label="เครื่องจักร" detail="Linked assets" tone="cyan" />
+        </div>
+
+        <div className="mt-5 grid gap-5 2xl:grid-cols-[410px_minmax(0,1fr)]">
+          <aside className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_14px_45px_rgba(15,23,42,0.05)]">
+            <div className="border-b border-slate-100 p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-[17px] font-bold text-slate-900">
+                    Structure Navigator
+                  </h2>
+                  <p className="mt-1 text-[12px] text-slate-400">
+                    เลือก node เพื่อดูและจัดการ
+                  </p>
+                </div>
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-50 text-violet-700 ring-1 ring-inset ring-violet-100">
+                  <Network className="h-5 w-5" />
+                </span>
+              </div>
+
+              <div className="mt-4 flex h-[48px] items-center gap-3 rounded-[13px] border border-slate-200 bg-slate-50/80 px-4 transition focus-within:border-violet-300 focus-within:bg-white focus-within:shadow-[0_0_0_4px_rgba(124,58,237,0.05)]">
+                <Search className="h-4 w-4 text-slate-400" />
+                <input
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="ค้นหาโรงงาน อาคาร แผนก หรือ Line..."
+                  className="min-w-0 flex-1 bg-transparent text-[13px] outline-none"
+                />
+              </div>
+
+              <select
+                value={statusFilter}
+                onChange={(event) => setStatusFilter(event.target.value)}
+                className="mt-3 h-[44px] w-full rounded-[12px] border border-slate-200 bg-white px-3 text-[13px] font-bold text-slate-600 outline-none transition hover:border-slate-300 focus:border-violet-300"
+              >
+                <option value="ALL">ทุกสถานะ</option>
+                <option value="ACTIVE">เปิดใช้งาน</option>
+                <option value="INACTIVE">ปิดใช้งาน</option>
+              </select>
+            </div>
+
+            <div className="max-h-[720px] overflow-y-auto p-3 [scrollbar-width:thin]">
+              {loading ? (
+                <div className="grid min-h-[360px] place-items-center">
+                  <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-emerald-600" />
+                </div>
+              ) : (
+                <StructureTree
+                  factories={filteredFactories}
+                  selectedKey={selectedKey}
+                  setSelectedKey={setSelectedKey}
+                  expandedFactories={expandedFactories}
+                  setExpandedFactories={setExpandedFactories}
+                  expandedBuildings={expandedBuildings}
+                  setExpandedBuildings={setExpandedBuildings}
+                  expandedDepartments={expandedDepartments}
+                  setExpandedDepartments={setExpandedDepartments}
+                />
+              )}
+            </div>
+          </aside>
+
+          {selectedNode ? (
+            <Inspector
+              node={selectedNode}
+              menuOpen={menuOpen}
+              setMenuOpen={setMenuOpen}
+              onEdit={() => openEdit(selectedNode)}
+              onDelete={() => void removeNode(selectedNode)}
+              onCreate={openCreate}
+            />
+          ) : (
+            <EmptyInspector />
+          )}
+        </div>
+      </section>
+
+      {drawer && (
+        <Drawer
+          drawer={drawer}
+          factories={factories}
+          busy={busy}
+          onClose={() => setDrawer(null)}
+          onSave={async (url, method, payload) => {
+            if (await mutate(url, method, payload)) setDrawer(null);
+          }}
+        />
+      )}
+    </>
   );
 }
 
 function StructureTree({
-  buildings,
-  selectedBuildingId,
-  selectedDepartmentId,
-  onSelectBuilding,
-  onSelectDepartment,
+  factories,
+  selectedKey,
+  setSelectedKey,
+  expandedFactories,
+  setExpandedFactories,
+  expandedBuildings,
+  setExpandedBuildings,
+  expandedDepartments,
+  setExpandedDepartments,
 }: {
-  buildings: Building[];
-  selectedBuildingId: string;
-  selectedDepartmentId: string | null;
-  onSelectBuilding: (buildingId: string) => void;
-  onSelectDepartment: (buildingId: string, departmentId: string) => void;
+  factories: FactoryItem[];
+  selectedKey: string;
+  setSelectedKey: (value: string) => void;
+  expandedFactories: number[];
+  setExpandedFactories: React.Dispatch<React.SetStateAction<number[]>>;
+  expandedBuildings: number[];
+  setExpandedBuildings: React.Dispatch<React.SetStateAction<number[]>>;
+  expandedDepartments: number[];
+  setExpandedDepartments: React.Dispatch<React.SetStateAction<number[]>>;
 }) {
-  const [expandedBuildings, setExpandedBuildings] = useState<string[]>(
-    buildings.map((building) => building.id),
-  );
+  const toggle = (
+    id: number,
+    values: number[],
+    setter: React.Dispatch<React.SetStateAction<number[]>>,
+  ) =>
+    setter(
+      values.includes(id)
+        ? values.filter((value) => value !== id)
+        : [...values, id],
+    );
+
+  if (!factories.length) {
+    return (
+      <div className="grid min-h-[340px] place-items-center px-5 text-center">
+        <div>
+          <Factory className="mx-auto h-8 w-8 text-slate-300" />
+          <p className="mt-3 text-[14px] font-bold text-slate-700">
+            ไม่พบโครงสร้าง
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-2">
-      {buildings.map((building) => {
-        const expanded = expandedBuildings.includes(building.id);
-        const buildingSelected =
-          selectedBuildingId === building.id && selectedDepartmentId === null;
+    <div className="space-y-1">
+      {factories.map((factory) => {
+        const open = expandedFactories.includes(factory.factoryId);
 
         return (
-          <div key={building.id}>
-            <div
-              className={`flex items-center gap-2 rounded-[11px] border px-2 py-2 transition ${
-                buildingSelected
-                  ? "border-[#4ea783]/30 bg-[#edf8f3]"
-                  : "border-transparent hover:bg-[#f8faf9]"
-              }`}
-            >
-              <button
-                type="button"
-                onClick={() =>
-                  setExpandedBuildings((current) =>
-                    current.includes(building.id)
-                      ? current.filter((id) => id !== building.id)
-                      : [...current, building.id],
-                  )
-                }
-                className="flex h-7 w-7 items-center justify-center rounded-[8px] text-[#7e8997] hover:bg-white"
-                aria-label={expanded ? "ย่ออาคาร" : "ขยายอาคาร"}
-              >
-                {expanded ? (
-                  <ChevronDown className="h-4 w-4" />
-                ) : (
-                  <ChevronRight className="h-4 w-4" />
-                )}
-              </button>
+          <div key={factory.factoryId}>
+            <TreeRow
+              active={selectedKey === `factory:${factory.factoryId}`}
+              title={factory.factoryName}
+              subtitle={`${factory.factoryCode} · ${factory.buildings.length} อาคาร`}
+              icon={<Factory className="h-4 w-4" />}
+              tone="emerald"
+              expanded={open}
+              expandable
+              onToggle={() =>
+                toggle(
+                  factory.factoryId,
+                  expandedFactories,
+                  setExpandedFactories,
+                )
+              }
+              onClick={() =>
+                setSelectedKey(`factory:${factory.factoryId}`)
+              }
+            />
 
-              <button
-                type="button"
-                onClick={() => onSelectBuilding(building.id)}
-                className="flex min-w-0 flex-1 items-center gap-3 text-left"
-              >
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] bg-[#e8f5ed] text-[#2d8057]">
-                  <Building2 className="h-4 w-4" />
-                </span>
+            {open && (
+              <div className="ml-5 border-l border-slate-100 pl-2">
+                {factory.buildings.map((building) => {
+                  const buildingOpen = expandedBuildings.includes(
+                    building.buildingId,
+                  );
 
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[9px] font-semibold text-[#3d4a5d]">
-                    {building.name}
-                  </span>
-                  <span className="mt-0.5 block text-[7px] text-[#98a1ac]">
-                    {building.departments.length} แผนก
-                  </span>
-                </span>
-              </button>
-            </div>
-
-            {expanded && (
-              <div className="ml-[23px] mt-1 border-l border-[#e1e6eb] pl-3">
-                <div className="space-y-1">
-                  {building.departments.map((department) => {
-                    const selected =
-                      selectedDepartmentId === department.id &&
-                      selectedBuildingId === building.id;
-
-                    return (
-                      <button
-                        key={department.id}
-                        type="button"
-                        onClick={() =>
-                          onSelectDepartment(building.id, department.id)
+                  return (
+                    <div key={building.buildingId}>
+                      <TreeRow
+                        active={
+                          selectedKey ===
+                          `building:${building.buildingId}`
                         }
-                        className={`flex w-full items-center gap-3 rounded-[10px] border px-3 py-2.5 text-left transition ${
-                          selected
-                            ? "border-[#4ea783]/30 bg-[#edf8f3]"
-                            : "border-transparent hover:bg-[#fafbfc]"
-                        }`}
-                      >
-                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] bg-[#f0ebff] text-[#7158ad]">
-                          <Layers3 className="h-3.5 w-3.5" />
-                        </span>
+                        title={building.buildingName}
+                        subtitle={`${building.buildingCode} · ${building.departments.length} แผนก`}
+                        icon={<Building2 className="h-4 w-4" />}
+                        tone="blue"
+                        status={building.status}
+                        expanded={buildingOpen}
+                        expandable
+                        onToggle={() =>
+                          toggle(
+                            building.buildingId,
+                            expandedBuildings,
+                            setExpandedBuildings,
+                          )
+                        }
+                        onClick={() =>
+                          setSelectedKey(
+                            `building:${building.buildingId}`,
+                          )
+                        }
+                      />
 
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-[9px] font-medium text-[#4b586a]">
-                            {department.name}
-                          </span>
-                          <span className="mt-0.5 block text-[7px] text-[#9ba4af]">
-                            {department.lines.length} สายการผลิต
-                          </span>
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
+                      {buildingOpen && (
+                        <div className="ml-5 border-l border-slate-100 pl-2">
+                          {building.departments.map((department) => {
+                            const departmentOpen =
+                              expandedDepartments.includes(
+                                department.departmentId,
+                              );
+
+                            return (
+                              <div key={department.departmentId}>
+                                <TreeRow
+                                  active={
+                                    selectedKey ===
+                                    `department:${department.departmentId}`
+                                  }
+                                  title={department.departmentName}
+                                  subtitle={`${department.departmentCode} · ${department.productionLines.length} Line`}
+                                  icon={<Layers3 className="h-4 w-4" />}
+                                  tone="violet"
+                                  status={department.status}
+                                  expanded={departmentOpen}
+                                  expandable
+                                  onToggle={() =>
+                                    toggle(
+                                      department.departmentId,
+                                      expandedDepartments,
+                                      setExpandedDepartments,
+                                    )
+                                  }
+                                  onClick={() =>
+                                    setSelectedKey(
+                                      `department:${department.departmentId}`,
+                                    )
+                                  }
+                                />
+
+                                {departmentOpen && (
+                                  <div className="ml-6 border-l border-slate-100 pl-2">
+                                    {department.productionLines.map(
+                                      (line) => (
+                                        <TreeRow
+                                          key={line.lineId}
+                                          active={
+                                            selectedKey ===
+                                            `line:${line.lineId}`
+                                          }
+                                          title={line.lineName}
+                                          subtitle={`${line.lineCode} · ${line._count.machines} เครื่อง`}
+                                          icon={
+                                            <Workflow className="h-4 w-4" />
+                                          }
+                                          tone="orange"
+                                          status={line.status}
+                                          onClick={() =>
+                                            setSelectedKey(
+                                              `line:${line.lineId}`,
+                                            )
+                                          }
+                                        />
+                                      ),
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -320,90 +810,485 @@ function StructureTree({
   );
 }
 
-function DataDrawer({
-  open,
-  mode,
-  buildings,
-  selectedBuildingId,
-  department,
-  line,
-  onClose,
-  onSaveDepartment,
-  onSaveLine,
+function TreeRow({
+  active,
+  title,
+  subtitle,
+  icon,
+  status,
+  expandable = false,
+  expanded = false,
+  onToggle,
+  onClick,
+  tone = "slate",
 }: {
-  open: boolean;
-  mode: DrawerMode;
-  buildings: Building[];
-  selectedBuildingId: string;
-  department: DepartmentRow | null;
-  line: LineRow | null;
-  onClose: () => void;
-  onSaveDepartment: (value: {
-    name: string;
-    code: string;
-    status: Status;
-  }) => void;
-  onSaveLine: (value: {
-    name: string;
-    code: string;
-    departmentId: string;
-    status: Status;
-  }) => void;
+  active: boolean;
+  title: string;
+  subtitle: string;
+  icon: ReactNode;
+  status?: Status;
+  expandable?: boolean;
+  expanded?: boolean;
+  onToggle?: () => void;
+  onClick: () => void;
+  tone?: "emerald" | "blue" | "violet" | "orange" | "slate";
 }) {
-  const isDepartment =
-    mode === "ADD_DEPARTMENT" || mode === "EDIT_DEPARTMENT";
+  const tones = {
+    emerald: { active: "border-emerald-100 bg-emerald-50", icon: "bg-emerald-100 text-emerald-700" },
+    blue: { active: "border-blue-100 bg-blue-50", icon: "bg-blue-100 text-blue-700" },
+    violet: { active: "border-violet-100 bg-violet-50", icon: "bg-violet-100 text-violet-700" },
+    orange: { active: "border-orange-100 bg-orange-50", icon: "bg-orange-100 text-orange-700" },
+    slate: { active: "border-slate-200 bg-slate-50", icon: "bg-slate-100 text-slate-600" },
+  } as const;
+  const selectedTone = tones[tone];
 
-  const [name, setName] = useState(
-    isDepartment ? department?.name ?? "" : line?.name ?? "",
+  return (
+    <div
+      className={`my-1 flex items-center gap-1 rounded-[13px] border px-2 py-2 transition ${
+        active
+          ? `${selectedTone.active} shadow-sm`
+          : "border-transparent hover:bg-slate-50"
+      }`}
+    >
+      {expandable ? (
+        <button
+          type="button"
+          onClick={onToggle}
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-white"
+        >
+          {expanded ? (
+            <ChevronDown className="h-4 w-4" />
+          ) : (
+            <ChevronRight className="h-4 w-4" />
+          )}
+        </button>
+      ) : (
+        <span className="w-7" />
+      )}
+
+      <button
+        type="button"
+        onClick={onClick}
+        className="flex min-w-0 flex-1 items-center gap-3 text-left"
+      >
+        <span
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] transition ${
+            active
+              ? `${selectedTone.icon} shadow-sm`
+              : selectedTone.icon
+          }`}
+        >
+          {icon}
+        </span>
+
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center gap-2">
+            <span className="truncate text-[13px] font-black text-slate-700">
+              {title}
+            </span>
+            {status === "INACTIVE" && (
+              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[9px] font-bold text-slate-400">
+                OFF
+              </span>
+            )}
+          </span>
+          <span className="mt-1 block truncate text-[11px] text-slate-400">
+            {subtitle}
+          </span>
+        </span>
+      </button>
+    </div>
   );
+}
+
+function Inspector({
+  node,
+  menuOpen,
+  setMenuOpen,
+  onEdit,
+  onDelete,
+  onCreate,
+}: {
+  node: SelectedNode;
+  menuOpen: boolean;
+  setMenuOpen: (value: boolean) => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  onCreate: (type: EntityType) => void;
+}) {
+  const title =
+    node.type === "FACTORY"
+      ? node.factory.factoryName
+      : node.type === "BUILDING"
+        ? node.building.buildingName
+        : node.type === "DEPARTMENT"
+          ? node.department.departmentName
+          : node.line.lineName;
+
+  const code =
+    node.type === "FACTORY"
+      ? node.factory.factoryCode
+      : node.type === "BUILDING"
+        ? node.building.buildingCode
+        : node.type === "DEPARTMENT"
+          ? node.department.departmentCode
+          : node.line.lineCode;
+
+  const status =
+    node.type === "FACTORY"
+      ? node.factory.status
+      : node.type === "BUILDING"
+        ? node.building.status
+        : node.type === "DEPARTMENT"
+          ? node.department.status
+          : node.line.status;
+
+  const metrics =
+    node.type === "FACTORY"
+      ? [
+          ["อาคาร", node.factory.buildings.length],
+          [
+            "แผนก",
+            node.factory.buildings.reduce(
+              (sum, item) => sum + item.departments.length,
+              0,
+            ),
+          ],
+          [
+            "สายการผลิต",
+            node.factory.buildings.reduce(
+              (sum, item) =>
+                sum +
+                item.departments.reduce(
+                  (total, department) =>
+                    total + department.productionLines.length,
+                  0,
+                ),
+              0,
+            ),
+          ],
+        ]
+      : node.type === "BUILDING"
+        ? [
+            ["แผนก", node.building.departments.length],
+            [
+              "สายการผลิต",
+              node.building.departments.reduce(
+                (sum, item) => sum + item.productionLines.length,
+                0,
+              ),
+            ],
+            ["จำนวนชั้น", node.building.floorCount ?? 0],
+          ]
+        : node.type === "DEPARTMENT"
+          ? [
+              ["สายการผลิต", node.department.productionLines.length],
+              ["ผู้ใช้งาน", node.department._count.users],
+              [
+                "เครื่องจักร",
+                node.department.productionLines.reduce(
+                  (sum, item) => sum + item._count.machines,
+                  0,
+                ),
+              ],
+            ]
+          : [
+              ["เครื่องจักร", node.line._count.machines],
+              ["Checkpoints", node.line._count.checkpoints],
+              ["สถานะ", node.line.status === "ACTIVE" ? 100 : 0],
+            ];
+
+  const description =
+    node.type === "FACTORY"
+      ? "โรงงานเป็นขอบเขตหลักของระบบและเป็นต้นทางของอาคารภายในโรงงาน"
+      : node.type === "BUILDING"
+        ? node.building.description ||
+          "ยังไม่ได้ระบุคำอธิบายของอาคารนี้"
+        : node.type === "DEPARTMENT"
+          ? node.department.description ||
+            "ยังไม่ได้ระบุคำอธิบายของแผนกนี้"
+          : node.line.description ||
+            "ยังไม่ได้ระบุคำอธิบายของสายการผลิตนี้";
+
+  const inspectorTone =
+    node.type === "FACTORY"
+      ? { header: "from-emerald-600 via-emerald-700 to-teal-800", soft: "bg-emerald-50 text-emerald-700 border-emerald-100" }
+      : node.type === "BUILDING"
+        ? { header: "from-blue-600 via-blue-700 to-sky-800", soft: "bg-blue-50 text-blue-700 border-blue-100" }
+        : node.type === "DEPARTMENT"
+          ? { header: "from-violet-600 via-violet-700 to-purple-800", soft: "bg-violet-50 text-violet-700 border-violet-100" }
+          : { header: "from-orange-500 via-orange-600 to-amber-700", soft: "bg-orange-50 text-orange-700 border-orange-100" };
+
+  return (
+    <main className="space-y-5">
+      <section className="overflow-visible rounded-[24px] border border-slate-200 bg-white shadow-[0_12px_40px_rgba(15,23,42,0.05)]">
+        <div className={`relative overflow-visible rounded-t-[24px] bg-gradient-to-br ${inspectorTone.header} px-6 py-6 text-white sm:px-7 sm:py-7`}>
+          <div className="flex items-start gap-4">
+            <span className="flex h-[54px] w-[54px] shrink-0 items-center justify-center rounded-[16px] border border-white/15 bg-white/10">
+              {node.type === "FACTORY" ? (
+                <Factory className="h-6 w-6" />
+              ) : node.type === "BUILDING" ? (
+                <Building2 className="h-6 w-6" />
+              ) : node.type === "DEPARTMENT" ? (
+                <Layers3 className="h-6 w-6" />
+              ) : (
+                <Workflow className="h-6 w-6" />
+              )}
+            </span>
+
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-white/55">
+                {node.type}
+              </p>
+              <h2 className="mt-2 truncate text-[28px] font-bold tracking-[-0.035em]">
+                {title}
+              </h2>
+              <p className="mt-1 text-[13px] text-white/65">{code}</p>
+            </div>
+
+            <div className="relative flex items-center gap-2">
+              <StatusBadge status={status} />
+
+              {node.type !== "FACTORY" && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setMenuOpen(!menuOpen)}
+                    className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 text-white/80 hover:bg-white/20"
+                  >
+                    <MoreHorizontal className="h-5 w-5" />
+                  </button>
+
+                  {menuOpen && (
+                    <div className="absolute right-0 top-12 z-30 w-[190px] rounded-[14px] border border-slate-200 bg-white p-2 text-slate-700 shadow-xl">
+                      <button
+                        type="button"
+                        onClick={onEdit}
+                        className="flex h-11 w-full items-center gap-2 rounded-[10px] px-3 text-left text-[13px] font-semibold hover:bg-slate-50"
+                      >
+                        <Pencil className="h-4 w-4" />
+                        แก้ไขข้อมูล
+                      </button>
+                      <button
+                        type="button"
+                        onClick={onDelete}
+                        className="flex h-11 w-full items-center gap-2 rounded-[10px] px-3 text-left text-[13px] font-semibold text-red-600 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        ลบ / ปิดใช้งาน
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="grid gap-3 p-5 sm:p-6 md:grid-cols-3">
+          {metrics.map(([label, value]) => (
+            <div
+              key={String(label)}
+              className={`rounded-[17px] border p-5 transition hover:-translate-y-0.5 ${inspectorTone.soft}`}
+            >
+              <p className="text-[30px] font-black tracking-[-0.04em] text-slate-950">
+                {value}
+                {label === "สถานะ" ? "%" : ""}
+              </p>
+              <p className="mt-2 whitespace-nowrap text-[13px] font-black opacity-75">
+                {label}
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="rounded-[22px] border border-slate-200 bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.04)] sm:p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="text-[18px] font-bold text-slate-900">
+              Next structure action
+            </h3>
+            <p className="mt-1 text-[13px] text-slate-400">
+              เพิ่ม node ถัดไปจากตำแหน่งที่เลือก
+            </p>
+          </div>
+
+          {node.type === "FACTORY" ? (
+            <ActionButton
+              label="เพิ่มอาคาร"
+              icon={<Plus className="h-4 w-4" />}
+              onClick={() => onCreate("BUILDING")}
+            />
+          ) : node.type === "BUILDING" ? (
+            <ActionButton
+              label="เพิ่มแผนก"
+              icon={<Plus className="h-4 w-4" />}
+              onClick={() => onCreate("DEPARTMENT")}
+            />
+          ) : node.type === "DEPARTMENT" ? (
+            <ActionButton
+              label="เพิ่มสายการผลิต"
+              icon={<Plus className="h-4 w-4" />}
+              onClick={() => onCreate("LINE")}
+            />
+          ) : (
+            <a
+              href="/company/machines"
+              className="inline-flex h-11 items-center gap-2 rounded-[12px] bg-emerald-700 px-4 text-[13px] font-bold text-white hover:bg-emerald-800"
+            >
+              ไปเพิ่มเครื่องจักร
+              <ChevronRight className="h-4 w-4" />
+            </a>
+          )}
+        </div>
+
+        <div className="mt-5 rounded-[16px] border border-slate-100 bg-slate-50/80 p-5">
+          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">
+            Description
+          </p>
+          <p className="mt-2 text-[14px] leading-7 text-slate-600">
+            {description}
+          </p>
+        </div>
+      </section>
+    </main>
+  );
+}
+
+function Drawer({
+  drawer,
+  factories,
+  busy,
+  onClose,
+  onSave,
+}: {
+  drawer: Exclude<DrawerState, null>;
+  factories: FactoryItem[];
+  busy: boolean;
+  onClose: () => void;
+  onSave: (
+    url: string,
+    method: "POST" | "PATCH",
+    payload: unknown,
+  ) => Promise<void>;
+}) {
+  const buildingEntity =
+    drawer.type === "BUILDING" && drawer.entity
+      ? (drawer.entity as Building)
+      : null;
+  const departmentEntity =
+    drawer.type === "DEPARTMENT" && drawer.entity
+      ? (drawer.entity as Department)
+      : null;
+  const lineEntity =
+    drawer.type === "LINE" && drawer.entity
+      ? (drawer.entity as Line)
+      : null;
+
+  const [factoryId, setFactoryId] = useState(
+    String(drawer.factoryId ?? factories[0]?.factoryId ?? ""),
+  );
+  const [buildingId, setBuildingId] = useState(
+    String(drawer.buildingId ?? ""),
+  );
+  const [departmentId, setDepartmentId] = useState(
+    String(drawer.departmentId ?? ""),
+  );
+
   const [code, setCode] = useState(
-    isDepartment ? department?.code ?? "" : line?.code ?? "",
+    buildingEntity?.buildingCode ??
+      departmentEntity?.departmentCode ??
+      lineEntity?.lineCode ??
+      "",
+  );
+  const [name, setName] = useState(
+    buildingEntity?.buildingName ??
+      departmentEntity?.departmentName ??
+      lineEntity?.lineName ??
+      "",
+  );
+  const [description, setDescription] = useState(
+    buildingEntity?.description ??
+      departmentEntity?.description ??
+      lineEntity?.description ??
+      "",
   );
   const [status, setStatus] = useState<Status>(
-    isDepartment
-      ? department?.status ?? "ACTIVE"
-      : line?.status ?? "ACTIVE",
+    buildingEntity?.status ??
+      departmentEntity?.status ??
+      lineEntity?.status ??
+      "ACTIVE",
   );
 
-  const fallbackDepartment =
-    buildings.find((building) => building.id === selectedBuildingId)
-      ?.departments[0]?.id ??
-    buildings[0]?.departments[0]?.id ??
-    "";
-
-  const [departmentId, setDepartmentId] = useState(
-    line?.departmentId ?? department?.id ?? fallbackDepartment,
+  const [buildingType, setBuildingType] = useState(
+    buildingEntity?.buildingType ?? "",
+  );
+  const [floorCount, setFloorCount] = useState(
+    buildingEntity?.floorCount?.toString() ?? "",
   );
 
-  if (!open) return null;
+  const factory = factories.find(
+    (item) => item.factoryId === Number(factoryId),
+  );
+  const buildings = factory?.buildings ?? [];
+  const building = buildings.find(
+    (item) => item.buildingId === Number(buildingId),
+  );
+  const departments = building?.departments ?? [];
 
-  const title =
-    mode === "ADD_DEPARTMENT"
-      ? "เพิ่มแผนก"
-      : mode === "EDIT_DEPARTMENT"
-        ? "แก้ไขแผนก"
-        : mode === "ADD_LINE"
-          ? "เพิ่มสายการผลิต"
-          : "แก้ไขสายการผลิต";
-
-  function submit(event: FormEvent<HTMLFormElement>) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (isDepartment) {
-      onSaveDepartment({
-        name: name.trim(),
-        code: code.trim().toUpperCase(),
-        status,
-      });
+    if (drawer.type === "BUILDING") {
+      await onSave(
+        drawer.mode === "CREATE"
+          ? "/api/company/structure/buildings"
+          : `/api/company/structure/buildings/${buildingEntity?.buildingId}`,
+        drawer.mode === "CREATE" ? "POST" : "PATCH",
+        {
+          factoryId: Number(factoryId),
+          buildingCode: code,
+          buildingName: name,
+          buildingType,
+          floorCount,
+          description,
+          status,
+        },
+      );
       return;
     }
 
-    onSaveLine({
-      name: name.trim(),
-      code: code.trim().toUpperCase(),
-      departmentId,
-      status,
-    });
+    if (drawer.type === "DEPARTMENT") {
+      await onSave(
+        drawer.mode === "CREATE"
+          ? "/api/company/structure/departments"
+          : `/api/company/structure/departments/${departmentEntity?.departmentId}`,
+        drawer.mode === "CREATE" ? "POST" : "PATCH",
+        {
+          buildingId: Number(buildingId),
+          departmentCode: code,
+          departmentName: name,
+          description,
+          status,
+        },
+      );
+      return;
+    }
+
+    await onSave(
+      drawer.mode === "CREATE"
+        ? "/api/company/structure/production-lines"
+        : `/api/company/structure/production-lines/${lineEntity?.lineId}`,
+      drawer.mode === "CREATE" ? "POST" : "PATCH",
+      {
+        departmentId: Number(departmentId),
+        lineCode: code,
+        lineName: name,
+        description,
+        status,
+      },
+    );
   }
 
   return (
@@ -411,106 +1296,167 @@ function DataDrawer({
       <button
         type="button"
         onClick={onClose}
-        aria-label="ปิดหน้าต่าง"
-        className="fixed inset-0 z-[70] bg-[#0d1726]/35 backdrop-blur-[2px]"
+        className="fixed inset-0 z-[70] bg-slate-950/40 backdrop-blur-[3px]"
       />
 
-      <aside className="fixed inset-y-0 right-0 z-[80] w-full max-w-[500px] overflow-y-auto bg-white shadow-[-24px_0_70px_rgba(17,31,51,0.18)]">
-        <div className="flex h-[74px] items-center justify-between border-b border-[#e5e9ee] px-6">
-          <div>
-            <h2 className="text-[16px] font-semibold text-[#263247]">
-              {title}
-            </h2>
-            <p className="mt-1 text-[8px] text-[#929ca9]">
-              Frontend preview — ยังไม่บันทึกลงฐานข้อมูล
-            </p>
-          </div>
+      <aside className="fixed inset-y-0 right-0 z-[80] w-full max-w-[720px] overflow-y-auto bg-[#f8faf9] shadow-[-35px_0_90px_rgba(15,23,42,0.22)]">
+        <div className="sticky top-0 z-10 border-b border-slate-200 bg-white/95 px-7 py-6 backdrop-blur">
+          <div className="flex items-start justify-between gap-5">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full bg-slate-950 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-white">
+                <Sparkles className="h-3.5 w-3.5" />
+                {drawer.mode === "CREATE" ? "Create Node" : "Edit Node"}
+              </div>
+              <h2 className="mt-3 text-[30px] font-black tracking-[-0.045em] text-slate-950">
+                {drawer.mode === "CREATE" ? "เพิ่ม" : "แก้ไข"}
+                {drawer.type === "BUILDING"
+                  ? "อาคาร"
+                  : drawer.type === "DEPARTMENT"
+                    ? "แผนก"
+                    : "สายการผลิต"}
+              </h2>
+              <p className="mt-2 text-[14px] leading-6 text-slate-500">
+                บันทึกลงฐานข้อมูลจริงและถูกจำกัดด้วย companyId
+                ของบัญชีที่กำลังเข้าสู่ระบบ
+              </p>
+            </div>
 
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex h-9 w-9 items-center justify-center rounded-full text-[#718091] hover:bg-[#eef2f5]"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
-        <form onSubmit={submit} className="p-6">
-          <label className="block">
-            <span className="text-[10px] font-medium text-[#465365]">
-              ชื่อ *
-            </span>
-            <input
-              required
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              className="mt-2 h-[48px] w-full rounded-[12px] border border-[#dfe5eb] bg-[#fbfcfd] px-4 text-[11px] outline-none focus:border-[#4d9c7a] focus:ring-4 focus:ring-[#4d9c7a]/8"
-            />
-          </label>
-
-          <label className="mt-5 block">
-            <span className="text-[10px] font-medium text-[#465365]">
-              รหัส *
-            </span>
-            <input
-              required
-              value={code}
-              onChange={(event) => setCode(event.target.value.toUpperCase())}
-              className="mt-2 h-[48px] w-full rounded-[12px] border border-[#dfe5eb] bg-[#fbfcfd] px-4 text-[11px] uppercase outline-none focus:border-[#4d9c7a] focus:ring-4 focus:ring-[#4d9c7a]/8"
-            />
-          </label>
-
-          {!isDepartment && (
-            <label className="mt-5 block">
-              <span className="text-[10px] font-medium text-[#465365]">
-                แผนก *
-              </span>
-              <select
-                required
-                value={departmentId}
-                onChange={(event) => setDepartmentId(event.target.value)}
-                className="mt-2 h-[48px] w-full rounded-[12px] border border-[#dfe5eb] bg-[#fbfcfd] px-4 text-[11px]"
-              >
-                {buildings.flatMap((building) =>
-                  building.departments.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {building.name} · {item.name}
-                    </option>
-                  )),
-                )}
-              </select>
-            </label>
-          )}
-
-          <label className="mt-5 block">
-            <span className="text-[10px] font-medium text-[#465365]">
-              สถานะ
-            </span>
-            <select
-              value={status}
-              onChange={(event) => setStatus(event.target.value as Status)}
-              className="mt-2 h-[48px] w-full rounded-[12px] border border-[#dfe5eb] bg-[#fbfcfd] px-4 text-[11px]"
-            >
-              <option value="ACTIVE">ใช้งานอยู่</option>
-              <option value="INACTIVE">ปิดใช้งาน</option>
-            </select>
-          </label>
-
-          <div className="mt-8 flex justify-end gap-3 border-t border-[#e6eaf0] pt-5">
             <button
               type="button"
               onClick={onClose}
-              className="min-h-[44px] rounded-[11px] border border-[#dfe5eb] px-5 text-[10px] text-[#667283]"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-400"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+
+        <form onSubmit={submit} className="space-y-5 p-7">
+          <FormCard title="Structure Placement">
+            <SelectField
+              label="โรงงาน"
+              value={factoryId}
+              onChange={(value) => {
+                setFactoryId(value);
+                setBuildingId("");
+                setDepartmentId("");
+              }}
+              options={factories.map((item) => ({
+                value: String(item.factoryId),
+                label: `${item.factoryName} (${item.factoryCode})`,
+              }))}
+            />
+
+            {drawer.type !== "BUILDING" && (
+              <div className="mt-4">
+                <SelectField
+                  label="อาคาร"
+                  value={buildingId}
+                  onChange={(value) => {
+                    setBuildingId(value);
+                    setDepartmentId("");
+                  }}
+                  options={buildings.map((item) => ({
+                    value: String(item.buildingId),
+                    label: `${item.buildingName} (${item.buildingCode})`,
+                  }))}
+                />
+              </div>
+            )}
+
+            {drawer.type === "LINE" && (
+              <div className="mt-4">
+                <SelectField
+                  label="แผนก"
+                  value={departmentId}
+                  onChange={setDepartmentId}
+                  options={departments.map((item) => ({
+                    value: String(item.departmentId),
+                    label: `${item.departmentName} (${item.departmentCode})`,
+                  }))}
+                />
+              </div>
+            )}
+          </FormCard>
+
+          <FormCard title="Identity & Details">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field
+                label="รหัส"
+                value={code}
+                onChange={(value) => setCode(value.toUpperCase())}
+              />
+              <Field label="ชื่อ" value={name} onChange={setName} />
+            </div>
+
+            {drawer.type === "BUILDING" && (
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <Field
+                  label="ประเภทอาคาร"
+                  value={buildingType}
+                  onChange={setBuildingType}
+                  required={false}
+                />
+                <Field
+                  label="จำนวนชั้น"
+                  value={floorCount}
+                  onChange={setFloorCount}
+                  type="number"
+                  required={false}
+                />
+              </div>
+            )}
+
+            <label className="mt-4 block">
+              <span className="text-[13px] font-semibold text-slate-600">
+                คำอธิบาย
+              </span>
+              <textarea
+                rows={4}
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                className="mt-2 w-full resize-none rounded-[13px] border border-slate-200 bg-slate-50 px-4 py-3 text-[14px] outline-none focus:border-emerald-400 focus:bg-white"
+              />
+            </label>
+          </FormCard>
+
+          <FormCard title="Registry Status">
+            <SelectField
+              label="สถานะ"
+              value={status}
+              onChange={(value) => setStatus(value as Status)}
+              options={[
+                { value: "ACTIVE", label: "เปิดใช้งาน" },
+                { value: "INACTIVE", label: "ปิดใช้งาน" },
+              ]}
+            />
+          </FormCard>
+
+          <div className="sticky bottom-0 -mx-7 flex justify-end gap-3 border-t border-slate-200 bg-white/95 px-7 py-5 backdrop-blur">
+            <button
+              type="button"
+              onClick={onClose}
+              className="h-12 rounded-[13px] border border-slate-200 bg-white px-6 text-[14px] font-semibold text-slate-600"
             >
               ยกเลิก
             </button>
-
             <button
               type="submit"
-              className="inline-flex min-h-[44px] items-center gap-2 rounded-[11px] bg-[#1f8f62] px-5 text-[10px] font-semibold text-white"
+              disabled={
+                busy ||
+                !factoryId ||
+                !code.trim() ||
+                !name.trim() ||
+                (drawer.type !== "BUILDING" && !buildingId) ||
+                (drawer.type === "LINE" && !departmentId)
+              }
+              className="h-12 rounded-[13px] bg-emerald-700 px-7 text-[14px] font-bold text-white shadow-lg hover:bg-emerald-800 disabled:opacity-40"
             >
-              <Check className="h-4 w-4" />
-              บันทึก
+              {busy
+                ? "กำลังบันทึก..."
+                : drawer.mode === "CREATE"
+                  ? "สร้างและบันทึก"
+                  : "บันทึกการแก้ไข"}
             </button>
           </div>
         </form>
@@ -519,747 +1465,169 @@ function DataDrawer({
   );
 }
 
-export default function FactoryStructureClient() {
-  const [buildings, setBuildings] = useState<Building[]>(initialBuildings);
-  const [activeTab, setActiveTab] = useState<Tab>("DEPARTMENT");
-  const [selectedBuildingId, setSelectedBuildingId] =
-    useState("building-a");
-  const [selectedDepartmentId, setSelectedDepartmentId] =
-    useState<string | null>(null);
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("ALL");
-  const [page, setPage] = useState(1);
-  const [drawerMode, setDrawerMode] = useState<DrawerMode | null>(null);
-  const [editingDepartment, setEditingDepartment] =
-    useState<DepartmentRow | null>(null);
-  const [editingLine, setEditingLine] = useState<LineRow | null>(null);
-  const [menuId, setMenuId] = useState<string | null>(null);
-
-  const departments = useMemo<DepartmentRow[]>(
-    () =>
-      buildings.flatMap((building) =>
-        building.departments.map((department) => ({
-          ...department,
-          buildingId: building.id,
-          buildingName: building.name,
-        })),
-      ),
-    [buildings],
+function ActionButton({
+  label,
+  icon,
+  onClick,
+  secondary = false,
+}: {
+  label: string;
+  icon: ReactNode;
+  onClick: () => void;
+  secondary?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`group inline-flex h-11 items-center gap-2 rounded-[12px] px-4 text-[13px] font-black transition duration-200 hover:-translate-y-0.5 ${
+        secondary
+          ? "border border-slate-200 bg-white text-slate-700 shadow-sm hover:border-slate-300 hover:bg-slate-50"
+          : "bg-slate-950 text-white shadow-[0_10px_24px_rgba(15,23,42,0.16)] hover:bg-violet-700"
+      }`}
+    >
+      <span className="transition group-hover:scale-110">{icon}</span>
+      {label}
+    </button>
   );
+}
 
-  const lines = useMemo<LineRow[]>(
-    () =>
-      buildings.flatMap((building) =>
-        building.departments.flatMap((department) =>
-          department.lines.map((line) => ({
-            ...line,
-            buildingId: building.id,
-            buildingName: building.name,
-            departmentId: department.id,
-            departmentName: department.name,
-          })),
-        ),
-      ),
-    [buildings],
-  );
-
-  const selectedBuilding =
-    buildings.find((building) => building.id === selectedBuildingId) ??
-    buildings[0];
-
-  const selectedDepartment =
-    departments.find((item) => item.id === selectedDepartmentId) ?? null;
-
-  const filteredDepartments = useMemo(() => {
-    const keyword = search.trim().toLowerCase();
-
-    return departments.filter((department) => {
-      const matchesSearch =
-        !keyword ||
-        department.name.toLowerCase().includes(keyword) ||
-        department.code.toLowerCase().includes(keyword) ||
-        department.buildingName.toLowerCase().includes(keyword);
-
-      const matchesStatus =
-        statusFilter === "ALL" || department.status === statusFilter;
-
-      const matchesSelection = selectedDepartmentId
-        ? department.id === selectedDepartmentId
-        : department.buildingId === selectedBuildingId;
-
-      return matchesSearch && matchesStatus && matchesSelection;
-    });
-  }, [
-    departments,
-    search,
-    statusFilter,
-    selectedBuildingId,
-    selectedDepartmentId,
-  ]);
-
-  const filteredLines = useMemo(() => {
-    const keyword = search.trim().toLowerCase();
-
-    return lines.filter((line) => {
-      const matchesSearch =
-        !keyword ||
-        line.name.toLowerCase().includes(keyword) ||
-        line.code.toLowerCase().includes(keyword) ||
-        line.departmentName.toLowerCase().includes(keyword);
-
-      const matchesStatus =
-        statusFilter === "ALL" || line.status === statusFilter;
-
-      const matchesSelection = selectedDepartmentId
-        ? line.departmentId === selectedDepartmentId
-        : line.buildingId === selectedBuildingId;
-
-      return matchesSearch && matchesStatus && matchesSelection;
-    });
-  }, [
-    lines,
-    search,
-    statusFilter,
-    selectedBuildingId,
-    selectedDepartmentId,
-  ]);
-
-  const currentItems =
-    activeTab === "DEPARTMENT" ? filteredDepartments : filteredLines;
-
-  const totalPages = Math.max(1, Math.ceil(currentItems.length / PAGE_SIZE));
-  const currentPage = Math.min(page, totalPages);
-  const visibleItems = currentItems.slice(
-    (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE,
-  );
-
-  function selectBuilding(buildingId: string) {
-    setSelectedBuildingId(buildingId);
-    setSelectedDepartmentId(null);
-    setPage(1);
-  }
-
-  function selectDepartment(buildingId: string, departmentId: string) {
-    setSelectedBuildingId(buildingId);
-    setSelectedDepartmentId(departmentId);
-    setPage(1);
-  }
-
-  function saveDepartment(value: {
-    name: string;
-    code: string;
-    status: Status;
-  }) {
-    if (drawerMode === "EDIT_DEPARTMENT" && editingDepartment) {
-      setBuildings((current) =>
-        current.map((building) => ({
-          ...building,
-          departments: building.departments.map((department) =>
-            department.id === editingDepartment.id
-              ? { ...department, ...value }
-              : department,
-          ),
-        })),
-      );
-    } else {
-      const newDepartment: Department = {
-        id: `dept-${Date.now()}`,
-        name: value.name,
-        code: value.code,
-        status: value.status,
-        lines: [],
-      };
-
-      setBuildings((current) =>
-        current.map((building) =>
-          building.id === selectedBuildingId
-            ? {
-                ...building,
-                departments: [...building.departments, newDepartment],
-              }
-            : building,
-        ),
-      );
-
-      setSelectedDepartmentId(newDepartment.id);
-    }
-
-    setDrawerMode(null);
-    setEditingDepartment(null);
-  }
-
-  function saveLine(value: {
-    name: string;
-    code: string;
-    departmentId: string;
-    status: Status;
-  }) {
-    if (drawerMode === "EDIT_LINE" && editingLine) {
-      setBuildings((current) =>
-        current.map((building) => ({
-          ...building,
-          departments: building.departments.map((department) => {
-            const remainingLines = department.lines.filter(
-              (line) => line.id !== editingLine.id,
-            );
-
-            if (department.id === value.departmentId) {
-              return {
-                ...department,
-                lines: [
-                  ...remainingLines,
-                  {
-                    id: editingLine.id,
-                    name: value.name,
-                    code: value.code,
-                    status: value.status,
-                  },
-                ],
-              };
-            }
-
-            return {
-              ...department,
-              lines: remainingLines,
-            };
-          }),
-        })),
-      );
-    } else {
-      const newLine: ProductionLine = {
-        id: `line-${Date.now()}`,
-        name: value.name,
-        code: value.code,
-        status: value.status,
-      };
-
-      setBuildings((current) =>
-        current.map((building) => ({
-          ...building,
-          departments: building.departments.map((department) =>
-            department.id === value.departmentId
-              ? {
-                  ...department,
-                  lines: [...department.lines, newLine],
-                }
-              : department,
-          ),
-        })),
-      );
-    }
-
-    setDrawerMode(null);
-    setEditingLine(null);
-  }
-
-  function deleteDepartment(department: DepartmentRow) {
-    const warning =
-      department.lines.length > 0
-        ? `แผนก "${department.name}" มีสายการผลิต ${department.lines.length} สาย หากลบ สายการผลิตภายในจะถูกลบด้วย ยืนยันหรือไม่?`
-        : `ยืนยันการลบแผนก "${department.name}" หรือไม่?`;
-
-    if (!window.confirm(warning)) return;
-
-    setBuildings((current) =>
-      current.map((building) => ({
-        ...building,
-        departments: building.departments.filter(
-          (item) => item.id !== department.id,
-        ),
-      })),
-    );
-
-    if (selectedDepartmentId === department.id) {
-      setSelectedDepartmentId(null);
-    }
-
-    setMenuId(null);
-  }
-
-  function deleteLine(line: LineRow) {
-    if (!window.confirm(`ยืนยันการลบสายการผลิต "${line.name}" หรือไม่?`)) {
-      return;
-    }
-
-    setBuildings((current) =>
-      current.map((building) => ({
-        ...building,
-        departments: building.departments.map((department) => ({
-          ...department,
-          lines: department.lines.filter((item) => item.id !== line.id),
-        })),
-      })),
-    );
-
-    setMenuId(null);
-  }
+function StatCard({
+  icon,
+  value,
+  label,
+  detail,
+  tone,
+}: {
+  icon: ReactNode;
+  value: number;
+  label: string;
+  detail: string;
+  tone: "emerald" | "blue" | "violet" | "orange" | "cyan";
+}) {
+  const tones = {
+    emerald: { wrap: "border-emerald-100 bg-emerald-50/55", icon: "bg-emerald-100 text-emerald-700 ring-emerald-200", value: "text-emerald-950", label: "text-emerald-700" },
+    blue: { wrap: "border-blue-100 bg-blue-50/55", icon: "bg-blue-100 text-blue-700 ring-blue-200", value: "text-blue-950", label: "text-blue-700" },
+    violet: { wrap: "border-violet-100 bg-violet-50/55", icon: "bg-violet-100 text-violet-700 ring-violet-200", value: "text-violet-950", label: "text-violet-700" },
+    orange: { wrap: "border-orange-100 bg-orange-50/55", icon: "bg-orange-100 text-orange-700 ring-orange-200", value: "text-orange-950", label: "text-orange-700" },
+    cyan: { wrap: "border-cyan-100 bg-cyan-50/55", icon: "bg-cyan-100 text-cyan-700 ring-cyan-200", value: "text-cyan-950", label: "text-cyan-700" },
+  } as const;
+  const selected = tones[tone];
 
   return (
-    <>
-      <section className="mx-auto w-full max-w-[1650px]">
-        <header>
-          <h1 className="text-[28px] font-semibold tracking-[-0.04em] text-[#182334] sm:text-[32px]">
-            แผนกและสายการผลิต
-          </h1>
-          <p className="mt-2 text-[10px] text-[#7f8997]">
-            จัดการโครงสร้างแผนกและสายการผลิตภายในโรงงาน
-          </p>
-        </header>
+    <article className={`group flex min-h-[118px] items-center gap-4 rounded-[18px] border px-4 py-4 transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_14px_30px_rgba(15,23,42,0.06)] ${selected.wrap}`}>
+      <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-[14px] ring-1 ring-inset transition group-hover:scale-105 ${selected.icon}`}>
+        {icon}
+      </span>
+      <div className="min-w-0">
+        <p className={`text-[30px] font-black leading-none tracking-[-0.05em] ${selected.value}`}>
+          {value}
+        </p>
+        <p className={`mt-2 whitespace-nowrap text-[14px] font-black ${selected.label}`}>
+          {label}
+        </p>
+        <p className="mt-1 truncate text-[11px] font-semibold text-slate-400">{detail}</p>
+      </div>
+    </article>
+  );
+}
 
-        <div className="mt-6 flex gap-6 border-b border-[#e3e7ec]">
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab("DEPARTMENT");
-              setPage(1);
-            }}
-            className={`border-b-2 px-1 pb-3 text-[10px] font-semibold ${
-              activeTab === "DEPARTMENT"
-                ? "border-[#1f8f62] text-[#1f8f62]"
-                : "border-transparent text-[#7e8997]"
-            }`}
-          >
-            แผนก
-          </button>
+function StatusBadge({ status }: { status: Status }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 text-[11px] font-bold text-white">
+      <span className="h-1.5 w-1.5 rounded-full bg-current" />
+      {status === "ACTIVE" ? "Active" : "Inactive"}
+    </span>
+  );
+}
 
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab("LINE");
-              setPage(1);
-            }}
-            className={`border-b-2 px-1 pb-3 text-[10px] font-semibold ${
-              activeTab === "LINE"
-                ? "border-[#1f8f62] text-[#1f8f62]"
-                : "border-transparent text-[#7e8997]"
-            }`}
-          >
-            สายการผลิต
-          </button>
-        </div>
+function FormCard({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="rounded-[19px] border border-slate-200 bg-white p-5 shadow-sm">
+      <h3 className="text-[16px] font-bold text-slate-800">{title}</h3>
+      <div className="mt-5">{children}</div>
+    </section>
+  );
+}
 
-        <div className="mt-5 grid gap-5 xl:grid-cols-[360px_1fr]">
-          <aside className="space-y-4">
-            <article className="rounded-[18px] border border-[#e0e5ea] bg-white p-4 shadow-[0_8px_28px_rgba(28,43,61,0.035)]">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-[12px] font-semibold text-[#354257]">
-                    โครงสร้างแผนก
-                  </h2>
-                  <p className="mt-1 text-[8px] text-[#929ca9]">
-                    เลือกอาคารหรือแผนกเพื่อกรองรายการ
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEditingDepartment(null);
-                    setDrawerMode("ADD_DEPARTMENT");
-                  }}
-                  className="inline-flex min-h-[36px] items-center gap-2 rounded-[9px] bg-[#1f8f62] px-3 text-[9px] font-semibold text-white"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  เพิ่มแผนก
-                </button>
-              </div>
-
-              <div className="mt-4 flex h-[40px] items-center gap-3 rounded-[10px] border border-[#dfe5eb] bg-[#f9fafb] px-3">
-                <Search className="h-3.5 w-3.5 text-[#8b96a4]" />
-                <input
-                  value={search}
-                  onChange={(event) => {
-                    setSearch(event.target.value);
-                    setPage(1);
-                  }}
-                  placeholder="ค้นหา..."
-                  className="min-w-0 flex-1 bg-transparent text-[9px] outline-none"
-                />
-              </div>
-
-              <div className="mt-4 max-h-[520px] overflow-y-auto pr-1">
-                <StructureTree
-                  buildings={buildings}
-                  selectedBuildingId={selectedBuildingId}
-                  selectedDepartmentId={selectedDepartmentId}
-                  onSelectBuilding={selectBuilding}
-                  onSelectDepartment={selectDepartment}
-                />
-              </div>
-            </article>
-
-            <article className="rounded-[18px] border border-[#e0e5ea] bg-white p-4 shadow-[0_8px_28px_rgba(28,43,61,0.035)]">
-              <h3 className="text-[11px] font-semibold text-[#354257]">
-                สรุปภาพรวม
-              </h3>
-
-              <div className="mt-4 grid grid-cols-2 gap-3">
-                <div className="rounded-[12px] bg-[#f7faf8] p-3">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-[9px] bg-[#e8f5ed] text-[#2d8057]">
-                    <Layers3 className="h-4 w-4" />
-                  </span>
-                  <p className="mt-3 text-[18px] font-semibold text-[#283548]">
-                    {departments.length}
-                  </p>
-                  <p className="mt-1 text-[8px] text-[#939da9]">
-                    แผนกทั้งหมด
-                  </p>
-                </div>
-
-                <div className="rounded-[12px] bg-[#f7faf8] p-3">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-[9px] bg-[#e8f5ed] text-[#2d8057]">
-                    <Factory className="h-4 w-4" />
-                  </span>
-                  <p className="mt-3 text-[18px] font-semibold text-[#283548]">
-                    {lines.length}
-                  </p>
-                  <p className="mt-1 text-[8px] text-[#939da9]">
-                    สายการผลิต
-                  </p>
-                </div>
-              </div>
-            </article>
-          </aside>
-
-          <article className="overflow-hidden rounded-[18px] border border-[#e0e5ea] bg-white shadow-[0_8px_28px_rgba(28,43,61,0.035)]">
-            <div className="flex flex-col gap-3 border-b border-[#e7ebef] p-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h2 className="text-[12px] font-semibold text-[#354257]">
-                  {activeTab === "DEPARTMENT"
-                    ? "รายการแผนกทั้งหมด"
-                    : "รายการสายการผลิตทั้งหมด"}
-                </h2>
-                <p className="mt-1 text-[8px] text-[#929ca9]">
-                  {selectedDepartment?.name ??
-                    selectedBuilding?.name ??
-                    "ทั้งหมด"}
-                </p>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2">
-                <select
-                  value={statusFilter}
-                  onChange={(event) => {
-                    setStatusFilter(event.target.value);
-                    setPage(1);
-                  }}
-                  className="h-[38px] rounded-[9px] border border-[#dfe5eb] bg-white px-3 text-[9px] text-[#596677]"
-                >
-                  <option value="ALL">ทุกสถานะ</option>
-                  <option value="ACTIVE">ใช้งานอยู่</option>
-                  <option value="INACTIVE">ปิดใช้งาน</option>
-                </select>
-
-                <button
-                  type="button"
-                  className="inline-flex h-[38px] items-center gap-2 rounded-[9px] border border-[#dfe5eb] bg-white px-3 text-[9px] font-medium text-[#596677]"
-                >
-                  <FileDown className="h-3.5 w-3.5" />
-                  ส่งออก
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (activeTab === "DEPARTMENT") {
-                      setEditingDepartment(null);
-                      setDrawerMode("ADD_DEPARTMENT");
-                    } else {
-                      setEditingLine(null);
-                      setDrawerMode("ADD_LINE");
-                    }
-                  }}
-                  className="inline-flex h-[38px] items-center gap-2 rounded-[9px] bg-[#1f8f62] px-3 text-[9px] font-semibold text-white"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  {activeTab === "DEPARTMENT"
-                    ? "เพิ่มแผนก"
-                    : "เพิ่มสายการผลิต"}
-                </button>
-              </div>
-            </div>
-
-            <div className="overflow-x-auto">
-              {activeTab === "DEPARTMENT" ? (
-                <table className="w-full min-w-[760px] border-collapse">
-                  <thead>
-                    <tr className="border-b border-[#e8ecf0] bg-[#fafbfc] text-left">
-                      <th className="w-[70px] px-4 py-3 text-[8px] font-semibold text-[#8b96a4]">
-                        ลำดับ
-                      </th>
-                      <th className="px-4 py-3 text-[8px] font-semibold text-[#8b96a4]">
-                        ชื่อแผนก
-                      </th>
-                      <th className="px-4 py-3 text-[8px] font-semibold text-[#8b96a4]">
-                        รหัส
-                      </th>
-                      <th className="px-4 py-3 text-[8px] font-semibold text-[#8b96a4]">
-                        อาคาร
-                      </th>
-                      <th className="px-4 py-3 text-[8px] font-semibold text-[#8b96a4]">
-                        สายการผลิต
-                      </th>
-                      <th className="px-4 py-3 text-[8px] font-semibold text-[#8b96a4]">
-                        สถานะ
-                      </th>
-                      <th className="w-[90px] px-4 py-3" />
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    {(visibleItems as DepartmentRow[]).map(
-                      (department, index) => (
-                        <tr
-                          key={department.id}
-                          className="border-b border-[#eef1f3] last:border-0 hover:bg-[#fbfcfd]"
-                        >
-                          <td className="px-4 py-3 text-[9px] text-[#7f8a98]">
-                            {(currentPage - 1) * PAGE_SIZE + index + 1}
-                          </td>
-
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-3">
-                              <span className="flex h-8 w-8 items-center justify-center rounded-[9px] bg-[#f0ebff] text-[#7158ad]">
-                                <Layers3 className="h-3.5 w-3.5" />
-                              </span>
-                              <span className="text-[9px] font-semibold text-[#435065]">
-                                {department.name}
-                              </span>
-                            </div>
-                          </td>
-
-                          <td className="px-4 py-3 text-[9px] text-[#707c8b]">
-                            {department.code}
-                          </td>
-
-                          <td className="px-4 py-3 text-[9px] text-[#707c8b]">
-                            {department.buildingName}
-                          </td>
-
-                          <td className="px-4 py-3 text-[9px] text-[#707c8b]">
-                            {department.lines.length}
-                          </td>
-
-                          <td className="px-4 py-3">
-                            <StatusBadge status={department.status} />
-                          </td>
-
-                          <td className="relative px-4 py-3">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setMenuId((current) =>
-                                  current === department.id
-                                    ? null
-                                    : department.id,
-                                )
-                              }
-                              className="flex h-8 w-8 items-center justify-center rounded-full text-[#7d8896] hover:bg-[#eef2f5]"
-                            >
-                              <MoreHorizontal className="h-4 w-4" />
-                            </button>
-
-                            {menuId === department.id && (
-                              <div className="absolute right-4 top-[44px] z-20 w-[160px] rounded-[11px] border border-[#dfe5eb] bg-white p-1.5 shadow-[0_16px_42px_rgba(26,38,57,0.14)]">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setEditingDepartment(department);
-                                    setDrawerMode("EDIT_DEPARTMENT");
-                                    setMenuId(null);
-                                  }}
-                                  className="flex min-h-[36px] w-full items-center gap-2.5 rounded-[8px] px-3 text-left text-[9px] text-[#566274] hover:bg-[#f4f6f8]"
-                                >
-                                  <Pencil className="h-3.5 w-3.5" />
-                                  แก้ไข
-                                </button>
-
-                                <button
-                                  type="button"
-                                  onClick={() => deleteDepartment(department)}
-                                  className="flex min-h-[36px] w-full items-center gap-2.5 rounded-[8px] px-3 text-left text-[9px] text-[#b14848] hover:bg-[#fff1f1]"
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                  ลบแผนก
-                                </button>
-                              </div>
-                            )}
-                          </td>
-                        </tr>
-                      ),
-                    )}
-                  </tbody>
-                </table>
-              ) : (
-                <table className="w-full min-w-[760px] border-collapse">
-                  <thead>
-                    <tr className="border-b border-[#e8ecf0] bg-[#fafbfc] text-left">
-                      <th className="w-[70px] px-4 py-3 text-[8px] font-semibold text-[#8b96a4]">
-                        ลำดับ
-                      </th>
-                      <th className="px-4 py-3 text-[8px] font-semibold text-[#8b96a4]">
-                        ชื่อสายการผลิต
-                      </th>
-                      <th className="px-4 py-3 text-[8px] font-semibold text-[#8b96a4]">
-                        รหัส
-                      </th>
-                      <th className="px-4 py-3 text-[8px] font-semibold text-[#8b96a4]">
-                        แผนก
-                      </th>
-                      <th className="px-4 py-3 text-[8px] font-semibold text-[#8b96a4]">
-                        อาคาร
-                      </th>
-                      <th className="px-4 py-3 text-[8px] font-semibold text-[#8b96a4]">
-                        สถานะ
-                      </th>
-                      <th className="w-[90px] px-4 py-3" />
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    {(visibleItems as LineRow[]).map((line, index) => (
-                      <tr
-                        key={line.id}
-                        className="border-b border-[#eef1f3] last:border-0 hover:bg-[#fbfcfd]"
-                      >
-                        <td className="px-4 py-3 text-[9px] text-[#7f8a98]">
-                          {(currentPage - 1) * PAGE_SIZE + index + 1}
-                        </td>
-
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-3">
-                            <span className="flex h-8 w-8 items-center justify-center rounded-[9px] bg-[#e8f5ed] text-[#2d8057]">
-                              <Factory className="h-3.5 w-3.5" />
-                            </span>
-                            <span className="text-[9px] font-semibold text-[#435065]">
-                              {line.name}
-                            </span>
-                          </div>
-                        </td>
-
-                        <td className="px-4 py-3 text-[9px] text-[#707c8b]">
-                          {line.code}
-                        </td>
-
-                        <td className="px-4 py-3 text-[9px] text-[#707c8b]">
-                          {line.departmentName}
-                        </td>
-
-                        <td className="px-4 py-3 text-[9px] text-[#707c8b]">
-                          {line.buildingName}
-                        </td>
-
-                        <td className="px-4 py-3">
-                          <StatusBadge status={line.status} />
-                        </td>
-
-                        <td className="relative px-4 py-3">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setMenuId((current) =>
-                                current === line.id ? null : line.id,
-                              )
-                            }
-                            className="flex h-8 w-8 items-center justify-center rounded-full text-[#7d8896] hover:bg-[#eef2f5]"
-                          >
-                            <MoreHorizontal className="h-4 w-4" />
-                          </button>
-
-                          {menuId === line.id && (
-                            <div className="absolute right-4 top-[44px] z-20 w-[160px] rounded-[11px] border border-[#dfe5eb] bg-white p-1.5 shadow-[0_16px_42px_rgba(26,38,57,0.14)]">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setEditingLine(line);
-                                  setDrawerMode("EDIT_LINE");
-                                  setMenuId(null);
-                                }}
-                                className="flex min-h-[36px] w-full items-center gap-2.5 rounded-[8px] px-3 text-left text-[9px] text-[#566274] hover:bg-[#f4f6f8]"
-                              >
-                                <Pencil className="h-3.5 w-3.5" />
-                                แก้ไข
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => deleteLine(line)}
-                                className="flex min-h-[36px] w-full items-center gap-2.5 rounded-[8px] px-3 text-left text-[9px] text-[#b14848] hover:bg-[#fff1f1]"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                                ลบสายการผลิต
-                              </button>
-                            </div>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-
-            {visibleItems.length === 0 && (
-              <div className="flex min-h-[260px] flex-col items-center justify-center text-center">
-                <Layers3 className="h-8 w-8 text-[#9aa4af]" />
-                <p className="mt-3 text-[10px] font-semibold text-[#566274]">
-                  ไม่พบข้อมูล
-                </p>
-              </div>
-            )}
-
-            <footer className="flex flex-col gap-3 border-t border-[#e8ecf0] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-[8px] text-[#929ca9]">
-                แสดง {visibleItems.length} จาก {currentItems.length} รายการ
-              </p>
-
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  disabled={currentPage <= 1}
-                  onClick={() => setPage((value) => Math.max(1, value - 1))}
-                  className="flex h-8 w-8 items-center justify-center rounded-[8px] border border-[#dfe5eb] text-[#6f7b8a] disabled:opacity-35"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
-
-                <span className="min-w-[64px] text-center text-[8px] text-[#6f7b8a]">
-                  {currentPage} / {totalPages}
-                </span>
-
-                <button
-                  type="button"
-                  disabled={currentPage >= totalPages}
-                  onClick={() =>
-                    setPage((value) => Math.min(totalPages, value + 1))
-                  }
-                  className="flex h-8 w-8 items-center justify-center rounded-[8px] border border-[#dfe5eb] text-[#6f7b8a] disabled:opacity-35"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </button>
-              </div>
-            </footer>
-          </article>
-        </div>
-      </section>
-
-      <DataDrawer
-        key={`${drawerMode}-${editingDepartment?.id ?? ""}-${editingLine?.id ?? ""}`}
-        open={drawerMode !== null}
-        mode={drawerMode ?? "ADD_DEPARTMENT"}
-        buildings={buildings}
-        selectedBuildingId={selectedBuildingId}
-        department={editingDepartment}
-        line={editingLine}
-        onClose={() => {
-          setDrawerMode(null);
-          setEditingDepartment(null);
-          setEditingLine(null);
-        }}
-        onSaveDepartment={saveDepartment}
-        onSaveLine={saveLine}
+function Field({
+  label,
+  value,
+  onChange,
+  type = "text",
+  required = true,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  type?: string;
+  required?: boolean;
+}) {
+  return (
+    <label className="block">
+      <span className="text-[13px] font-semibold text-slate-600">
+        {label}
+        {required ? " *" : ""}
+      </span>
+      <input
+        required={required}
+        type={type}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="mt-2 h-[52px] w-full rounded-[13px] border border-slate-200 bg-slate-50 px-4 text-[14px] outline-none focus:border-emerald-400 focus:bg-white"
       />
-    </>
+    </label>
+  );
+}
+
+function SelectField({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: Array<{ value: string; label: string }>;
+}) {
+  return (
+    <label className="block">
+      <span className="text-[13px] font-semibold text-slate-600">
+        {label} *
+      </span>
+      <select
+        required
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="mt-2 h-[52px] w-full rounded-[13px] border border-slate-200 bg-slate-50 px-4 text-[14px] outline-none focus:border-emerald-400"
+      >
+        <option value="">เลือก{label}</option>
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function EmptyInspector() {
+  return (
+    <div className="grid min-h-[600px] place-items-center rounded-[22px] border border-dashed border-slate-300 bg-white text-center">
+      <div>
+        <Network className="mx-auto h-10 w-10 text-emerald-700" />
+        <h2 className="mt-4 text-[20px] font-bold text-slate-800">
+          เลือกโครงสร้างทางด้านซ้าย
+        </h2>
+      </div>
+    </div>
   );
 }

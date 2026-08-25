@@ -1,0 +1,30 @@
+-- CreateTable
+CREATE TABLE `backup_record` (
+    `backup_id` INTEGER NOT NULL AUTO_INCREMENT,
+    `backup_code` VARCHAR(100) NOT NULL,
+    `backup_type` VARCHAR(30) NOT NULL DEFAULT 'MANUAL',
+    `backup_scope` VARCHAR(30) NOT NULL DEFAULT 'FULL',
+    `storage_type` VARCHAR(30) NOT NULL DEFAULT 'LOCAL',
+    `file_name` VARCHAR(255) NULL,
+    `file_path` VARCHAR(1000) NULL,
+    `file_size` BIGINT NULL,
+    `status` VARCHAR(30) NOT NULL DEFAULT 'RUNNING',
+    `verified` BOOLEAN NOT NULL DEFAULT false,
+    `started_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `completed_at` DATETIME(3) NULL,
+    `duration_seconds` INTEGER NULL,
+    `created_by_user_id` INTEGER NULL,
+    `created_by_name` VARCHAR(200) NULL,
+    `error_message` TEXT NULL,
+    `restored_at` DATETIME(3) NULL,
+    `restored_by_user_id` INTEGER NULL,
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_at` DATETIME(3) NOT NULL,
+
+    UNIQUE INDEX `backup_record_backup_code_key`(`backup_code`),
+    INDEX `backup_record_status_idx`(`status`),
+    INDEX `backup_record_backup_type_idx`(`backup_type`),
+    INDEX `backup_record_created_at_idx`(`created_at`),
+    INDEX `backup_record_created_by_user_id_idx`(`created_by_user_id`),
+    PRIMARY KEY (`backup_id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;

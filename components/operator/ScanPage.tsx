@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import jsQR from "jsqr";
 import {
   AlertCircle,
@@ -31,6 +32,7 @@ interface ScanPageProps {
 }
 
 export default function ScanPage({ equipmentList }: ScanPageProps) {
+  const router = useRouter();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
@@ -158,14 +160,35 @@ export default function ScanPage({ equipmentList }: ScanPageProps) {
 
     setLastScannedCode(trimmed);
 
-    const match = equipmentList.find(
+    // QR Identity รุ่นใหม่ของระบบจะเก็บ URL รูปแบบ /scan/{token}
+    // เมื่อสแกนจากหน้า Operator ให้พาไปที่หน้า token โดยตรง
+    // เพื่อให้ Server ตรวจ QR, companyId, factoryId และสร้าง Scan Log จริง
+    try {
+      const url = new URL(trimmed, window.location.origin);
+      const match = url.pathname.match(/^\/scan\/([^/?#]+)\/?$/i);
+
+      if (match?.[1]) {
+        const token = decodeURIComponent(match[1]).trim();
+
+        if (token) {
+          setScanState("success");
+          router.push(`/scan/${encodeURIComponent(token)}`);
+          return;
+        }
+      }
+    } catch {
+      // ไม่ใช่ URL — ให้ fallback ไปใช้รหัสเครื่องแบบ legacy ด้านล่าง
+    }
+
+    // รองรับ QR รุ่นเก่าที่บันทึก equipmentCode ตรง ๆ ไว้ใน QR
+    const legacyMatch = equipmentList.find(
       (equipment) =>
         equipment.equipmentCode?.toLowerCase() ===
         trimmed.toLowerCase(),
     );
 
-    setMatchedEquipment(match ?? null);
-    setScanState(match ? "success" : "not_found");
+    setMatchedEquipment(legacyMatch ?? null);
+    setScanState(legacyMatch ? "success" : "not_found");
   }
 
   async function toggleTorch() {

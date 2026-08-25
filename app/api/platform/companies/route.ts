@@ -1,18 +1,25 @@
 import { NextResponse } from "next/server";
 
+import { writeAuditLog } from "@/lib/audit-log";
 import { prisma } from "@/lib/prisma";
+
+export const dynamic = "force-dynamic";
 
 const ALLOWED_STATUSES = ["ACTIVE", "PENDING", "SUSPENDED"] as const;
 const ALLOWED_PLANS = ["TRIAL", "STANDARD", "ENTERPRISE"] as const;
 
 function normalizeStatus(value: string | null | undefined) {
-  return ALLOWED_STATUSES.includes(value as (typeof ALLOWED_STATUSES)[number])
+  return ALLOWED_STATUSES.includes(
+    value as (typeof ALLOWED_STATUSES)[number],
+  )
     ? (value as (typeof ALLOWED_STATUSES)[number])
     : "ACTIVE";
 }
 
 function normalizePlan(value: string | null | undefined) {
-  return ALLOWED_PLANS.includes(value as (typeof ALLOWED_PLANS)[number])
+  return ALLOWED_PLANS.includes(
+    value as (typeof ALLOWED_PLANS)[number],
+  )
     ? (value as (typeof ALLOWED_PLANS)[number])
     : "TRIAL";
 }
@@ -38,7 +45,9 @@ export async function GET(request: Request) {
     const industry = searchParams.get("industry")?.trim() ?? "ALL";
 
     const requestedPage = Number(searchParams.get("page") ?? "1");
-    const requestedPageSize = Number(searchParams.get("pageSize") ?? "8");
+    const requestedPageSize = Number(
+      searchParams.get("pageSize") ?? "8",
+    );
 
     const page =
       Number.isInteger(requestedPage) && requestedPage > 0
@@ -57,55 +66,19 @@ export async function GET(request: Request) {
         search
           ? {
               OR: [
-                {
-                  companyCode: {
-                    contains: search,
-                  },
-                },
-                {
-                  companyName: {
-                    contains: search,
-                  },
-                },
-                {
-                  email: {
-                    contains: search,
-                  },
-                },
-                {
-                  phone: {
-                    contains: search,
-                  },
-                },
-                {
-                  province: {
-                    contains: search,
-                  },
-                },
-                {
-                  industryType: {
-                    contains: search,
-                  },
-                },
+                { companyCode: { contains: search } },
+                { companyName: { contains: search } },
+                { email: { contains: search } },
+                { phone: { contains: search } },
+                { province: { contains: search } },
+                { industryType: { contains: search } },
                 {
                   users: {
                     some: {
                       OR: [
-                        {
-                          firstName: {
-                            contains: search,
-                          },
-                        },
-                        {
-                          lastName: {
-                            contains: search,
-                          },
-                        },
-                        {
-                          email: {
-                            contains: search,
-                          },
-                        },
+                        { firstName: { contains: search } },
+                        { lastName: { contains: search } },
+                        { email: { contains: search } },
                       ],
                     },
                   },
@@ -113,15 +86,9 @@ export async function GET(request: Request) {
               ],
             }
           : {},
-        status !== "ALL"
-          ? {
-              status,
-            }
-          : {},
+        status !== "ALL" ? { status } : {},
         industry !== "ALL"
-          ? {
-              industryType: industry,
-            }
+          ? { industryType: industry }
           : {},
       ],
     };
@@ -156,7 +123,6 @@ export async function GET(request: Request) {
           status: true,
           createdAt: true,
           updatedAt: true,
-
           users: {
             orderBy: [{ lastLogin: "desc" }, { createdAt: "asc" }],
             take: 1,
@@ -166,7 +132,6 @@ export async function GET(request: Request) {
               lastLogin: true,
             },
           },
-
           _count: {
             select: {
               factories: true,
@@ -175,7 +140,6 @@ export async function GET(request: Request) {
           },
         },
       }),
-
       prisma.company.count({ where }),
       prisma.company.count(),
       prisma.company.count({ where: { status: "ACTIVE" } }),
@@ -187,7 +151,10 @@ export async function GET(request: Request) {
       prisma.sensor.count(),
     ]);
 
-    const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+    const totalPages = Math.max(
+      1,
+      Math.ceil(totalItems / pageSize),
+    );
 
     return NextResponse.json({
       success: true,
@@ -209,16 +176,11 @@ export async function GET(request: Request) {
           plan: normalizePlan(company.subscriptionPlan),
           factories: company._count.factories,
           users: company._count.users,
-
-          // ตอนนี้ schema ไม่มี direct relation Company -> Machine/Sensor
-          // จะแสดง 0 ต่อบริษัทก่อน และใช้ยอดรวมจริงใน Summary
           machines: 0,
           sensors: 0,
-
           alerts: 0,
           storageUsedGb: 0,
           storageLimitGb: 0,
-
           registeredAt: formatDateTime(company.createdAt),
           lastActivityAt: formatDateTime(
             primaryUser?.lastLogin ?? company.updatedAt,
@@ -235,8 +197,6 @@ export async function GET(request: Request) {
         totalUsers,
         totalMachines,
         totalSensors,
-
-        // ยังไม่มี Alert model ใน schema ที่ส่งมา
         unresolvedAlerts: 0,
       },
       meta: {
@@ -269,9 +229,7 @@ export async function POST(request: Request) {
         : "";
 
     const companyName =
-      typeof body.name === "string"
-        ? body.name.trim()
-        : "";
+      typeof body.name === "string" ? body.name.trim() : "";
 
     const email =
       typeof body.email === "string"
@@ -279,9 +237,7 @@ export async function POST(request: Request) {
         : "";
 
     const phone =
-      typeof body.phone === "string"
-        ? body.phone.trim()
-        : "";
+      typeof body.phone === "string" ? body.phone.trim() : "";
 
     const province =
       typeof body.province === "string"
@@ -301,7 +257,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          message: "กรุณากรอกรหัส ชื่อบริษัท และอีเมลให้ครบ",
+          message: "กรุณากรอกรหัสบริษัท ชื่อบริษัท และอีเมลให้ครบ",
         },
         { status: 400 },
       );
@@ -309,14 +265,7 @@ export async function POST(request: Request) {
 
     const duplicate = await prisma.company.findFirst({
       where: {
-        OR: [
-          {
-            companyCode,
-          },
-          {
-            email,
-          },
-        ],
+        OR: [{ companyCode }, { email }],
       },
       select: {
         companyId: true,
@@ -347,7 +296,6 @@ export async function POST(request: Request) {
         province: province || null,
         industryType: industryType || null,
         subscriptionPlan,
-
         country: "Thailand",
         timezone: "Asia/Bangkok",
         currency: "THB",
@@ -367,6 +315,14 @@ export async function POST(request: Request) {
         status: true,
         createdAt: true,
       },
+    });
+
+    await writeAuditLog({
+      request,
+      tableName: "company",
+      recordId: company.companyId,
+      action: "CREATE",
+      newData: company,
     });
 
     return NextResponse.json(

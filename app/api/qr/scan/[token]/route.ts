@@ -22,7 +22,7 @@ export async function GET(
     return NextResponse.json(
       {
         success: false,
-        message: "กรุณาเข้าสู่ระบบ",
+        message: "กรุณาเข้าสู่ระบบก่อนสแกน QR Code",
       },
       { status: 401 },
     );
@@ -32,7 +32,17 @@ export async function GET(
     return NextResponse.json(
       {
         success: false,
-        message: "เฉพาะ Operator เท่านั้นที่สแกน QR ได้",
+        message: "เฉพาะ Operator เท่านั้นที่สามารถสแกน QR เพื่อบันทึกข้อมูลหน้างานได้",
+      },
+      { status: 403 },
+    );
+  }
+
+  if (session.companyId === null || session.factoryId === null) {
+    return NextResponse.json(
+      {
+        success: false,
+        message: "บัญชี Operator นี้ยังไม่ได้กำหนดบริษัทหรือโรงงาน",
       },
       { status: 403 },
     );
@@ -57,9 +67,48 @@ export async function GET(
     return NextResponse.json(
       {
         success: false,
-        message: "ไม่พบ QR Code หรือ QR ถูกระงับ",
+        message: "ไม่พบ QR Code หรือ QR Code นี้ถูกระงับ/ยกเลิกแล้ว",
       },
       { status: 404 },
+    );
+  }
+
+  const target = qr.machine ?? qr.checkpoint;
+
+  if (!target) {
+    return NextResponse.json(
+      {
+        success: false,
+        message: "QR Code นี้ยังไม่ได้ผูกกับเครื่องจักรหรือจุดตรวจ",
+      },
+      { status: 422 },
+    );
+  }
+
+  const line = target.productionLine;
+  const department = line.department;
+  const building = department.building;
+  const factory = building.factory;
+
+  // Security boundary: Operator ต้องสแกนได้เฉพาะข้อมูลของบริษัทตัวเอง
+  if (factory.companyId !== session.companyId) {
+    return NextResponse.json(
+      {
+        success: false,
+        message: "QR Code นี้เป็นของบริษัทอื่น คุณไม่มีสิทธิ์เข้าถึง",
+      },
+      { status: 403 },
+    );
+  }
+
+  // Factory scope: Operator ถูกล็อกไว้กับโรงงานที่ระบุในบัญชี
+  if (factory.factoryId !== session.factoryId) {
+    return NextResponse.json(
+      {
+        success: false,
+        message: "QR Code นี้เป็นของโรงงานอื่น คุณไม่มีสิทธิ์เข้าถึง",
+      },
+      { status: 403 },
     );
   }
 
@@ -77,11 +126,6 @@ export async function GET(
   });
 
   if (qr.machine) {
-    const line = qr.machine.productionLine;
-    const department = line.department;
-    const building = department.building;
-    const factory = building.factory;
-
     return NextResponse.json({
       success: true,
       data: {
@@ -113,11 +157,6 @@ export async function GET(
   }
 
   if (qr.checkpoint) {
-    const line = qr.checkpoint.productionLine;
-    const department = line.department;
-    const building = department.building;
-    const factory = building.factory;
-
     return NextResponse.json({
       success: true,
       data: {

@@ -1,20 +1,21 @@
 "use client";
 
 import { AlertTriangle, Trash2, X } from "lucide-react";
-
 import type { SensorItem } from "./sensor-data";
 
-type SensorDeleteDialogProps = {
+type Props = {
   sensor: SensorItem | null;
+  busy?: boolean;
   onClose: () => void;
   onConfirm: () => void;
 };
 
 export default function SensorDeleteDialog({
   sensor,
+  busy = false,
   onClose,
   onConfirm,
-}: SensorDeleteDialogProps) {
+}: Props) {
   if (!sensor) return null;
 
   return (
@@ -26,7 +27,7 @@ export default function SensorDeleteDialog({
       />
 
       <div className="fixed inset-0 z-[100] flex items-center justify-center p-5">
-        <section className="w-full max-w-[420px] rounded-[20px] border border-[#e2e6eb] bg-white p-6 shadow-[0_24px_80px_rgba(18,31,48,0.2)]">
+        <section className="w-full max-w-[440px] rounded-[20px] border border-[#e2e6eb] bg-white p-6 shadow-[0_24px_80px_rgba(18,31,48,0.2)]">
           <div className="flex items-start justify-between gap-4">
             <span className="flex h-11 w-11 items-center justify-center rounded-[13px] bg-[#fff0f0] text-[#c14d4d]">
               <AlertTriangle className="h-5 w-5" />
@@ -42,19 +43,20 @@ export default function SensorDeleteDialog({
           </div>
 
           <h2 className="mt-5 text-[16px] font-semibold text-[#283548]">
-            ลบเซนเซอร์
+            ลบหรือปิดใช้งานเซนเซอร์
           </h2>
 
           <p className="mt-2 text-[10px] leading-5 text-[#778291]">
-            ยืนยันการลบ <strong>{sensor.name}</strong> ({sensor.code})
-            ออกจากรายการ Frontend preview หรือไม่?
+            ยืนยันการดำเนินการกับ <strong>{sensor.name}</strong> ({sensor.code}) หรือไม่?
+            หากเซนเซอร์มี Sensor Data เชื่อมโยงอยู่ ระบบจะปิดใช้งานแทนการลบจริง
           </p>
 
           <div className="mt-6 flex justify-end gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="min-h-[42px] rounded-[10px] border border-[#dfe5eb] px-4 text-[10px] text-[#667283]"
+              disabled={busy}
+              className="min-h-[42px] rounded-[10px] border border-[#dfe5eb] px-4 text-[10px] text-[#667283] disabled:opacity-50"
             >
               ยกเลิก
             </button>
@@ -62,10 +64,11 @@ export default function SensorDeleteDialog({
             <button
               type="button"
               onClick={onConfirm}
-              className="inline-flex min-h-[42px] items-center gap-2 rounded-[10px] bg-[#c34f4f] px-4 text-[10px] font-semibold text-white"
+              disabled={busy}
+              className="inline-flex min-h-[42px] items-center gap-2 rounded-[10px] bg-[#c34f4f] px-4 text-[10px] font-semibold text-white disabled:opacity-50"
             >
               <Trash2 className="h-4 w-4" />
-              ลบเซนเซอร์
+              {busy ? "กำลังดำเนินการ..." : "ยืนยัน"}
             </button>
           </div>
         </section>

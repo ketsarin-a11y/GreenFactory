@@ -407,14 +407,14 @@ export default function PlatformShell({ children, user }: PlatformShellProps) {
     setIsLoggingOut(true);
 
     try {
-      const response = await fetch("/api/auth/reset-session", {
+      const response = await fetch("/api/auth/logout", {
         method: "POST",
         cache: "no-store",
         credentials: "include",
       });
 
       if (!response.ok) throw new Error("Logout failed");
-      window.location.replace("/");
+      window.location.replace("/login");
     } catch (error) {
       console.error("Logout error:", error);
       setIsLoggingOut(false);

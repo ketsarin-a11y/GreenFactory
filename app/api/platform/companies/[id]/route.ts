@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 
+import { writeAuditLog } from "@/lib/audit-log";
 import { prisma } from "@/lib/prisma";
+
+export const dynamic = "force-dynamic";
 
 type RouteContext = {
   params: Promise<{
@@ -18,6 +21,30 @@ function parseCompanyId(value: string) {
     ? companyId
     : null;
 }
+
+const COMPANY_AUDIT_SELECT = {
+  companyId: true,
+  companyCode: true,
+  companyName: true,
+  taxId: true,
+  industryType: true,
+  address: true,
+  province: true,
+  postalCode: true,
+  country: true,
+  phone: true,
+  email: true,
+  website: true,
+  logoPath: true,
+  subscriptionPlan: true,
+  carbonStandard: true,
+  timezone: true,
+  currency: true,
+  language: true,
+  status: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
 
 export async function GET(
   _request: Request,
@@ -38,36 +65,11 @@ export async function GET(
     }
 
     const company = await prisma.company.findUnique({
-      where: {
-        companyId,
-      },
+      where: { companyId },
       select: {
-        companyId: true,
-        companyCode: true,
-        companyName: true,
-        taxId: true,
-        industryType: true,
-        address: true,
-        province: true,
-        postalCode: true,
-        country: true,
-        phone: true,
-        email: true,
-        website: true,
-        logoPath: true,
-        subscriptionPlan: true,
-        carbonStandard: true,
-        timezone: true,
-        currency: true,
-        language: true,
-        status: true,
-        createdAt: true,
-        updatedAt: true,
-
+        ...COMPANY_AUDIT_SELECT,
         factories: {
-          orderBy: {
-            createdAt: "desc",
-          },
+          orderBy: { createdAt: "desc" },
           select: {
             factoryId: true,
             factoryCode: true,
@@ -76,9 +78,11 @@ export async function GET(
             status: true,
           },
         },
-
         users: {
-          orderBy: [{ lastLogin: "desc" }, { createdAt: "desc" }],
+          orderBy: [
+            { lastLogin: "desc" },
+            { createdAt: "desc" },
+          ],
           take: 20,
           select: {
             userId: true,
@@ -94,7 +98,6 @@ export async function GET(
             },
           },
         },
-
         _count: {
           select: {
             factories: true,
@@ -152,12 +155,8 @@ export async function PATCH(
     }
 
     const current = await prisma.company.findUnique({
-      where: {
-        companyId,
-      },
-      select: {
-        companyId: true,
-      },
+      where: { companyId },
+      select: COMPANY_AUDIT_SELECT,
     });
 
     if (!current) {
@@ -231,13 +230,9 @@ export async function PATCH(
       const duplicate = await prisma.company.findFirst({
         where: {
           companyCode,
-          NOT: {
-            companyId,
-          },
+          NOT: { companyId },
         },
-        select: {
-          companyId: true,
-        },
+        select: { companyId: true },
       });
 
       if (duplicate) {
@@ -255,9 +250,7 @@ export async function PATCH(
 
     if (body.name !== undefined) {
       const companyName =
-        typeof body.name === "string"
-          ? body.name.trim()
-          : "";
+        typeof body.name === "string" ? body.name.trim() : "";
 
       if (!companyName) {
         return NextResponse.json(
@@ -282,13 +275,9 @@ export async function PATCH(
         const duplicate = await prisma.company.findFirst({
           where: {
             email,
-            NOT: {
-              companyId,
-            },
+            NOT: { companyId },
           },
-          select: {
-            companyId: true,
-          },
+          select: { companyId: true },
         });
 
         if (duplicate) {
@@ -362,10 +351,18 @@ export async function PATCH(
     }
 
     const updated = await prisma.company.update({
-      where: {
-        companyId,
-      },
+      where: { companyId },
       data,
+      select: COMPANY_AUDIT_SELECT,
+    });
+
+    await writeAuditLog({
+      request,
+      tableName: "company",
+      recordId: companyId,
+      action: "UPDATE",
+      oldData: current,
+      newData: updated,
     });
 
     return NextResponse.json({
@@ -395,7 +392,7 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   context: RouteContext,
 ) {
   try {
@@ -413,12 +410,9 @@ export async function DELETE(
     }
 
     const company = await prisma.company.findUnique({
-      where: {
-        companyId,
-      },
+      where: { companyId },
       select: {
-        companyId: true,
-        companyName: true,
+        ...COMPANY_AUDIT_SELECT,
         _count: {
           select: {
             factories: true,
@@ -464,10 +458,18 @@ export async function DELETE(
       );
     }
 
+    const { _count, ...oldCompanyData } = company;
+
     await prisma.company.delete({
-      where: {
-        companyId,
-      },
+      where: { companyId },
+    });
+
+    await writeAuditLog({
+      request,
+      tableName: "company",
+      recordId: companyId,
+      action: "DELETE",
+      oldData: oldCompanyData,
     });
 
     return NextResponse.json({

@@ -1,65 +1,73 @@
-import { initialQRCodes } from "@/components/company/qr-codes/qr-code-data";
-import type { QRCodeFormValue, QRCodeItem } from "@/types/qr-code";
+import type {
+  QRCodeFormValue,
+  QRCodeItem,
+  QRCodeListResponse,
+  QRTarget,
+} from "@/types/qr-code";
 
-const STORAGE_KEY = "greenfactory_qr_codes";
+async function parseResponse<T>(response: Response): Promise<T> {
+  const payload = await response.json();
 
-function readItems(): QRCodeItem[] {
-  if (typeof window === "undefined") return initialQRCodes;
-  const raw = window.localStorage.getItem(STORAGE_KEY);
-  if (!raw) {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(initialQRCodes));
-    return initialQRCodes;
+  if (!response.ok || payload?.success === false) {
+    throw new Error(
+      payload?.message ||
+        `Request failed with status ${response.status}`,
+    );
   }
-  try {
-    return JSON.parse(raw) as QRCodeItem[];
-  } catch {
-    return initialQRCodes;
-  }
-}
 
-function writeItems(items: QRCodeItem[]) {
-  if (typeof window !== "undefined") {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-  }
+  return payload as T;
 }
 
 export const qrCodeService = {
-  async getAll() {
-    return readItems();
+  async getAll(): Promise<{
+    items: QRCodeItem[];
+    targets: QRTarget[];
+  }> {
+    const response = await fetch("/api/company/qr-codes", {
+      method: "GET",
+      credentials: "include",
+      cache: "no-store",
+    });
+
+    const payload =
+      await parseResponse<QRCodeListResponse>(response);
+
+    return {
+      items: payload.data ?? [],
+      targets: payload.targets ?? [],
+    };
   },
+
   async create(value: QRCodeFormValue) {
-    const now = new Date().toLocaleString("th-TH");
-    const item: QRCodeItem = {
-      ...value,
-      id: crypto.randomUUID(),
-      token: crypto.randomUUID(),
-      createdAt: now,
-      updatedAt: now,
-    };
-    writeItems([item, ...readItems()]);
-    return item;
-  },
-  async update(item: QRCodeItem) {
-    const updated = { ...item, updatedAt: new Date().toLocaleString("th-TH") };
-    writeItems(readItems().map((current) => current.id === item.id ? updated : current));
-    return updated;
-  },
-  async remove(id: string) {
-    writeItems(readItems().filter((item) => item.id !== id));
-  },
-  async regenerateToken(id: string) {
-    const current = readItems().find((item) => item.id === id);
-    if (!current) return null;
-    const updated: QRCodeItem = {
-      ...current,
-      token: crypto.randomUUID(),
-      status: "ACTIVE",
-      updatedAt: new Date().toLocaleString("th-TH"),
-    };
-    writeItems(readItems().map((item) => item.id === id ? updated : item));
-    return updated;
-  },
-  async findByToken(token: string) {
-    return readItems().find((item) => item.token === token) ?? null;
+    const response = await fetch("/api/company/qr-codes", {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        qrCode: value.code,
+        targetType: value.targetType,
+        targetId: value.targetId,
+        status: value.status,
+      }),
+    });
+
+    const payload = await parseResponse<{
+      success: boolean;
+      message?: string;
+      data: {
+        id: string;
+        code: string;
+        token: string;
+        status: string;
+        generatedAt: string;
+        revokedAt: string | null;
+        createdAt: string;
+        updatedAt: string;
+      };
+    }>(response);
+
+    return payload.data;
   },
 };

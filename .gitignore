@@ -24,3 +24,8 @@ next-env.d.ts
 .DS_Store
 Thumbs.db
 .vercel
+/greenfactory/
+
+/storage/
+
+/operator-scan-current.txt
