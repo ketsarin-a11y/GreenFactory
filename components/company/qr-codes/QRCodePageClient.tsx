@@ -42,6 +42,31 @@ import type {
 
 const PAGE_SIZE = 7;
 
+function getAppBaseUrl() {
+  const configuredUrl =
+    process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/+$/, "");
+
+  if (configuredUrl) {
+    return configuredUrl;
+  }
+
+  if (typeof window !== "undefined") {
+    return window.location.origin.replace(/\/+$/, "");
+  }
+
+  return "";
+}
+
+function createScanUrl(token: string) {
+  const baseUrl = getAppBaseUrl();
+
+  if (!baseUrl) {
+    return "";
+  }
+
+  return `${baseUrl}/scan/${encodeURIComponent(token)}`;
+}
+
 function statusLabel(status: QRCodeStatus) {
   if (status === "ACTIVE") return "ใช้งานอยู่";
   if (status === "SUSPENDED") return "ระงับ";
@@ -73,12 +98,14 @@ function QRPreview({
 }) {
   const [dataUrl, setDataUrl] = useState("");
 
-  const scanUrl =
-    typeof window === "undefined"
-      ? `http://192.168.1.61:3000/scan/${item.token}`
-      : `${window.location.origin}/scan/${item.token}`;
+  const scanUrl = createScanUrl(item.token);
 
   useEffect(() => {
+    if (!scanUrl) {
+      setDataUrl("");
+      return;
+    }
+
     let mounted = true;
 
     QRCode.toDataURL(scanUrl, {
@@ -804,13 +831,7 @@ export default function QRCodePageClient() {
     setSelectedIds(new Set(filteredItems.map((item) => item.id)));
   }
 
-  const scanUrl = selected
-    ? `${
-        typeof window === "undefined"
-          ? "http://192.168.1.61:3000"
-          : window.location.origin
-      }/scan/${selected.token}`
-    : "";
+  const scanUrl = selected ? createScanUrl(selected.token) : "";
 
   async function saveItem(value: QRCodeFormValue) {
     try {
@@ -857,7 +878,14 @@ export default function QRCodePageClient() {
   async function downloadSelected() {
     if (!selected) return;
 
-    const dataUrl = await QRCode.toDataURL(scanUrl, {
+    const url = createScanUrl(selected.token);
+
+    if (!url) {
+      window.alert("ยังไม่ได้กำหนด Public URL ของระบบ");
+      return;
+    }
+
+    const dataUrl = await QRCode.toDataURL(url, {
       width: 900,
       margin: 2,
       errorCorrectionLevel: "H",
@@ -876,7 +904,14 @@ export default function QRCodePageClient() {
   async function printSelected() {
     if (!selected) return;
 
-    const dataUrl = await QRCode.toDataURL(scanUrl, {
+    const url = createScanUrl(selected.token);
+
+    if (!url) {
+      window.alert("ยังไม่ได้กำหนด Public URL ของระบบ");
+      return;
+    }
+
+    const dataUrl = await QRCode.toDataURL(url, {
       width: 500,
       margin: 2,
       errorCorrectionLevel: "H",
@@ -934,7 +969,12 @@ export default function QRCodePageClient() {
   }
 
   async function buildPrintableQr(item: QRCodeItem, width = 720) {
-    const url = `${window.location.origin}/scan/${item.token}`;
+    const url = createScanUrl(item.token);
+
+    if (!url) {
+      throw new Error("ยังไม่ได้กำหนด Public URL ของระบบ");
+    }
+
     return QRCode.toDataURL(url, {
       width,
       margin: 2,

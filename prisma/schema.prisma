@@ -1327,3 +1327,29 @@ model SystemSetting {
 
   @@map("system_setting")
 }
+
+
+
+model SupportTicket {
+  ticketId        Int      @id @default(autoincrement()) @map("ticket_id")
+  ticketReference String   @unique @map("ticket_reference") @db.VarChar(50)
+
+  reporterId Int  @map("reporter_id")
+  companyId  Int? @map("company_id")
+
+  subject     String  @db.VarChar(150)
+  category    String  @db.VarChar(30)
+  priority    String  @db.VarChar(20)
+  description String  @db.Text
+  pageUrl     String? @map("page_url") @db.VarChar(500)
+  status      String  @default("OPEN") @db.VarChar(30)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([reporterId])
+  @@index([companyId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("support_tickets")
+}

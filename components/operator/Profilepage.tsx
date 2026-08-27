@@ -1,6 +1,12 @@
 "use client";
 
-import { ChangeEvent, useMemo, useRef, useState } from "react";
+import {
+  ChangeEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Building2,
   CalendarDays,
@@ -21,6 +27,7 @@ import {
   UsersRound,
   X,
 } from "lucide-react";
+
 import type { ProfileDetail } from "@/lib/Profile queries";
 
 type ProfileWithAvatar = ProfileDetail & {
@@ -32,16 +39,159 @@ type Notice = {
   text: string;
 };
 
-const MAX_AVATAR_SIZE = 5 * 1024 * 1024;
-const ACCEPTED_AVATAR_TYPES = ["image/jpeg", "image/png", "image/webp"];
+type ProfileState = {
+  firstName: string;
+  lastName: string;
+  phone: string;
+  department: string;
+  productionLine: string;
+  avatarUrl: string;
+};
 
-export default function ProfilePage({ profile }: { profile: ProfileWithAvatar }) {
+const MAX_AVATAR_SIZE = 5 * 1024 * 1024;
+const ACCEPTED_AVATAR_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+];
+
+const PROFILE_EVENT = "gfi-profile-updated";
+const PROFILE_AVATAR_KEY = "gfi_operator_avatar";
+
+export default function ProfilePage({
+  profile,
+}: {
+  profile: ProfileWithAvatar;
+}) {
+  const [profileState, setProfileState] =
+    useState<ProfileState>({
+      firstName: profile.firstName,
+      lastName: profile.lastName,
+      phone: profile.phone ?? "",
+      department: profile.department ?? "",
+      productionLine: profile.productionLine ?? "",
+      avatarUrl: profile.avatarUrl ?? "",
+    });
+
+  useEffect(() => {
+    let active = true;
+
+    async function hydrateProfileFromDatabase() {
+      try {
+        const response = await fetch("/api/Profile", {
+          method: "GET",
+          credentials: "include",
+          cache: "no-store",
+        });
+
+        const responseText = await response.text();
+
+        let data: {
+          success?: boolean;
+          profile?: {
+            firstName?: string;
+            lastName?: string;
+            phone?: string;
+            department?: string;
+            productionLine?: string;
+            avatarUrl?: string | null;
+          };
+        } = {};
+
+        try {
+          data = responseText
+            ? JSON.parse(responseText)
+            : {};
+        } catch {
+          return;
+        }
+
+        if (
+          !active ||
+          !response.ok ||
+          !data.success ||
+          !data.profile
+        ) {
+          return;
+        }
+
+        setProfileState((current) => ({
+          ...current,
+          firstName:
+            data.profile?.firstName ?? current.firstName,
+          lastName:
+            data.profile?.lastName ?? current.lastName,
+          phone:
+            data.profile?.phone ?? current.phone,
+          department:
+            data.profile?.department ?? current.department,
+          productionLine:
+            data.profile?.productionLine ?? current.productionLine,
+          avatarUrl:
+            data.profile?.avatarUrl ?? current.avatarUrl,
+        }));
+
+        if (data.profile.avatarUrl) {
+          window.localStorage.setItem(
+            PROFILE_AVATAR_KEY,
+            data.profile.avatarUrl,
+          );
+        }
+      } catch (error) {
+        console.error(
+          "Hydrate profile from database error:",
+          error,
+        );
+
+        const cachedAvatar =
+          window.localStorage.getItem(
+            PROFILE_AVATAR_KEY,
+          );
+
+        if (active && cachedAvatar) {
+          setProfileState((current) => ({
+            ...current,
+            avatarUrl: cachedAvatar,
+          }));
+        }
+      }
+    }
+
+    const cachedAvatar =
+      window.localStorage.getItem(
+        PROFILE_AVATAR_KEY,
+      );
+
+    if (cachedAvatar) {
+      setProfileState((current) => ({
+        ...current,
+        avatarUrl:
+          current.avatarUrl || cachedAvatar,
+      }));
+    }
+
+    void hydrateProfileFromDatabase();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   return (
-    <div className="mx-auto w-full max-w-[1180px] space-y-6 pb-12">
-      <ProfileHero profile={profile} />
+    <div className="mx-auto w-full max-w-[1240px] space-y-6 pb-12">
+      <ProfileHero
+        profile={profile}
+        state={profileState}
+        setState={setProfileState}
+      />
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.55fr)_minmax(330px,0.85fr)]">
-        <PersonalInformationCard profile={profile} />
+        <PersonalInformationCard
+          profile={profile}
+          state={profileState}
+          setState={setProfileState}
+        />
+
         <div className="space-y-6">
           <AccountSummaryCard profile={profile} />
           <ChangePasswordCard />
@@ -51,37 +201,84 @@ export default function ProfilePage({ profile }: { profile: ProfileWithAvatar })
   );
 }
 
-function ProfileHero({ profile }: { profile: ProfileWithAvatar }) {
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [avatarUrl, setAvatarUrl] = useState(profile.avatarUrl ?? "");
-  const [isUploading, setIsUploading] = useState(false);
-  const [notice, setNotice] = useState<Notice | null>(null);
+function notifyProfileChanged(detail: {
+  avatarUrl?: string;
+  firstName?: string;
+  lastName?: string;
+}) {
+  window.dispatchEvent(
+    new CustomEvent(PROFILE_EVENT, {
+      detail,
+    }),
+  );
+}
 
-  const fullName = `${profile.firstName} ${profile.lastName}`.trim();
+function ProfileHero({
+  profile,
+  state,
+  setState,
+}: {
+  profile: ProfileWithAvatar;
+  state: ProfileState;
+  setState: React.Dispatch<
+    React.SetStateAction<ProfileState>
+  >;
+}) {
+  const fileInputRef =
+    useRef<HTMLInputElement>(null);
+
+  const [isUploading, setIsUploading] =
+    useState(false);
+
+  const [notice, setNotice] =
+    useState<Notice | null>(null);
+
+  const fullName =
+    `${state.firstName} ${state.lastName}`.trim();
+
   const initials = useMemo(
-    () => `${profile.firstName?.[0] ?? ""}${profile.lastName?.[0] ?? ""}`.toUpperCase(),
-    [profile.firstName, profile.lastName],
+    () =>
+      `${state.firstName?.[0] ?? ""}${
+        state.lastName?.[0] ?? ""
+      }`.toUpperCase(),
+    [state.firstName, state.lastName],
   );
 
-  async function handleAvatarChange(event: ChangeEvent<HTMLInputElement>) {
+  async function handleAvatarChange(
+    event: ChangeEvent<HTMLInputElement>,
+  ) {
     const file = event.target.files?.[0];
     event.target.value = "";
 
     if (!file) return;
 
     if (!ACCEPTED_AVATAR_TYPES.includes(file.type)) {
-      setNotice({ type: "error", text: "รองรับเฉพาะไฟล์ JPG, PNG และ WEBP เท่านั้นครับ" });
+      setNotice({
+        type: "error",
+        text: "รองรับเฉพาะไฟล์ JPG, PNG และ WEBP",
+      });
       return;
     }
 
     if (file.size > MAX_AVATAR_SIZE) {
-      setNotice({ type: "error", text: "รูปโปรไฟล์ต้องมีขนาดไม่เกิน 5 MB นะครับ" });
+      setNotice({
+        type: "error",
+        text: "รูปโปรไฟล์ต้องมีขนาดไม่เกิน 5 MB",
+      });
       return;
     }
 
-    const previewUrl = URL.createObjectURL(file);
-    const previousAvatar = avatarUrl;
-    setAvatarUrl(previewUrl);
+    const previewUrl =
+      URL.createObjectURL(file);
+
+    const previousAvatar =
+      state.avatarUrl;
+
+    setState((current) => ({
+      ...current,
+      avatarUrl: previewUrl,
+    }));
+
     setNotice(null);
     setIsUploading(true);
 
@@ -89,29 +286,99 @@ function ProfileHero({ profile }: { profile: ProfileWithAvatar }) {
       const formData = new FormData();
       formData.append("avatar", file);
 
-      const response = await fetch("/api/profile/avatar", {
-        method: "POST",
-        body: formData,
-      });
+      const response = await fetch(
+        "/api/Profile/avatar",
+        {
+          method: "POST",
+          body: formData,
+        },
+      );
 
-      const data = (await response.json()) as {
+      const responseText = await response.text();
+
+      let data: {
         success?: boolean;
         avatarUrl?: string;
         message?: string;
-      };
+      } = {};
 
-      if (!response.ok || !data.success || !data.avatarUrl) {
-        setAvatarUrl(previousAvatar);
-        setNotice({ type: "error", text: data.message ?? "อัปโหลดรูปโปรไฟล์ไม่สำเร็จ" });
+      try {
+        data = responseText
+          ? JSON.parse(responseText)
+          : {};
+      } catch {
+        data = {
+          success: false,
+          message:
+            response.ok
+              ? "รูปแบบข้อมูลตอบกลับจากเซิร์ฟเวอร์ไม่ถูกต้อง"
+              : `อัปโหลดรูปไม่สำเร็จ (${response.status})`,
+        };
+      }
+
+      if (
+        !response.ok ||
+        !data.success ||
+        !data.avatarUrl
+      ) {
+        setState((current) => ({
+          ...current,
+          avatarUrl: previousAvatar,
+        }));
+
+        setNotice({
+          type: "error",
+          text:
+            data.message ??
+            "อัปโหลดรูปโปรไฟล์ไม่สำเร็จ",
+        });
+
         return;
       }
 
-      setAvatarUrl(data.avatarUrl);
-      setNotice({ type: "success", text: "เปลี่ยนรูปโปรไฟล์เรียบร้อยแล้ว ✨" });
+      const persistedAvatarUrl = `${data.avatarUrl}${
+        data.avatarUrl.includes("?") ? "&" : "?"
+      }v=${Date.now()}`;
+
+      setState((current) => ({
+        ...current,
+        avatarUrl: persistedAvatarUrl,
+      }));
+
+      /*
+       * เก็บสำรองฝั่ง browser เพื่อให้ Header
+       * ใช้รูปได้ทันที แต่ DB/API ยังเป็น source of truth
+       */
+      window.localStorage.setItem(
+        PROFILE_AVATAR_KEY,
+        persistedAvatarUrl,
+      );
+
+      notifyProfileChanged({
+        avatarUrl: persistedAvatarUrl,
+        firstName: state.firstName,
+        lastName: state.lastName,
+      });
+
+      setNotice({
+        type: "success",
+        text: "เปลี่ยนรูปโปรไฟล์เรียบร้อยแล้ว",
+      });
     } catch (error) {
-      console.error("Upload avatar error:", error);
-      setAvatarUrl(previousAvatar);
-      setNotice({ type: "error", text: "ไม่สามารถอัปโหลดรูปได้ กรุณาลองใหม่อีกครั้ง" });
+      console.error(
+        "Upload avatar error:",
+        error,
+      );
+
+      setState((current) => ({
+        ...current,
+        avatarUrl: previousAvatar,
+      }));
+
+      setNotice({
+        type: "error",
+        text: "ไม่สามารถอัปโหลดรูปได้ กรุณาลองใหม่อีกครั้ง",
+      });
     } finally {
       URL.revokeObjectURL(previewUrl);
       setIsUploading(false);
@@ -119,34 +386,54 @@ function ProfileHero({ profile }: { profile: ProfileWithAvatar }) {
   }
 
   return (
-    <section className="overflow-hidden rounded-[28px] border border-slate-200/80 bg-white shadow-[0_10px_35px_rgba(15,23,42,0.04)] transition-all">
-      {/* Banner พื้นหลังไล่สีละมุนๆ */}
-      <div className="h-28 bg-gradient-to-r from-emerald-400/20 via-teal-400/15 to-sky-400/20 relative">
-        <div className="absolute inset-0 bg-white/30 backdrop-blur-[2px]" />
-      </div>
+    <section className="overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-[0_14px_40px_rgba(15,23,42,0.05)]">
+      <div className="h-16 bg-gradient-to-r from-emerald-100 via-teal-50 to-sky-100" />
 
-      <div className="px-6 pb-6 sm:px-8 sm:pb-8">
-        <div className="-mt-14 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between relative z-10">
-          <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-end">
-            {/* รูปโปรไฟล์ */}
+      <div className="px-7 py-7 sm:px-9 sm:py-8">
+        <div className="flex flex-col gap-7 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex min-w-0 flex-col gap-5 sm:flex-row sm:items-center">
             <div className="relative w-fit shrink-0">
-              <div className="flex h-32 w-32 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-gradient-to-br from-emerald-100 to-teal-100 shadow-md">
-                {avatarUrl ? (
+              <button
+                type="button"
+                onClick={() =>
+                  fileInputRef.current?.click()
+                }
+                disabled={isUploading}
+                className="group relative flex h-36 w-36 items-center justify-center overflow-hidden rounded-[32px] border border-slate-200 bg-gradient-to-br from-emerald-100 to-teal-100 shadow-sm transition hover:shadow-md"
+                aria-label="เปลี่ยนรูปโปรไฟล์"
+              >
+                {state.avatarUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={avatarUrl} alt={fullName} className="h-full w-full object-cover" />
+                  <img
+                    src={state.avatarUrl}
+                    alt={fullName}
+                    className="h-full w-full object-cover"
+                  />
                 ) : (
-                  <span className="text-4xl font-extrabold text-emerald-700">{initials || "U"}</span>
+                  <span className="text-4xl font-black text-emerald-700">
+                    {initials || "U"}
+                  </span>
                 )}
-              </div>
+
+                <span className="absolute inset-0 flex items-center justify-center bg-slate-950/0 text-white opacity-0 transition group-hover:bg-slate-950/35 group-hover:opacity-100">
+                  <Camera className="h-7 w-7" />
+                </span>
+              </button>
 
               <button
                 type="button"
-                onClick={() => fileInputRef.current?.click()}
+                onClick={() =>
+                  fileInputRef.current?.click()
+                }
                 disabled={isUploading}
-                className="absolute bottom-1 right-1 flex h-10 w-10 items-center justify-center rounded-full border-2 border-white bg-slate-900 text-white shadow-lg transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-70 active:scale-95"
-                aria-label="เปลี่ยนรูปโปรไฟล์"
+                className="absolute -bottom-2 -right-2 flex h-12 w-12 items-center justify-center rounded-2xl border-4 border-white bg-slate-900 text-white shadow-lg transition hover:bg-slate-800 disabled:opacity-60"
+                aria-label="เลือกรูปโปรไฟล์"
               >
-                {isUploading ? <Loader2 size={18} className="animate-spin" /> : <Camera size={18} />}
+                {isUploading ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <Camera className="h-5 w-5" />
+                )}
               </button>
 
               <input
@@ -158,102 +445,215 @@ function ProfileHero({ profile }: { profile: ProfileWithAvatar }) {
               />
             </div>
 
-            {/* ข้อมูลชื่อและอีเมล */}
-            <div className="min-w-0 pb-1">
-              <div className="mb-1.5 flex flex-wrap items-center gap-2.5">
-                <h1 className="truncate text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">{fullName}</h1>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200/60 px-3 py-1 text-xs font-bold text-emerald-700 shadow-2xs">
-                  <Check size={13} className="stroke-[2.5]" />
-                  {profile.status === "ACTIVE" ? "บัญชีใช้งานปกติ" : "บัญชีถูกจำกัด"}
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-3">
+                <h1 className="max-w-full break-words text-[32px] font-black leading-tight tracking-[-0.035em] text-slate-950 sm:text-[36px]">
+                  {fullName || "ผู้ใช้งาน"}
+                </h1>
+
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-extrabold text-emerald-700">
+                  <Check className="h-3.5 w-3.5" />
+                  {profile.status === "ACTIVE"
+                    ? "บัญชีใช้งานปกติ"
+                    : "บัญชีถูกจำกัด"}
                 </span>
               </div>
-              <p className="text-sm font-semibold text-slate-600">{profile.roleLabel}</p>
-              <p className="mt-1 flex items-center gap-2 text-xs font-medium text-slate-400">
-                <Mail size={14} className="text-slate-400" />
-                <span className="truncate">{profile.email}</span>
+
+              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+                <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-sm font-bold text-slate-700">
+                  {profile.roleLabel}
+                </span>
+
+                <span className="inline-flex items-center gap-2 text-sm font-medium text-slate-500">
+                  <Mail className="h-4 w-4 text-slate-400" />
+                  {profile.email}
+                </span>
+              </div>
+
+              <p className="mt-4 text-xs font-medium text-slate-400">
+                JPG, PNG หรือ WEBP • ขนาดไม่เกิน 5 MB • บันทึกทันทีเมื่ออัปโหลดสำเร็จ
               </p>
             </div>
           </div>
 
           <button
             type="button"
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() =>
+              fileInputRef.current?.click()
+            }
             disabled={isUploading}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 text-sm font-bold text-slate-700 shadow-2xs transition hover:border-slate-300 hover:bg-slate-50 disabled:opacity-60 active:scale-95"
+            className="inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 text-sm font-extrabold text-slate-700 transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700 disabled:opacity-60"
           >
-            <ImagePlus size={17} className="text-slate-500" />
+            <ImagePlus className="h-4 w-4" />
             เปลี่ยนรูปโปรไฟล์
           </button>
         </div>
 
-        <p className="mt-3 text-xs font-medium text-slate-400 sm:ml-36">รองรับไฟล์ JPG, PNG, WEBP ขนาดไม่เกิน 5 MB</p>
-
-        {notice && <InlineNotice notice={notice} className="mt-4" />}
+        {notice && (
+          <InlineNotice
+            notice={notice}
+            className="mt-6"
+          />
+        )}
       </div>
     </section>
   );
 }
 
-function PersonalInformationCard({ profile }: { profile: ProfileWithAvatar }) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [phone, setPhone] = useState(profile.phone ?? "");
-  const [department, setDepartment] = useState(profile.department ?? "");
-  const [productionLine, setProductionLine] = useState(profile.productionLine ?? "");
-  const [savedValues, setSavedValues] = useState({
-    phone: profile.phone ?? "",
-    department: profile.department ?? "",
-    productionLine: profile.productionLine ?? "",
-  });
-  const [isSaving, setIsSaving] = useState(false);
-  const [notice, setNotice] = useState<Notice | null>(null);
+function PersonalInformationCard({
+  profile,
+  state,
+  setState,
+}: {
+  profile: ProfileWithAvatar;
+  state: ProfileState;
+  setState: React.Dispatch<
+    React.SetStateAction<ProfileState>
+  >;
+}) {
+  const [isEditing, setIsEditing] =
+    useState(false);
 
-  const fullName = `${profile.firstName} ${profile.lastName}`.trim();
+  const [savedValues, setSavedValues] =
+    useState({
+      firstName: state.firstName,
+      lastName: state.lastName,
+      phone: state.phone,
+      department: state.department,
+      productionLine:
+        state.productionLine,
+    });
+
+  const [isSaving, setIsSaving] =
+    useState(false);
+
+  const [notice, setNotice] =
+    useState<Notice | null>(null);
+
+  function update(
+    key:
+      | "firstName"
+      | "lastName"
+      | "phone"
+      | "department"
+      | "productionLine",
+    value: string,
+  ) {
+    setState((current) => ({
+      ...current,
+      [key]: value,
+    }));
+  }
 
   function handleCancel() {
-    setPhone(savedValues.phone);
-    setDepartment(savedValues.department);
-    setProductionLine(savedValues.productionLine);
+    setState((current) => ({
+      ...current,
+      ...savedValues,
+    }));
+
     setNotice(null);
     setIsEditing(false);
   }
 
   async function handleSave() {
+    if (
+      !state.firstName.trim() ||
+      !state.lastName.trim()
+    ) {
+      setNotice({
+        type: "error",
+        text: "กรุณากรอกชื่อและนามสกุล",
+      });
+      return;
+    }
+
     setIsSaving(true);
     setNotice(null);
 
     try {
-      const response = await fetch("/api/profile", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          phone: phone.trim(),
-          department: department.trim(),
-          productionLine: productionLine.trim(),
-        }),
-      });
+      const response = await fetch(
+        "/api/Profile",
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            firstName:
+              state.firstName.trim(),
+            lastName:
+              state.lastName.trim(),
+            phone: state.phone.trim(),
+            department:
+              state.department.trim(),
+            productionLine:
+              state.productionLine.trim(),
+          }),
+        },
+      );
 
-      const data = (await response.json()) as { success?: boolean; message?: string };
+      const data =
+        (await response.json()) as {
+          success?: boolean;
+          message?: string;
+        };
 
-      if (!response.ok || !data.success) {
-        setNotice({ type: "error", text: data.message ?? "บันทึกข้อมูลไม่สำเร็จ" });
+      if (
+        !response.ok ||
+        !data.success
+      ) {
+        setNotice({
+          type: "error",
+          text:
+            data.message ??
+            "บันทึกข้อมูลไม่สำเร็จ",
+        });
         return;
       }
 
       const nextValues = {
-        phone: phone.trim(),
-        department: department.trim(),
-        productionLine: productionLine.trim(),
+        firstName:
+          state.firstName.trim(),
+        lastName:
+          state.lastName.trim(),
+        phone: state.phone.trim(),
+        department:
+          state.department.trim(),
+        productionLine:
+          state.productionLine.trim(),
       };
 
-      setPhone(nextValues.phone);
-      setDepartment(nextValues.department);
-      setProductionLine(nextValues.productionLine);
+      setState((current) => ({
+        ...current,
+        ...nextValues,
+      }));
+
       setSavedValues(nextValues);
       setIsEditing(false);
-      setNotice({ type: "success", text: "บันทึกข้อมูลโปรไฟล์เรียบร้อยแล้ว ✨" });
+
+      notifyProfileChanged({
+        avatarUrl: state.avatarUrl,
+        firstName:
+          nextValues.firstName,
+        lastName:
+          nextValues.lastName,
+      });
+
+      setNotice({
+        type: "success",
+        text: "บันทึกข้อมูลโปรไฟล์เรียบร้อยแล้ว",
+      });
     } catch (error) {
-      console.error("Update profile error:", error);
-      setNotice({ type: "error", text: "ไม่สามารถเชื่อมต่อระบบได้ กรุณาลองใหม่" });
+      console.error(
+        "Update profile error:",
+        error,
+      );
+
+      setNotice({
+        type: "error",
+        text: "ไม่สามารถเชื่อมต่อระบบได้ กรุณาลองใหม่",
+      });
     } finally {
       setIsSaving(false);
     }
@@ -261,112 +661,223 @@ function PersonalInformationCard({ profile }: { profile: ProfileWithAvatar }) {
 
   return (
     <section className="rounded-[28px] border border-slate-200/80 bg-white p-6 shadow-[0_10px_35px_rgba(15,23,42,0.04)] sm:p-8">
-      <CardHeader
-        title="ข้อมูลส่วนตัว"
-        description="จัดการข้อมูลที่ใช้ในการติดต่อและข้อมูลการทำงานของคุณ"
-        action={
-          isEditing ? (
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleCancel}
-                disabled={isSaving}
-                className="inline-flex h-10 items-center gap-1.5 rounded-xl px-3.5 text-sm font-bold text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50"
-              >
-                <X size={16} />
-                ยกเลิก
-              </button>
-              <button
-                type="button"
-                onClick={handleSave}
-                disabled={isSaving}
-                className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-emerald-600 px-4 text-sm font-bold text-white shadow-md shadow-emerald-600/20 transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60 active:scale-95"
-              >
-                {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-                บันทึก
-              </button>
-            </div>
-          ) : (
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 className="text-lg font-extrabold tracking-tight text-slate-900">
+            ข้อมูลส่วนตัว
+          </h2>
+
+          <p className="mt-1 text-xs font-medium leading-relaxed text-slate-400">
+            แก้ไขชื่อ ข้อมูลติดต่อ และข้อมูลการทำงานของคุณ
+          </p>
+        </div>
+
+        {isEditing ? (
+          <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => {
-                setNotice(null);
-                setIsEditing(true);
-              }}
-              className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 shadow-2xs transition hover:bg-slate-50 hover:border-slate-300 active:scale-95"
+              onClick={handleCancel}
+              disabled={isSaving}
+              className="inline-flex h-10 items-center gap-1.5 rounded-xl px-3.5 text-sm font-bold text-slate-500 transition hover:bg-slate-100 disabled:opacity-50"
             >
-              <Pencil size={15} className="text-slate-500" />
-              แก้ไข
+              <X className="h-4 w-4" />
+              ยกเลิก
             </button>
-          )
-        }
-      />
 
-      <div className="mt-6 grid gap-x-5 gap-y-4.5 md:grid-cols-2">
-        <ProfileField icon={UserRound} label="ชื่อ-นามสกุล" value={fullName} />
-        <ProfileField icon={UserRound} label="ชื่อผู้ใช้" value={profile.username} />
-        <ProfileField icon={Mail} label="อีเมล" value={profile.email} />
-        <ProfileField icon={UsersRound} label="รหัสพนักงาน" value={profile.employeeCode ?? "-"} />
-        <ProfileField icon={ShieldCheck} label="ตำแหน่ง" value={profile.roleLabel} />
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={isSaving}
+              className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-emerald-600 px-4 text-sm font-bold text-white transition hover:bg-emerald-700 disabled:opacity-60"
+            >
+              {isSaving ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+              บันทึก
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => {
+              setNotice(null);
+              setIsEditing(true);
+            }}
+            className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+          >
+            <Pencil className="h-4 w-4" />
+            แก้ไข
+          </button>
+        )}
+      </div>
+
+      <div className="mt-6 grid gap-4 md:grid-cols-2">
+        <EditableProfileField
+          icon={UserRound}
+          label="ชื่อ"
+          value={state.firstName}
+          onChange={(value) =>
+            update("firstName", value)
+          }
+          editable={isEditing}
+          placeholder="ชื่อ"
+        />
+
+        <EditableProfileField
+          icon={UserRound}
+          label="นามสกุล"
+          value={state.lastName}
+          onChange={(value) =>
+            update("lastName", value)
+          }
+          editable={isEditing}
+          placeholder="นามสกุล"
+        />
+
+        <ProfileField
+          icon={UserRound}
+          label="ชื่อผู้ใช้"
+          value={profile.username}
+        />
+
+        <ProfileField
+          icon={Mail}
+          label="อีเมล"
+          value={profile.email}
+        />
+
+        <ProfileField
+          icon={UsersRound}
+          label="รหัสพนักงาน"
+          value={
+            profile.employeeCode ?? "-"
+          }
+        />
+
+        <ProfileField
+          icon={ShieldCheck}
+          label="ตำแหน่ง"
+          value={profile.roleLabel}
+        />
 
         <EditableProfileField
           icon={Phone}
           label="เบอร์โทรศัพท์"
-          value={phone}
-          onChange={setPhone}
+          value={state.phone}
+          onChange={(value) =>
+            update("phone", value)
+          }
           editable={isEditing}
           placeholder="เช่น 098-765-4321"
         />
+
         <EditableProfileField
           icon={Building2}
           label="แผนก"
-          value={department}
-          onChange={setDepartment}
+          value={state.department}
+          onChange={(value) =>
+            update("department", value)
+          }
           editable={isEditing}
-          placeholder="เช่น Utility"
+          placeholder="เช่น SMT"
         />
+
         <EditableProfileField
           icon={Building2}
           label="ไลน์การผลิต"
-          value={productionLine}
-          onChange={setProductionLine}
+          value={state.productionLine}
+          onChange={(value) =>
+            update(
+              "productionLine",
+              value,
+            )
+          }
           editable={isEditing}
-          placeholder="เช่น Production Line 1"
+          placeholder="เช่น SMT Line 1"
         />
       </div>
 
-      {notice && <InlineNotice notice={notice} className="mt-5" />}
-
-      <div className="mt-6 rounded-2xl bg-slate-50/80 border border-slate-100 px-4 py-3.5 text-xs leading-relaxed text-slate-500">
-        💡 <span className="font-semibold text-slate-700">หมายเหตุ:</span> ชื่อ อีเมล ชื่อผู้ใช้ รหัสพนักงาน และตำแหน่งถูกกำหนดโดยผู้ดูแลระบบ หากต้องการเปลี่ยนข้อมูลเหล่านี้ให้ติดต่อ Company Admin
-      </div>
+      {notice && (
+        <InlineNotice
+          notice={notice}
+          className="mt-5"
+        />
+      )}
     </section>
   );
 }
 
-function AccountSummaryCard({ profile }: { profile: ProfileWithAvatar }) {
+function AccountSummaryCard({
+  profile,
+}: {
+  profile: ProfileWithAvatar;
+}) {
   return (
     <section className="rounded-[28px] border border-slate-200/80 bg-white p-6 shadow-[0_10px_35px_rgba(15,23,42,0.04)] sm:p-8">
-      <CardHeader title="บัญชีและสิทธิ์" description="ข้อมูลการเข้าถึงระบบของบัญชีนี้" />
+      <h2 className="text-lg font-extrabold tracking-tight text-slate-900">
+        บัญชีและสิทธิ์
+      </h2>
+
+      <p className="mt-1 text-xs font-medium leading-relaxed text-slate-400">
+        ข้อมูลการเข้าถึงระบบของบัญชีนี้
+      </p>
 
       <div className="mt-5 space-y-1">
-        <SummaryRow icon={Building2} label="บริษัท" value={profile.companyName ?? "-"} />
-        <SummaryRow icon={ShieldCheck} label="บทบาท" value={profile.roleLabel} />
-        <SummaryRow icon={Clock3} label="เข้าสู่ระบบล่าสุด" value={formatDateTime(profile.lastLogin)} />
-        <SummaryRow icon={CalendarDays} label="สร้างบัญชีเมื่อ" value={formatDate(profile.createdAt)} />
+        <SummaryRow
+          icon={Building2}
+          label="บริษัท"
+          value={
+            profile.companyName ?? "-"
+          }
+        />
+
+        <SummaryRow
+          icon={ShieldCheck}
+          label="บทบาท"
+          value={profile.roleLabel}
+        />
+
+        <SummaryRow
+          icon={Clock3}
+          label="เข้าสู่ระบบล่าสุด"
+          value={formatDateTime(
+            profile.lastLogin,
+          )}
+        />
+
+        <SummaryRow
+          icon={CalendarDays}
+          label="สร้างบัญชีเมื่อ"
+          value={formatDate(
+            profile.createdAt,
+          )}
+        />
       </div>
 
       <div className="mt-6 border-t border-slate-100 pt-5">
-        <p className="mb-3 text-xs font-bold uppercase tracking-[0.08em] text-slate-400">สิทธิ์การเข้าถึง</p>
+        <p className="mb-3 text-xs font-bold uppercase tracking-[0.08em] text-slate-400">
+          สิทธิ์การเข้าถึง
+        </p>
+
         <div className="flex flex-wrap gap-2">
-          {profile.permissions.length > 0 ? (
-            profile.permissions.map((permission) => (
-              <span key={permission} className="rounded-xl bg-emerald-50 border border-emerald-200/50 px-3 py-1.5 text-xs font-bold text-emerald-700">
-                {permission}
-              </span>
-            ))
+          {profile.permissions.length >
+          0 ? (
+            profile.permissions.map(
+              (permission) => (
+                <span
+                  key={permission}
+                  className="rounded-xl border border-emerald-200/50 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700"
+                >
+                  {permission}
+                </span>
+              ),
+            )
           ) : (
-            <span className="text-sm text-slate-400">ยังไม่มีสิทธิ์ที่กำหนด</span>
+            <span className="text-sm text-slate-400">
+              ยังไม่มีสิทธิ์ที่กำหนด
+            </span>
           )}
         </div>
       </div>
@@ -375,23 +886,52 @@ function AccountSummaryCard({ profile }: { profile: ProfileWithAvatar }) {
 }
 
 function ChangePasswordCard() {
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [showCurrent, setShowCurrent] = useState(false);
-  const [showNew, setShowNew] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [notice, setNotice] = useState<Notice | null>(null);
+  const [currentPassword, setCurrentPassword] =
+    useState("");
+
+  const [newPassword, setNewPassword] =
+    useState("");
+
+  const [
+    confirmPassword,
+    setConfirmPassword,
+  ] = useState("");
+
+  const [showCurrent, setShowCurrent] =
+    useState(false);
+
+  const [showNew, setShowNew] =
+    useState(false);
+
+  const [showConfirm, setShowConfirm] =
+    useState(false);
+
+  const [isSaving, setIsSaving] =
+    useState(false);
+
+  const [notice, setNotice] =
+    useState<Notice | null>(null);
 
   async function handleChangePassword() {
-    if (!currentPassword || !newPassword || !confirmPassword) {
-      setNotice({ type: "error", text: "กรุณากรอกรหัสผ่านให้ครบทุกช่องด้วยนะครับ" });
+    if (
+      !currentPassword ||
+      !newPassword ||
+      !confirmPassword
+    ) {
+      setNotice({
+        type: "error",
+        text: "กรุณากรอกรหัสผ่านให้ครบทุกช่อง",
+      });
       return;
     }
 
-    if (newPassword !== confirmPassword) {
-      setNotice({ type: "error", text: "รหัสผ่านใหม่และการยืนยันรหัสผ่านไม่ตรงกัน" });
+    if (
+      newPassword !== confirmPassword
+    ) {
+      setNotice({
+        type: "error",
+        text: "รหัสผ่านใหม่และการยืนยันรหัสผ่านไม่ตรงกัน",
+      });
       return;
     }
 
@@ -399,26 +939,59 @@ function ChangePasswordCard() {
     setNotice(null);
 
     try {
-      const response = await fetch("/api/profile/password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ currentPassword, newPassword, confirmPassword }),
-      });
+      const response = await fetch(
+        "/api/password",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            currentPassword,
+            newPassword,
+            confirmPassword,
+          }),
+        },
+      );
 
-      const data = (await response.json()) as { success?: boolean; message?: string };
+      const data =
+        (await response.json()) as {
+          success?: boolean;
+          message?: string;
+        };
 
-      if (!response.ok || !data.success) {
-        setNotice({ type: "error", text: data.message ?? "เปลี่ยนรหัสผ่านไม่สำเร็จ" });
+      if (
+        !response.ok ||
+        !data.success
+      ) {
+        setNotice({
+          type: "error",
+          text:
+            data.message ??
+            "เปลี่ยนรหัสผ่านไม่สำเร็จ",
+        });
         return;
       }
 
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-      setNotice({ type: "success", text: "เปลี่ยนรหัสผ่านเรียบร้อยแล้ว 🔒" });
+
+      setNotice({
+        type: "success",
+        text: "เปลี่ยนรหัสผ่านเรียบร้อยแล้ว",
+      });
     } catch (error) {
-      console.error("Change password error:", error);
-      setNotice({ type: "error", text: "ไม่สามารถเชื่อมต่อระบบได้ กรุณาลองใหม่" });
+      console.error(
+        "Change password error:",
+        error,
+      );
+
+      setNotice({
+        type: "error",
+        text: "ไม่สามารถเชื่อมต่อระบบได้ กรุณาลองใหม่",
+      });
     } finally {
       setIsSaving(false);
     }
@@ -426,7 +999,13 @@ function ChangePasswordCard() {
 
   return (
     <section className="rounded-[28px] border border-slate-200/80 bg-white p-6 shadow-[0_10px_35px_rgba(15,23,42,0.04)] sm:p-8">
-      <CardHeader title="ความปลอดภัย" description="เปลี่ยนรหัสผ่านเพื่อความปลอดภัยของบัญชี" />
+      <h2 className="text-lg font-extrabold tracking-tight text-slate-900">
+        ความปลอดภัย
+      </h2>
+
+      <p className="mt-1 text-xs font-medium leading-relaxed text-slate-400">
+        เปลี่ยนรหัสผ่านเพื่อความปลอดภัยของบัญชี
+      </p>
 
       <div className="mt-5 space-y-4">
         <PasswordInput
@@ -434,59 +1013,62 @@ function ChangePasswordCard() {
           value={currentPassword}
           onChange={setCurrentPassword}
           show={showCurrent}
-          onToggle={() => setShowCurrent((value) => !value)}
+          onToggle={() =>
+            setShowCurrent(
+              (value) => !value,
+            )
+          }
           autoComplete="current-password"
         />
+
         <PasswordInput
           label="รหัสผ่านใหม่"
           value={newPassword}
           onChange={setNewPassword}
           show={showNew}
-          onToggle={() => setShowNew((value) => !value)}
+          onToggle={() =>
+            setShowNew(
+              (value) => !value,
+            )
+          }
           autoComplete="new-password"
         />
+
         <PasswordInput
           label="ยืนยันรหัสผ่านใหม่"
           value={confirmPassword}
           onChange={setConfirmPassword}
           show={showConfirm}
-          onToggle={() => setShowConfirm((value) => !value)}
+          onToggle={() =>
+            setShowConfirm(
+              (value) => !value,
+            )
+          }
           autoComplete="new-password"
         />
       </div>
 
-      {notice && <InlineNotice notice={notice} className="mt-4" />}
+      {notice && (
+        <InlineNotice
+          notice={notice}
+          className="mt-4"
+        />
+      )}
 
       <button
         type="button"
         onClick={handleChangePassword}
         disabled={isSaving}
-        className="mt-6 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 text-sm font-bold text-white shadow-lg shadow-slate-900/10 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 active:scale-95"
+        className="mt-6 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 text-sm font-bold text-white transition hover:bg-slate-800 disabled:opacity-60"
       >
-        {isSaving ? <Loader2 size={18} className="animate-spin" /> : <LockKeyhole size={18} />}
+        {isSaving ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <LockKeyhole className="h-4 w-4" />
+        )}
         เปลี่ยนรหัสผ่าน
       </button>
     </section>
-  );
-}
-
-function CardHeader({
-  title,
-  description,
-  action,
-}: {
-  title: string;
-  description: string;
-  action?: React.ReactNode;
-}) {
-  return (
-    <div className="flex items-start justify-between gap-4">
-      <div>
-        <h2 className="text-lg font-extrabold text-slate-900 tracking-tight">{title}</h2>
-        <p className="mt-1 text-xs font-medium leading-relaxed text-slate-400">{description}</p>
-      </div>
-      {action}
-    </div>
   );
 }
 
@@ -500,12 +1082,15 @@ function ProfileField({
   value: string;
 }) {
   return (
-    <div className="group rounded-2xl border border-slate-100 bg-slate-50/70 p-4 transition hover:bg-slate-50">
+    <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
       <div className="mb-1.5 flex items-center gap-2 text-xs font-bold text-slate-400">
-        <Icon size={14} className="text-slate-400" />
+        <Icon className="h-3.5 w-3.5" />
         {label}
       </div>
-      <p className="min-h-5 break-words text-sm font-bold text-slate-700">{value || "-"}</p>
+
+      <p className="min-h-5 break-words text-sm font-bold text-slate-700">
+        {value || "-"}
+      </p>
     </div>
   );
 }
@@ -526,18 +1111,29 @@ function EditableProfileField({
   placeholder: string;
 }) {
   if (!editable) {
-    return <ProfileField icon={Icon} label={label} value={value || "-"} />;
+    return (
+      <ProfileField
+        icon={Icon}
+        label={label}
+        value={value || "-"}
+      />
+    );
   }
 
   return (
-    <label className="block rounded-2xl border-2 border-emerald-300/80 bg-emerald-50/20 p-4 transition-all focus-within:border-emerald-500 focus-within:bg-white focus-within:shadow-sm">
+    <label className="block rounded-2xl border-2 border-emerald-300/80 bg-emerald-50/20 p-4 transition-all focus-within:border-emerald-500 focus-within:bg-white">
       <span className="mb-1.5 flex items-center gap-2 text-xs font-bold text-emerald-700">
-        <Icon size={14} />
+        <Icon className="h-3.5 w-3.5" />
         {label}
       </span>
+
       <input
         value={value}
-        onChange={(event) => onChange(event.target.value)}
+        onChange={(event) =>
+          onChange(
+            event.target.value,
+          )
+        }
         placeholder={placeholder}
         className="w-full bg-transparent text-sm font-bold text-slate-800 outline-none placeholder:font-normal placeholder:text-slate-300"
       />
@@ -557,12 +1153,18 @@ function SummaryRow({
   return (
     <div className="flex items-center justify-between gap-4 rounded-xl px-2 py-3 transition hover:bg-slate-50/80">
       <div className="flex min-w-0 items-center gap-3 text-sm text-slate-500">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100/80 text-slate-500 shadow-2xs">
-          <Icon size={16} />
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100/80 text-slate-500">
+          <Icon className="h-4 w-4" />
         </span>
-        <span className="font-medium">{label}</span>
+
+        <span className="font-medium">
+          {label}
+        </span>
       </div>
-      <span className="max-w-[55%] text-right text-sm font-bold text-slate-700">{value}</span>
+
+      <span className="max-w-[55%] text-right text-sm font-bold text-slate-700">
+        {value}
+      </span>
     </div>
   );
 }
@@ -584,30 +1186,51 @@ function PasswordInput({
 }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-xs font-bold text-slate-600">{label}</span>
+      <span className="mb-1.5 block text-xs font-bold text-slate-600">
+        {label}
+      </span>
+
       <div className="flex h-12 items-center rounded-2xl border border-slate-200 bg-white px-4 transition-all focus-within:border-slate-400 focus-within:ring-4 focus-within:ring-slate-100">
         <input
-          type={show ? "text" : "password"}
+          type={
+            show
+              ? "text"
+              : "password"
+          }
           value={value}
-          onChange={(event) => onChange(event.target.value)}
+          onChange={(event) =>
+            onChange(
+              event.target.value,
+            )
+          }
           autoComplete={autoComplete}
-          className="min-w-0 flex-1 bg-transparent text-sm font-medium text-slate-800 outline-none placeholder:text-slate-300"
+          className="min-w-0 flex-1 bg-transparent text-sm font-medium text-slate-800 outline-none"
           placeholder="••••••••"
         />
+
         <button
           type="button"
           onClick={onToggle}
           className="ml-2 flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
-          aria-label={show ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"}
         >
-          {show ? <EyeOff size={17} /> : <Eye size={17} />}
+          {show ? (
+            <EyeOff className="h-4 w-4" />
+          ) : (
+            <Eye className="h-4 w-4" />
+          )}
         </button>
       </div>
     </label>
   );
 }
 
-function InlineNotice({ notice, className = "" }: { notice: Notice; className?: string }) {
+function InlineNotice({
+  notice,
+  className = "",
+}: {
+  notice: Notice;
+  className?: string;
+}) {
   return (
     <div
       className={`${className} rounded-2xl border px-4 py-3 text-xs font-semibold ${
@@ -621,23 +1244,33 @@ function InlineNotice({ notice, className = "" }: { notice: Notice; className?: 
   );
 }
 
-function formatDate(iso: string): string {
-  return new Intl.DateTimeFormat("th-TH", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(new Date(iso));
+function formatDate(
+  iso: string,
+): string {
+  return new Intl.DateTimeFormat(
+    "th-TH",
+    {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    },
+  ).format(new Date(iso));
 }
 
-function formatDateTime(iso: string | null): string {
+function formatDateTime(
+  iso: string | null,
+): string {
   if (!iso) return "-";
 
-  return new Intl.DateTimeFormat("th-TH", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).format(new Date(iso));
+  return new Intl.DateTimeFormat(
+    "th-TH",
+    {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    },
+  ).format(new Date(iso));
 }

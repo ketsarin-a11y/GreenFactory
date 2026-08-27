@@ -1,116 +1,269 @@
 import "server-only";
-import { prisma } from "@/lib/prisma";
-import type { TodayTaskSummary, RecentRecord, ResourceIcon, TaskCategory } from "@/constants/dashboard";
 
-// map ResourceType (DB) -> ไอคอน + label ที่ใช้แสดงผล
-const RESOURCE_META: Record<string, { label: string; icon: ResourceIcon; unit: string }> = {
-  ELECTRICITY: { label: "ไฟฟ้า (Electricity)", icon: "zap", unit: "kWh" },
-  WATER: { label: "น้ำ (Water)", icon: "droplet", unit: "m³" },
-  GAS: { label: "แก๊ส (Gas)", icon: "flame", unit: "kg" },
+import { prisma } from "@/lib/prisma";
+import type {
+  RecentRecord,
+  ResourceIcon,
+  TaskCategory,
+  TodayTaskSummary,
+} from "@/constants/dashboard";
+
+const RESOURCE_ICON_BY_CODE: Record<string, ResourceIcon> = {
+  ELECTRICITY: "zap",
+  WATER: "droplet",
+  DI_WATER: "droplets",
+  CHILLED_WATER: "snowflake",
+  COMPRESSED_AIR: "wind",
+  NITROGEN: "atom",
+  GAS: "flame",
+  LPG: "flame",
+  STEAM: "waves",
+  DIESEL: "fuel",
 };
 
 function startOfToday(): Date {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d;
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+  return date;
 }
 
 function endOfToday(): Date {
-  const d = new Date();
-  d.setHours(23, 59, 59, 999);
-  return d;
+  const date = new Date();
+  date.setHours(23, 59, 59, 999);
+  return date;
 }
 
 /**
- * งานที่ต้องบันทึกวันนี้ = เครื่องจักร/อุปกรณ์ (Equipment) ของบริษัทนี้ ที่ยัง "ไม่มี"
- * ResourceRecord ของวันนี้ ถูกจัดกลุ่มตามประเภททรัพยากร (ไฟฟ้า/น้ำ/แก๊ส)
- *
- * companyId เป็น null ได้ (user บาง account ไม่ผูกกับบริษัท) — กรณีนั้นจะคืนค่าว่าง
+ * Dashboard ใหม่:
+ * - ใช้ ResourceUsage เป็น source of truth
+ * - ไม่อ่าน ResourceRecord / Equipment legacy
+ * - card นี้สรุป "รายการที่บันทึกวันนี้" ตาม Resource Type จริง
  */
-export async function getTodayTaskSummary(companyId: number | null): Promise<TodayTaskSummary> {
+export async function getTodayTaskSummary(
+  companyId: number | null,
+): Promise<TodayTaskSummary> {
   if (companyId === null) {
-    return { totalCount: 0, categories: [] };
+    return {
+      totalCount: 0,
+      categories: [],
+    };
   }
 
-  const equipmentList = await prisma.equipment.findMany({
-    where: { companyId, isActive: true },
+  const usages = await prisma.resourceUsage.findMany({
+    where: {
+      companyId,
+      status: "ACTIVE",
+      usageAt: {
+        gte: startOfToday(),
+        lte: endOfToday(),
+      },
+    },
     select: {
-      equipmentId: true,
-      resourceType: true,
-      records: {
-        where: { recordedAt: { gte: startOfToday(), lte: endOfToday() } },
-        select: { recordId: true },
-        take: 1,
+      resourceType: {
+        select: {
+          resourceCode: true,
+          resourceName: true,
+        },
       },
     },
   });
 
-  const pendingByType = new Map<string, number>();
-  for (const eq of equipmentList) {
-    const alreadyRecordedToday = eq.records.length > 0;
-    if (alreadyRecordedToday) continue;
-    pendingByType.set(eq.resourceType, (pendingByType.get(eq.resourceType) ?? 0) + 1);
+  const counts = new Map<
+    string,
+    {
+      label: string;
+      count: number;
+      icon: ResourceIcon;
+    }
+  >();
+
+  for (const usage of usages) {
+    const code = usage.resourceType.resourceCode;
+
+    const current = counts.get(code) ?? {
+      label: usage.resourceType.resourceName,
+      count: 0,
+      icon:
+        RESOURCE_ICON_BY_CODE[code] ??
+        "zap",
+    };
+
+    current.count += 1;
+    counts.set(code, current);
   }
 
-  const categories: TaskCategory[] = Object.entries(RESOURCE_META)
-    .map(([key, meta]) => ({
-      key: key.toLowerCase(),
-      label: meta.label,
-      icon: meta.icon,
-      count: pendingByType.get(key) ?? 0,
-    }))
-    .filter((cat) => cat.count > 0);
+  const categories: TaskCategory[] =
+    Array.from(counts.entries())
+      .map(([code, item]) => ({
+        key: code.toLowerCase(),
+        label: item.label,
+        icon: item.icon,
+        count: item.count,
+      }))
+      .sort(
+        (a, b) =>
+          b.count - a.count ||
+          a.label.localeCompare(
+            b.label,
+            "th",
+          ),
+      );
 
-  const totalCount = categories.reduce((sum, cat) => sum + cat.count, 0);
-
-  return { totalCount, categories };
+  return {
+    totalCount: usages.length,
+    categories,
+  };
 }
 
-/**
- * บันทึกล่าสุดของผู้ใช้คนนั้นๆ เรียงจากล่าสุดไปเก่าสุด
- */
-export async function getRecentRecords(userId: number, limit = 5): Promise<RecentRecord[]> {
-  const records = await prisma.resourceRecord.findMany({
-    where: { recordedById: userId },
-    orderBy: { recordedAt: "desc" },
-    take: limit,
-    include: { equipment: true },
-  });
+export async function getRecentRecords(
+  userId: number,
+  limit = 5,
+): Promise<RecentRecord[]> {
+  const records =
+    await prisma.resourceUsage.findMany({
+      where: {
+        recordedBy: userId,
+        status: "ACTIVE",
+      },
+      orderBy: {
+        usageAt: "desc",
+      },
+      take: limit,
+      select: {
+        usageId: true,
+        usageAt: true,
+        processingStatus: true,
 
-  return records.map((rec) => {
-    const meta = RESOURCE_META[rec.equipment.resourceType] ?? RESOURCE_META.ELECTRICITY;
+        resourceType: {
+          select: {
+            resourceCode: true,
+          },
+        },
+
+        machine: {
+          select: {
+            machineName: true,
+            productionLine: {
+              select: {
+                lineName: true,
+                department: {
+                  select: {
+                    departmentName: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+
+        checkpoint: {
+          select: {
+            checkpointName: true,
+            productionLine: {
+              select: {
+                lineName: true,
+                department: {
+                  select: {
+                    departmentName: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+  return records.map((record) => {
+    const resourceCode =
+      record.resourceType.resourceCode;
+
+    const icon =
+      RESOURCE_ICON_BY_CODE[
+        resourceCode
+      ] ?? "zap";
+
+    const equipment =
+      record.machine?.machineName ??
+      record.checkpoint
+        ?.checkpointName ??
+      "ไม่ระบุ";
+
+    const lineName =
+      record.machine?.productionLine
+        .lineName ??
+      record.checkpoint
+        ?.productionLine.lineName ??
+      null;
+
+    const departmentName =
+      record.machine?.productionLine
+        .department.departmentName ??
+      record.checkpoint
+        ?.productionLine.department
+        .departmentName ??
+      null;
+
+    const location = [
+      lineName,
+      departmentName,
+    ]
+      .filter(Boolean)
+      .join(" • ");
+
     return {
-      id: String(rec.recordId),
-      equipment: rec.equipment.name,
-      location: rec.equipment.location,
-      icon: meta.icon,
-      iconColor: iconColorFor(meta.icon),
-      dateLabel: formatThaiDateTime(rec.recordedAt),
-      status: rec.status === "RECORDED" ? "บันทึกแล้ว" : "รอบันทึก",
+      id: record.usageId.toString(),
+      equipment,
+      location:
+        location || "ไม่ระบุตำแหน่ง",
+      icon,
+      iconColor: iconColorFor(icon),
+      dateLabel: formatThaiDateTime(
+        record.usageAt,
+      ),
+      status:
+        record.processingStatus ===
+        "PENDING"
+          ? "กำลังประมวลผล"
+          : "บันทึกแล้ว",
     };
   });
 }
 
-function iconColorFor(icon: ResourceIcon): RecentRecord["iconColor"] {
+function iconColorFor(
+  icon: ResourceIcon,
+): RecentRecord["iconColor"] {
   switch (icon) {
     case "zap":
       return "amber";
+
     case "droplet":
+    case "droplets":
+    case "snowflake":
       return "blue";
+
     case "flame":
+    case "waves":
+    case "fuel":
       return "purple";
+
     default:
       return "slate";
   }
 }
 
-function formatThaiDateTime(date: Date): string {
-  return new Intl.DateTimeFormat("th-TH", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).format(date);
+function formatThaiDateTime(
+  date: Date,
+): string {
+  return new Intl.DateTimeFormat(
+    "th-TH",
+    {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    },
+  ).format(date);
 }

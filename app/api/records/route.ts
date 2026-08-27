@@ -1,14 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { createResourceRecord } from "@/lib/record-queries";
+import { createResourceUsage } from "@/lib/record-queries";
 import { getSession } from "@/lib/session";
 
-interface CreateRecordBody {
-  equipmentId?: number;
-  value?: number;
-  recordedAt?: string;
-  note?: string;
-  attachmentUrl?: string | null;
+interface CreateResourceUsageBody {
+  machineId?: number | null;
+  checkpointId?: number | null;
+
+  resourceTypeId?: number;
+  unitId?: number;
+
+  quantity?: number;
+  usageAt?: string;
+
+  qrScanId?: string | null;
+
+  evidenceFilePath?: string | null;
+  remark?: string | null;
 }
 
 export async function POST(request: NextRequest) {
@@ -28,7 +36,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        message: "คุณไม่มีสิทธิ์ใช้งานส่วนนี้",
+        message: "คุณไม่มีสิทธิ์บันทึกข้อมูลส่วนนี้",
       },
       { status: 403 },
     );
@@ -38,7 +46,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        message: "บัญชีนี้ไม่ได้ผูกกับบริษัท ไม่สามารถบันทึกข้อมูลได้",
+        message:
+          "บัญชีผู้ใช้นี้ไม่ได้เชื่อมกับบริษัท จึงไม่สามารถบันทึกข้อมูลได้",
       },
       { status: 403 },
     );
@@ -46,46 +55,147 @@ export async function POST(request: NextRequest) {
 
   const body = (await request
     .json()
-    .catch(() => null)) as CreateRecordBody | null;
+    .catch(() => null)) as CreateResourceUsageBody | null;
+
+  if (!body) {
+    return NextResponse.json(
+      {
+        success: false,
+        message: "รูปแบบข้อมูลไม่ถูกต้อง",
+      },
+      { status: 400 },
+    );
+  }
+
+  const machineId =
+    typeof body.machineId === "number"
+      ? body.machineId
+      : null;
+
+  const checkpointId =
+    typeof body.checkpointId === "number"
+      ? body.checkpointId
+      : null;
+
+  /*
+   * ต้องเลือก Machine หรือ Checkpoint อย่างใดอย่างหนึ่ง
+   */
+  if (!machineId && !checkpointId) {
+    return NextResponse.json(
+      {
+        success: false,
+        message: "กรุณาเลือกเครื่องจักรหรือจุดตรวจ",
+      },
+      { status: 400 },
+    );
+  }
+
+  if (machineId && checkpointId) {
+    return NextResponse.json(
+      {
+        success: false,
+        message:
+          "ไม่สามารถเลือกเครื่องจักรและจุดตรวจพร้อมกันได้",
+      },
+      { status: 400 },
+    );
+  }
 
   if (
-    !body ||
-    typeof body.equipmentId !== "number" ||
-    typeof body.value !== "number" ||
-    !body.recordedAt
+    machineId !== null &&
+    (!Number.isInteger(machineId) || machineId <= 0)
   ) {
     return NextResponse.json(
       {
         success: false,
-        message: "ข้อมูลไม่ครบถ้วน",
+        message: "รหัสเครื่องจักรไม่ถูกต้อง",
       },
       { status: 400 },
     );
   }
 
-  if (!Number.isInteger(body.equipmentId) || body.equipmentId <= 0) {
+  if (
+    checkpointId !== null &&
+    (!Number.isInteger(checkpointId) ||
+      checkpointId <= 0)
+  ) {
     return NextResponse.json(
       {
         success: false,
-        message: "อุปกรณ์ที่เลือกไม่ถูกต้อง",
+        message: "รหัสจุดตรวจไม่ถูกต้อง",
       },
       { status: 400 },
     );
   }
 
-  if (!Number.isFinite(body.value) || body.value < 0) {
+  /*
+   * Resource Type
+   */
+  if (
+    typeof body.resourceTypeId !== "number" ||
+    !Number.isInteger(body.resourceTypeId) ||
+    body.resourceTypeId <= 0
+  ) {
     return NextResponse.json(
       {
         success: false,
-        message: "ปริมาณที่ใช้ต้องเป็นตัวเลขที่ถูกต้อง",
+        message: "กรุณาเลือกประเภททรัพยากร",
       },
       { status: 400 },
     );
   }
 
-  const recordedAt = new Date(body.recordedAt);
+  /*
+   * Unit
+   */
+  if (
+    typeof body.unitId !== "number" ||
+    !Number.isInteger(body.unitId) ||
+    body.unitId <= 0
+  ) {
+    return NextResponse.json(
+      {
+        success: false,
+        message: "หน่วยวัดไม่ถูกต้อง",
+      },
+      { status: 400 },
+    );
+  }
 
-  if (Number.isNaN(recordedAt.getTime())) {
+  /*
+   * Quantity
+   */
+  if (
+    typeof body.quantity !== "number" ||
+    !Number.isFinite(body.quantity) ||
+    body.quantity <= 0
+  ) {
+    return NextResponse.json(
+      {
+        success: false,
+        message:
+          "ปริมาณการใช้ทรัพยากรต้องเป็นตัวเลขที่มากกว่า 0",
+      },
+      { status: 400 },
+    );
+  }
+
+  /*
+   * Usage date/time
+   */
+  if (!body.usageAt) {
+    return NextResponse.json(
+      {
+        success: false,
+        message: "กรุณาระบุวันที่และเวลา",
+      },
+      { status: 400 },
+    );
+  }
+
+  const usageAt = new Date(body.usageAt);
+
+  if (Number.isNaN(usageAt.getTime())) {
     return NextResponse.json(
       {
         success: false,
@@ -95,32 +205,135 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  /*
+   * QR Scan ID
+   *
+   * BigInt ส่งผ่าน JSON โดยตรงไม่ได้
+   * Client จึงส่งมาเป็น string
+   */
+  let qrScanId: bigint | null = null;
+
+  if (
+    body.qrScanId !== undefined &&
+    body.qrScanId !== null &&
+    body.qrScanId !== ""
+  ) {
+    try {
+      qrScanId = BigInt(body.qrScanId);
+
+      if (qrScanId <= BigInt(0)) {
+        throw new Error();
+      }
+    } catch {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "ข้อมูลการสแกน QR Code ไม่ถูกต้อง",
+        },
+        { status: 400 },
+      );
+    }
+  }
+
+  /*
+   * จำกัดขนาด String ก่อนเข้า DB
+   */
+  const evidenceFilePath =
+    body.evidenceFilePath?.trim() || null;
+
+  const remark =
+    body.remark?.trim() || null;
+
+  if (
+    evidenceFilePath &&
+    evidenceFilePath.length > 500
+  ) {
+    return NextResponse.json(
+      {
+        success: false,
+        message: "ที่อยู่ไฟล์หลักฐานยาวเกินกำหนด",
+      },
+      { status: 400 },
+    );
+  }
+
+  if (remark && remark.length > 1000) {
+    return NextResponse.json(
+      {
+        success: false,
+        message:
+          "หมายเหตุต้องมีความยาวไม่เกิน 1,000 ตัวอักษร",
+      },
+      { status: 400 },
+    );
+  }
+
   try {
-    const record = await createResourceRecord({
-      equipmentId: body.equipmentId,
-      recordedById: session.userId,
+    const usage = await createResourceUsage({
       companyId: session.companyId,
-      value: body.value,
-      recordedAt,
-      note: body.note?.trim() || undefined,
-      attachmentUrl: body.attachmentUrl?.trim() || null,
+      recordedBy: session.userId,
+
+      machineId,
+      checkpointId,
+
+      resourceTypeId: body.resourceTypeId,
+      unitId: body.unitId,
+
+      quantity: body.quantity,
+      usageAt,
+
+      qrScanId,
+
+      evidenceFilePath,
+      remark,
     });
 
+    /*
+     * BigInt ไม่สามารถ JSON.stringify ตรง ๆ
+     * จึงแปลงกลับเป็น string
+     */
     return NextResponse.json(
       {
         success: true,
         message: "บันทึกข้อมูลเรียบร้อยแล้ว",
-        recordId: record.recordId,
+
+        data: {
+          usageId: usage.usageId.toString(),
+          usageReference: usage.usageReference,
+
+          machineId: usage.machineId,
+          checkpointId: usage.checkpointId,
+
+          resourceTypeId: usage.resourceTypeId,
+          unitId: usage.unitId,
+
+          quantity: Number(usage.quantity),
+
+          qrScanId:
+            usage.qrScanId?.toString() ?? null,
+
+          evidenceFilePath:
+            usage.evidenceFilePath,
+
+          processingStatus:
+            usage.processingStatus,
+
+          createdAt:
+            usage.createdAt.toISOString(),
+        },
       },
       { status: 201 },
     );
   } catch (error) {
-    console.error("Create record error:", error);
+    console.error(
+      "Create ResourceUsage error:",
+      error,
+    );
 
     const message =
       error instanceof Error
         ? error.message
-        : "บันทึกข้อมูลไม่สำเร็จ กรุณาลองใหม่";
+        : "ไม่สามารถบันทึกข้อมูลได้ กรุณาลองใหม่";
 
     return NextResponse.json(
       {

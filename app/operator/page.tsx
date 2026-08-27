@@ -1,17 +1,15 @@
 import { redirect } from "next/navigation";
 
-import { getSession } from "@/lib/session";
-import {
-  getTodayTaskSummary,
-  getRecentRecords,
-} from "@/lib/dashboard-queries";
-
+import DashboardLive from "@/components/operator/DashboardLive";
 import QuickActions from "@/components/operator/QuickActions";
-import TodayTasks from "@/components/operator/TodayTasks";
-import RecentRecords from "@/components/operator/RecentRecords";
 import TipBanner from "@/components/operator/TipBanner";
 
-// Dashboard ต้องดึงข้อมูลล่าสุดทุกครั้ง
+import {
+  getRecentRecords,
+  getTodayTaskSummary,
+} from "@/lib/dashboard-queries";
+import { getSession } from "@/lib/session";
+
 export const dynamic = "force-dynamic";
 
 export default async function OperatorHomePage() {
@@ -26,7 +24,9 @@ export default async function OperatorHomePage() {
   }
 
   if (!session.companyId) {
-    throw new Error("Operator account does not have a companyId");
+    throw new Error(
+      "Operator account does not have a companyId",
+    );
   }
 
   const [summary, records] = await Promise.all([
@@ -35,15 +35,15 @@ export default async function OperatorHomePage() {
   ]);
 
   return (
-    <>
+    <div className="space-y-6 pb-8">
       <QuickActions />
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_1.4fr]">
-        <TodayTasks summary={summary} />
-        <RecentRecords records={records} />
-      </div>
+      <DashboardLive
+        initialSummary={summary}
+        initialRecords={records}
+      />
 
       <TipBanner />
-    </>
+    </div>
   );
 }

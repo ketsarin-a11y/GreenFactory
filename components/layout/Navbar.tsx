@@ -125,61 +125,36 @@ export default function Navbar() {
       <header
         className={cx(
           "fixed inset-x-0 top-0 z-50 transition-all duration-300",
-          isScrolled ? "py-3" : "py-4",
+          isScrolled ? "py-0" : "py-0",
         )}
       >
         <div
           className={cx(
-            "mx-auto flex h-16 max-w-[1380px] items-center justify-between px-4 transition-all duration-300 sm:px-6 lg:px-7",
+            "mx-auto flex h-[72px] max-w-[1480px] items-center justify-between px-5 transition-all duration-300 sm:px-8 lg:px-10",
             isScrolled
-              ? "rounded-2xl border border-slate-200/80 bg-white/95 shadow-[0_12px_35px_rgba(15,23,42,0.08)] backdrop-blur-xl"
+              ? "border-b border-slate-200/80 bg-white/95 shadow-[0_4px_18px_rgba(15,23,42,0.05)] backdrop-blur-xl"
               : pathname === "/"
                 ? "border-transparent bg-transparent"
-                : "rounded-2xl border border-slate-200/80 bg-white/95 shadow-[0_10px_30px_rgba(15,23,42,0.06)] backdrop-blur-xl",
+                : "border-b border-slate-200/80 bg-white/95 shadow-[0_4px_18px_rgba(15,23,42,0.04)] backdrop-blur-xl",
           )}
         >
           <Link
             href="/"
             aria-label="GreenFactory Insight หน้าแรก"
-            className="group flex shrink-0 items-center gap-3"
+            className="flex shrink-0 items-center"
           >
             <span
               className={cx(
-                "flex h-10 w-10 items-center justify-center rounded-xl transition-colors duration-300",
-                darkHeader
-                  ? "bg-white text-[#173d2d]"
-                  : "bg-[#173d2d] text-white",
+                "flex h-11 items-center rounded-lg px-2 transition-colors duration-300",
+                darkHeader ? "bg-white/95" : "bg-transparent",
               )}
             >
-              <Factory className="h-[19px] w-[19px]" strokeWidth={1.8} />
-            </span>
-
-            <span className="hidden min-[390px]:block">
-              <span
-                className={cx(
-                  "block text-[18px] font-semibold leading-none tracking-[-0.04em] transition-colors duration-300",
-                  darkHeader ? "text-white" : "text-[#14241d]",
-                )}
-              >
-                GreenFactory
-                <span
-                  className={cx(
-                    "ml-1.5",
-                    darkHeader ? "text-emerald-300" : "text-[#317552]",
-                  )}
-                >
-                  Insight
-                </span>
-              </span>
-
-              <span
-                className={cx(
-                  "mt-1.5 block text-[9px] font-medium uppercase tracking-[0.16em] transition-colors duration-300",
-                  darkHeader ? "text-white/45" : "text-slate-400",
-                )}
-              >
-                Industrial Intelligence
-              </span>
+              <img
+                src="/images/LOGO.png"
+                alt="GreenFactory Insight"
+                className="block h-auto w-[168px] object-contain sm:w-[182px]"
+                draggable={false}
+              />
             </span>
           </Link>
 
@@ -384,20 +359,13 @@ export default function Navbar() {
         )}
       >
         <div className="flex h-[76px] items-center justify-between border-b border-slate-200 px-5">
-          <Link href="/" className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#173d2d] text-white">
-              <Factory className="h-[19px] w-[19px]" strokeWidth={1.8} />
-            </span>
-
-            <span>
-              <span className="block text-[17px] font-semibold leading-none tracking-[-0.04em] text-[#14241d]">
-                GreenFactory <span className="text-[#317552]">Insight</span>
-              </span>
-
-              <span className="mt-1.5 block text-[8px] font-medium uppercase tracking-[0.16em] text-slate-400">
-                Industrial Intelligence
-              </span>
-            </span>
+          <Link href="/" aria-label="GreenFactory Insight หน้าแรก">
+            <img
+              src="/images/LOGO.png"
+              alt="GreenFactory Insight"
+              className="block h-auto w-[176px] object-contain"
+              draggable={false}
+            />
           </Link>
 
           <button

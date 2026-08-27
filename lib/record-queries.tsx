@@ -1,96 +1,88 @@
 import "server-only";
-
+import { analyzeResourceUsage } from "@/lib/anomaly-engine";
 import { randomUUID } from "crypto";
 
 import { prisma } from "@/lib/prisma";
 
-/**
- * ชื่อ interface ยังใช้ EquipmentListItem ชั่วคราว
- * เพื่อให้หน้า Operator เดิมไม่ import พัง
- *
- * แต่ข้อมูลทั้งหมดภายในมาจาก Machine แล้ว
- */
-export interface EquipmentListItem {
-  /**
-   * Legacy alias
-   * equipmentId = machineId
-   */
-  equipmentId: number;
-
+export interface MachineListItem {
   machineId: number;
+  machineCode: string;
+  machineName: string;
+  machineType: string;
 
-  name: string;
-  equipmentCode: string;
-  equipmentType: string | null;
+  operationalStatus: string;
 
-  productionLine: string | null;
-  department: string | null;
-  location: string;
-
-  status: string;
-
-  /**
-   * Machine ใหม่ไม่ได้ผูก Resource Type แบบตายตัว
-   * Operator จะเลือก Resource Type จาก Master Data ตอนบันทึก
-   */
-  resourceType: string;
-  resourceUnit: string;
-
-  factoryId: number;
-  factoryName: string;
-
-  buildingId: number;
-  buildingName: string;
+  lineId: number;
+  lineName: string;
 
   departmentId: number;
   departmentName: string;
 
-  lineId: number;
-  lineName: string;
+  buildingId: number;
+  buildingName: string;
+
+  factoryId: number;
+  factoryName: string;
 }
 
-/**
- * Resource Type จาก Master Data
- *
- * ใช้สำหรับ dropdown ในหน้า Record
- * เมื่อเลือก Resource Type แล้วระบบจะรู้ Unit อัตโนมัติ
- */
-export interface ResourceTypeOption {
+export interface EquipmentListItem {
+  equipmentId: number;
+  name: string;
+  equipmentCode: string | null;
+  equipmentType: string | null;
+  productionLine: string | null;
+  department: string | null;
+  location: string;
+  status: string;
+  resourceType: string;
+  resourceUnit: string;
+}
+
+export interface ResourceTypeListItem {
   resourceTypeId: number;
   resourceCode: string;
   resourceName: string;
-
-  categoryId: number;
-  categoryName: string;
-
-  defaultUnitId: number;
-  unitCode: string;
-  unitName: string;
-  unitSymbol: string;
-
   carbonCalculable: boolean;
+
+  unit: {
+    unitId: number;
+    unitCode: string;
+    unitName: string;
+    symbol: string;
+  };
+
+  category: {
+    categoryId: number;
+    categoryCode: string;
+    categoryName: string;
+  };
+}
+
+export interface TodayUsageTotal {
+  resourceTypeId: number;
+  key: string;
+  label: string;
+  unit: string;
+  total: number;
+  recordCount: number;
 }
 
 /**
- * ดึง Machine จริงทั้งหมดของบริษัท
+ * รายการเครื่องจักรจริงของบริษัท
  *
- * Scope:
- * Company
- *   → Factory
- *     → Building
- *       → Department
- *         → Production Line
- *           → Machine
+ * Machine
+ * → ProductionLine
+ * → Department
+ * → Building
+ * → Factory
  */
-export async function getEquipmentList(
+export async function getMachineList(
   companyId: number | null,
   search?: string,
-): Promise<EquipmentListItem[]> {
+): Promise<MachineListItem[]> {
   if (companyId === null) {
     return [];
   }
-
-  const normalizedSearch = search?.trim();
 
   const machines = await prisma.machine.findMany({
     where: {
@@ -101,29 +93,28 @@ export async function getEquipmentList(
           building: {
             factory: {
               companyId,
-              status: "ACTIVE",
             },
           },
         },
       },
 
-      ...(normalizedSearch
+      ...(search
         ? {
             OR: [
               {
                 machineName: {
-                  contains: normalizedSearch,
+                  contains: search,
                 },
               },
               {
                 machineCode: {
-                  contains: normalizedSearch,
+                  contains: search,
                 },
               },
               {
                 machineType: {
                   machineTypeName: {
-                    contains: normalizedSearch,
+                    contains: search,
                   },
                 },
               },
@@ -132,16 +123,43 @@ export async function getEquipmentList(
         : {}),
     },
 
-    include: {
-      machineType: true,
+    orderBy: {
+      machineName: "asc",
+    },
+
+    select: {
+      machineId: true,
+      machineCode: true,
+      machineName: true,
+      operationalStatus: true,
+
+      machineType: {
+        select: {
+          machineTypeName: true,
+        },
+      },
 
       productionLine: {
-        include: {
+        select: {
+          lineId: true,
+          lineName: true,
+
           department: {
-            include: {
+            select: {
+              departmentId: true,
+              departmentName: true,
+
               building: {
-                include: {
-                  factory: true,
+                select: {
+                  buildingId: true,
+                  buildingName: true,
+
+                  factory: {
+                    select: {
+                      factoryId: true,
+                      factoryName: true,
+                    },
+                  },
                 },
               },
             },
@@ -149,146 +167,143 @@ export async function getEquipmentList(
         },
       },
     },
-
-    orderBy: [
-      {
-        productionLine: {
-          department: {
-            building: {
-              factory: {
-                factoryName: "asc",
-              },
-            },
-          },
-        },
-      },
-      {
-        machineName: "asc",
-      },
-    ],
   });
 
-  return machines.map((machine) => {
-    const line = machine.productionLine;
-    const department = line.department;
-    const building = department.building;
-    const factory = building.factory;
+  return machines.map((machine) => ({
+    machineId: machine.machineId,
+    machineCode: machine.machineCode,
+    machineName: machine.machineName,
+    machineType: machine.machineType.machineTypeName,
 
-    const location =
-      machine.locationNote?.trim() ||
-      `${building.buildingName} • ${line.lineName}`;
+    operationalStatus: machine.operationalStatus,
 
-    return {
-      /**
-       * ชั่วคราวให้ UI เดิมใช้ equipmentId ต่อได้
-       * แต่ค่าจริงคือ machineId
-       */
-      equipmentId: machine.machineId,
+    lineId: machine.productionLine.lineId,
+    lineName: machine.productionLine.lineName,
 
-      machineId: machine.machineId,
+    departmentId:
+      machine.productionLine.department.departmentId,
 
-      name: machine.machineName,
-      equipmentCode: machine.machineCode,
-      equipmentType:
-        machine.machineType.machineTypeName ?? null,
+    departmentName:
+      machine.productionLine.department.departmentName,
 
-      productionLine: line.lineName,
-      department: department.departmentName,
-      location,
+    buildingId:
+      machine.productionLine.department.building.buildingId,
 
-      status: machine.operationalStatus,
+    buildingName:
+      machine.productionLine.department.building.buildingName,
 
-      /**
-       * Machine ใหม่ไม่ได้ล็อกว่าต้องใช้ Resource อะไร
-       */
-      resourceType: "",
-      resourceUnit: "",
+    factoryId:
+      machine.productionLine.department.building.factory.factoryId,
 
-      factoryId: factory.factoryId,
-      factoryName: factory.factoryName,
-
-      buildingId: building.buildingId,
-      buildingName: building.buildingName,
-
-      departmentId: department.departmentId,
-      departmentName: department.departmentName,
-
-      lineId: line.lineId,
-      lineName: line.lineName,
-    };
-  });
+    factoryName:
+      machine.productionLine.department.building.factory.factoryName,
+  }));
 }
 
 /**
- * ดึง Resource Type จาก Master Data
+ * Compatibility layer สำหรับหน้า Operator เดิมที่ยังอ้างชื่อ Equipment
  *
- * เช่น
- * Electricity → kWh
- * Water       → m³
- * Natural Gas → m³
- * Compressed Air → m³
+ * ข้อมูลจริงอ่านจาก Machine ใหม่ ไม่ได้อ่านจาก Equipment legacy
+ * หลัง migrate หน้า Operator ครบแล้วจึงค่อยลบส่วนนี้
  */
-export async function getResourceTypeOptions(): Promise<
-  ResourceTypeOption[]
+export async function getEquipmentList(
+  companyId: number | null,
+  search?: string,
+): Promise<EquipmentListItem[]> {
+  const machines = await getMachineList(companyId, search);
+
+  return machines.map((machine) => ({
+    equipmentId: machine.machineId,
+    name: machine.machineName,
+    equipmentCode: machine.machineCode,
+    equipmentType: machine.machineType,
+    productionLine: machine.lineName,
+    department: machine.departmentName,
+    location: [machine.factoryName, machine.buildingName]
+      .filter(Boolean)
+      .join(" / "),
+    status: machine.operationalStatus,
+
+    // Machine ใหม่ไม่ได้ผูก Resource Type แบบ 1:1
+    // หน้า Record ใหม่ต้องเลือก ResourceTypeMaster แยกต่างหาก
+    resourceType: "",
+    resourceUnit: "",
+  }));
+}
+
+/**
+ * Resource Type จริงจาก Master Data
+ *
+ * ResourceTypeMaster
+ * → ResourceCategory
+ * → Unit
+ */
+export async function getResourceTypeList(): Promise<
+  ResourceTypeListItem[]
 > {
   const resourceTypes =
     await prisma.resourceTypeMaster.findMany({
       where: {
         status: "ACTIVE",
+        defaultUnit: {
+          status: "ACTIVE",
+        },
       },
 
-      include: {
-        category: true,
-        defaultUnit: true,
+      orderBy: {
+        resourceName: "asc",
       },
 
-      orderBy: [
-        {
-          category: {
-            categoryName: "asc",
+      select: {
+        resourceTypeId: true,
+        resourceCode: true,
+        resourceName: true,
+        carbonCalculable: true,
+
+        defaultUnit: {
+          select: {
+            unitId: true,
+            unitCode: true,
+            unitName: true,
+            symbol: true,
           },
         },
-        {
-          resourceName: "asc",
+
+        category: {
+          select: {
+            categoryId: true,
+            categoryCode: true,
+            categoryName: true,
+          },
         },
-      ],
+      },
     });
 
   return resourceTypes.map((resource) => ({
     resourceTypeId: resource.resourceTypeId,
     resourceCode: resource.resourceCode,
     resourceName: resource.resourceName,
-
-    categoryId: resource.categoryId,
-    categoryName: resource.category.categoryName,
-
-    defaultUnitId: resource.defaultUnitId,
-    unitCode: resource.defaultUnit.unitCode,
-    unitName: resource.defaultUnit.unitName,
-    unitSymbol: resource.defaultUnit.symbol,
-
     carbonCalculable: resource.carbonCalculable,
+
+    unit: {
+      unitId: resource.defaultUnit.unitId,
+      unitCode: resource.defaultUnit.unitCode,
+      unitName: resource.defaultUnit.unitName,
+      symbol: resource.defaultUnit.symbol,
+    },
+
+    category: {
+      categoryId: resource.category.categoryId,
+      categoryCode: resource.category.categoryCode,
+      categoryName: resource.category.categoryName,
+    },
   }));
 }
 
 /**
- * ยอด Resource Usage วันนี้
- */
-export interface TodayUsageTotal {
-  key: string;
-  label: string;
-  unit: string;
-  total: number;
-  recordCount: number;
-
-  resourceTypeId: number;
-}
-
-/**
- * ดึงยอดที่ Operator / บริษัทบันทึกวันนี้
+ * สรุปข้อมูลที่ Operator บันทึกวันนี้
  *
- * ใช้ ResourceUsage ใหม่แล้ว
- * ไม่อ่าน ResourceRecord legacy อีก
+ * ใช้ ResourceUsage ใหม่เท่านั้น
  */
 export async function getTodayUsageTotals(
   companyId: number | null,
@@ -327,7 +342,6 @@ export async function getTodayUsageTotals(
 
       unit: {
         select: {
-          unitId: true,
           symbol: true,
         },
       },
@@ -335,194 +349,115 @@ export async function getTodayUsageTotals(
   });
 
   const totals = new Map<
-    string,
-    {
-      resourceTypeId: number;
-      resourceCode: string;
-      resourceName: string;
-      unit: string;
-      total: number;
-      count: number;
-    }
+    number,
+    TodayUsageTotal
   >();
 
   for (const usage of usages) {
-    const resource = usage.resourceType;
+    const resourceTypeId =
+      usage.resourceType.resourceTypeId;
 
-    /**
-     * ปกติ Resource Type หนึ่งจะใช้ Default Unit เดียวกัน
-     * แต่ใส่ unit ใน key ด้วยเพื่อป้องกันข้อมูลต่างหน่วยถ้ามีในอนาคต
-     */
-    const mapKey = `${resource.resourceTypeId}:${usage.unit.unitId}`;
-
-    const current = totals.get(mapKey);
+    const current = totals.get(resourceTypeId);
 
     const quantity = Number(usage.quantity);
 
     if (current) {
       current.total += quantity;
-      current.count += 1;
+      current.recordCount += 1;
 
       continue;
     }
 
-    totals.set(mapKey, {
-      resourceTypeId: resource.resourceTypeId,
-      resourceCode: resource.resourceCode,
-      resourceName: resource.resourceName,
+    totals.set(resourceTypeId, {
+      resourceTypeId,
+
+      key: usage.resourceType.resourceCode,
+
+      label: usage.resourceType.resourceName,
+
       unit: usage.unit.symbol,
+
       total: quantity,
-      count: 1,
+
+      recordCount: 1,
     });
   }
 
-  return Array.from(totals.values())
-    .map((item) => ({
-      key: item.resourceCode.toLowerCase(),
-      label: item.resourceName,
-      unit: item.unit,
-
-      total:
-        Math.round((item.total + Number.EPSILON) * 100) /
-        100,
-
-      recordCount: item.count,
-      resourceTypeId: item.resourceTypeId,
-    }))
-    .sort((a, b) =>
-      a.label.localeCompare(b.label, "th"),
-    );
+  return Array.from(totals.values()).map((item) => ({
+    ...item,
+    total:
+      Math.round((item.total + Number.EPSILON) * 100) /
+      100,
+  }));
 }
 
-/**
- * Input สำหรับ ResourceUsage ใหม่
- */
-export interface CreateRecordInput {
-  machineId: number;
+export interface CreateResourceUsageInput {
+  companyId: number;
+  recordedBy: number;
+
+  machineId?: number | null;
+  checkpointId?: number | null;
+  qrScanId?: bigint | null;
 
   resourceTypeId: number;
-
-  recordedById: number;
-  companyId: number;
+  unitId: number;
 
   quantity: number;
   usageAt: Date;
 
-  qrScanId?: bigint | null;
-
-  remark?: string;
   evidenceFilePath?: string | null;
-
-  sourceType?: "MANUAL" | "QR_MANUAL";
+  remark?: string | null;
 }
 
 /**
  * สร้าง ResourceUsage จริง
  *
- * Operator ส่งมาเพียง:
- *
- * machineId
- * resourceTypeId
- * quantity
- * usageAt
- * qrScanId (ถ้ามาจาก QR)
- * remark
- * evidenceFilePath
- *
- * ส่วน
- *
- * factoryId
- * buildingId
- * departmentId
- * lineId
- * unitId
- *
- * ระบบหาให้เองจาก Database
+ * Organization IDs จะหาใหม่จาก Machine/Checkpoint
+ * ฝั่ง Server เพื่อไม่เชื่อถือ ID ที่ส่งมาจาก Browser
  */
-export async function createResourceRecord(
-  input: CreateRecordInput,
+export async function createResourceUsage(
+  input: CreateResourceUsageInput,
 ) {
-  if (!Number.isInteger(input.machineId)) {
-    throw new Error("รหัสเครื่องจักรไม่ถูกต้อง");
+  if (!input.machineId && !input.checkpointId) {
+    throw new Error(
+      "กรุณาระบุเครื่องจักรหรือจุดตรวจ",
+    );
   }
 
-  if (!Number.isInteger(input.resourceTypeId)) {
-    throw new Error("ประเภททรัพยากรไม่ถูกต้อง");
+  if (input.machineId && input.checkpointId) {
+    throw new Error(
+      "ไม่สามารถเลือกเครื่องจักรและจุดตรวจพร้อมกันได้",
+    );
   }
 
   if (
     !Number.isFinite(input.quantity) ||
-    input.quantity < 0
+    input.quantity <= 0
   ) {
-    throw new Error("ปริมาณการใช้ไม่ถูกต้อง");
-  }
-
-  if (Number.isNaN(input.usageAt.getTime())) {
-    throw new Error("วันที่และเวลาไม่ถูกต้อง");
-  }
-
-  /**
-   * ตรวจ Machine พร้อมหา Organization Scope ทั้งหมด
-   */
-  const machine = await prisma.machine.findFirst({
-    where: {
-      machineId: input.machineId,
-      status: "ACTIVE",
-
-      productionLine: {
-        department: {
-          building: {
-            factory: {
-              companyId: input.companyId,
-              status: "ACTIVE",
-            },
-          },
-        },
-      },
-    },
-
-    include: {
-      productionLine: {
-        include: {
-          department: {
-            include: {
-              building: {
-                include: {
-                  factory: true,
-                },
-              },
-            },
-          },
-        },
-      },
-    },
-  });
-
-  if (!machine) {
     throw new Error(
-      "ไม่พบเครื่องจักรนี้ในบริษัทของคุณ",
+      "ปริมาณการใช้ทรัพยากรต้องมากกว่า 0",
     );
   }
 
-  const line = machine.productionLine;
-  const department = line.department;
-  const building = department.building;
-  const factory = building.factory;
-
-  /**
-   * ตรวจ Resource Type จาก Master Data
-   *
-   * Unit ของการบันทึกจะใช้ defaultUnit ของ Resource Type
-   */
   const resourceType =
     await prisma.resourceTypeMaster.findFirst({
       where: {
         resourceTypeId: input.resourceTypeId,
         status: "ACTIVE",
+
+        defaultUnit: {
+          status: "ACTIVE",
+        },
       },
 
-      include: {
-        defaultUnit: true,
+      select: {
+        resourceTypeId: true,
+
+        defaultUnit: {
+          select: {
+            unitId: true,
+          },
+        },
       },
     });
 
@@ -532,43 +467,174 @@ export async function createResourceRecord(
     );
   }
 
-  /**
-   * ตรวจ Operator
-   *
-   * ป้องกัน user จากบริษัทอื่นส่ง request ปลอมเข้ามา
+  /*
+   * ไม่เชื่อ unitId จาก Client อย่างเดียว
+   * Resource Type ต้องสัมพันธ์กับ Unit จริง
    */
-  const recorder = await prisma.user.findFirst({
-    where: {
-      userId: input.recordedById,
-      companyId: input.companyId,
-      status: "ACTIVE",
-    },
-
-    select: {
-      userId: true,
-    },
-  });
-
-  if (!recorder) {
+  if (
+    resourceType.defaultUnit.unitId !== input.unitId
+  ) {
     throw new Error(
-      "ไม่พบผู้บันทึกข้อมูลในบริษัทนี้",
+      "หน่วยวัดไม่ตรงกับประเภททรัพยากร",
     );
   }
 
-  /**
-   * QR Scan เป็น optional
-   *
-   * ถ้ามี qrScanId ต้องเป็น QR ของ Machine นี้
-   * และเป็นการสแกนของ User คนนี้
+  let factoryId: number;
+  let buildingId: number;
+  let departmentId: number;
+  let lineId: number;
+
+  let machineId: number | null = null;
+  let checkpointId: number | null = null;
+
+  if (input.machineId) {
+    const machine = await prisma.machine.findFirst({
+      where: {
+        machineId: input.machineId,
+        status: "ACTIVE",
+
+        productionLine: {
+          department: {
+            building: {
+              factory: {
+                companyId: input.companyId,
+              },
+            },
+          },
+        },
+      },
+
+      select: {
+        machineId: true,
+
+        productionLine: {
+          select: {
+            lineId: true,
+
+            department: {
+              select: {
+                departmentId: true,
+
+                building: {
+                  select: {
+                    buildingId: true,
+
+                    factory: {
+                      select: {
+                        factoryId: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!machine) {
+      throw new Error(
+        "ไม่พบเครื่องจักรนี้ในบริษัทของคุณ",
+      );
+    }
+
+    machineId = machine.machineId;
+
+    lineId = machine.productionLine.lineId;
+
+    departmentId =
+      machine.productionLine.department.departmentId;
+
+    buildingId =
+      machine.productionLine.department.building.buildingId;
+
+    factoryId =
+      machine.productionLine.department.building.factory.factoryId;
+  } else {
+    const checkpoint =
+      await prisma.checkpoint.findFirst({
+        where: {
+          checkpointId: input.checkpointId!,
+          status: "ACTIVE",
+
+          productionLine: {
+            department: {
+              building: {
+                factory: {
+                  companyId: input.companyId,
+                },
+              },
+            },
+          },
+        },
+
+        select: {
+          checkpointId: true,
+
+          productionLine: {
+            select: {
+              lineId: true,
+
+              department: {
+                select: {
+                  departmentId: true,
+
+                  building: {
+                    select: {
+                      buildingId: true,
+
+                      factory: {
+                        select: {
+                          factoryId: true,
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+
+    if (!checkpoint) {
+      throw new Error(
+        "ไม่พบจุดตรวจนี้ในบริษัทของคุณ",
+      );
+    }
+
+    checkpointId = checkpoint.checkpointId;
+
+    lineId = checkpoint.productionLine.lineId;
+
+    departmentId =
+      checkpoint.productionLine.department.departmentId;
+
+    buildingId =
+      checkpoint.productionLine.department.building.buildingId;
+
+    factoryId =
+      checkpoint.productionLine.department.building.factory.factoryId;
+  }
+
+  /*
+   * ถ้ามาจาก QR ต้องตรวจ scanId ด้วย
    */
-  if (input.qrScanId !== null && input.qrScanId !== undefined) {
+  if (input.qrScanId) {
     const scan = await prisma.qRScanLog.findFirst({
       where: {
         scanId: input.qrScanId,
-        userId: input.recordedById,
+        userId: input.recordedBy,
 
         qrCode: {
-          machineId: machine.machineId,
+          ...(machineId
+            ? {
+                machineId,
+              }
+            : {
+                checkpointId,
+              }),
         },
       },
 
@@ -579,59 +645,47 @@ export async function createResourceRecord(
 
     if (!scan) {
       throw new Error(
-        "ข้อมูล QR Scan ไม่ตรงกับเครื่องจักรที่เลือก",
+        "ข้อมูลการสแกน QR Code ไม่ถูกต้อง",
       );
     }
   }
 
-  /**
-   * Reference ที่ไม่ซ้ำ
-   *
-   * ตัวอย่าง:
-   * RU-c502f2d6-...
-   */
-  const usageReference = `RU-${randomUUID()}`;
+  const usageReference =
+    `USG-${Date.now()}-${randomUUID()
+      .replaceAll("-", "")
+      .slice(0, 10)
+      .toUpperCase()}`;
 
-  const sourceType =
-    input.qrScanId !== null &&
-    input.qrScanId !== undefined
-      ? "QR_MANUAL"
-      : input.sourceType ?? "MANUAL";
-
-  /**
-   * สร้าง ResourceUsage ใหม่
-   */
-  return prisma.resourceUsage.create({
+  const createdUsage = await prisma.resourceUsage.create({
     data: {
       usageReference,
 
       companyId: input.companyId,
 
-      factoryId: factory.factoryId,
-      buildingId: building.buildingId,
-      departmentId: department.departmentId,
-      lineId: line.lineId,
+      factoryId,
+      buildingId,
+      departmentId,
+      lineId,
 
-      machineId: machine.machineId,
-      checkpointId: null,
+      machineId,
+      checkpointId,
 
-      resourceTypeId:
-        resourceType.resourceTypeId,
+      resourceTypeId: input.resourceTypeId,
+      unitId: input.unitId,
 
-      unitId:
-        resourceType.defaultUnitId,
+      qrScanId: input.qrScanId ?? null,
 
-      sensorDataId: null,
-
-      qrScanId:
-        input.qrScanId ?? null,
-
-      scopeType: "MACHINE",
+      scopeType: machineId
+        ? "MACHINE"
+        : "CHECKPOINT",
 
       quantity: input.quantity,
+
       usageAt: input.usageAt,
 
-      sourceType,
+      sourceType: input.qrScanId
+        ? "QR"
+        : "MANUAL",
 
       evidenceFilePath:
         input.evidenceFilePath?.trim() || null,
@@ -639,47 +693,26 @@ export async function createResourceRecord(
       remark:
         input.remark?.trim() || null,
 
-      recordedBy:
-        input.recordedById,
+      recordedBy: input.recordedBy,
 
       processingStatus: "PENDING",
+
       status: "ACTIVE",
     },
-
-    include: {
-      machine: {
-        select: {
-          machineId: true,
-          machineCode: true,
-          machineName: true,
-        },
-      },
-
-      resourceType: {
-        select: {
-          resourceTypeId: true,
-          resourceCode: true,
-          resourceName: true,
-        },
-      },
-
-      unit: {
-        select: {
-          unitId: true,
-          unitCode: true,
-          unitName: true,
-          symbol: true,
-        },
-      },
-    },
   });
-}
 
-/**
- * ชื่อใหม่สำหรับ code ที่เราจะค่อย ๆ migrate
- *
- * ตอนนี้ createResourceRecord ยังเก็บไว้
- * เพื่อไม่ให้ import เก่าพังทันที
- */
-export const createResourceUsage =
-  createResourceRecord;
+  /*
+   * วิเคราะห์หลังบันทึก ResourceUsage สำเร็จ
+   * ถ้า AI / Anomaly Engine error จะไม่ทำให้ Operator บันทึกล้ม
+   */
+  try {
+    await analyzeResourceUsage(createdUsage.usageId);
+  } catch (error) {
+    console.error(
+      "Resource anomaly analysis failed:",
+      error,
+    );
+  }
+
+  return createdUsage;
+}

@@ -1,11 +1,13 @@
 import "server-only";
+
 import { prisma } from "@/lib/prisma";
-import { RESOURCE_META } from "@/lib/resource-meta";
 
 export interface HistoryRecordItem {
-  recordId: number;
-  recordedAt: string; // ISO string (แปลงเป็น string เพื่อส่งจาก Server Component ไป Client Component ได้ตรงๆ)
-  equipmentId: number;
+  recordId: string;
+  usageReference: string;
+  recordedAt: string;
+  targetType: "MACHINE" | "CHECKPOINT";
+  equipmentId: number | null;
   equipmentName: string;
   equipmentCode: string | null;
   equipmentType: string | null;
@@ -17,12 +19,15 @@ export interface HistoryRecordItem {
   value: number;
   recordedById: number;
   recordedByName: string;
-  status: string; // RECORDED | PENDING (ดู หมายเหตุ ท้ายไฟล์)
+  status: "RECORDED" | "PENDING";
+  processingStatus: string;
   note: string | null;
   attachmentUrl: string | null;
+  qrScanId: string | null;
 }
 
 export interface HistoryFilterOptions {
+  resourceTypes: { code: string; label: string }[];
   productionLines: string[];
   departments: string[];
   equipmentTypes: string[];
@@ -30,76 +35,253 @@ export interface HistoryFilterOptions {
   recorders: { id: number; name: string }[];
 }
 
-/**
- * ดึงบันทึกทั้งหมดของบริษัทนี้ (join equipment + ผู้บันทึก) แล้วกรอง/แบ่งหน้าฝั่ง client
- * เหมือนแพทเทิร์นเดียวกับหน้า "บันทึกการใช้ทรัพยากร" — เหมาะกับข้อมูลระดับพันรายการ
- * ถ้าข้อมูลเยอะกว่านี้มากในอนาคต ค่อยเปลี่ยนเป็น filter/paginate ฝั่ง server แทน
- */
-export async function getAllHistoryRecords(companyId: number | null): Promise<HistoryRecordItem[]> {
+export async function getAllHistoryRecords(
+  companyId: number | null,
+): Promise<HistoryRecordItem[]> {
   if (companyId === null) return [];
 
-  const records = await prisma.resourceRecord.findMany({
-    where: { equipment: { companyId } },
-    orderBy: { recordedAt: "desc" },
-    include: { equipment: true, recordedBy: true },
+  const records = await prisma.resourceUsage.findMany({
+    where: { companyId, status: "ACTIVE" },
+    orderBy: { usageAt: "desc" },
+    select: {
+      usageId: true,
+      usageReference: true,
+      usageAt: true,
+      quantity: true,
+      processingStatus: true,
+      status: true,
+      remark: true,
+      evidenceFilePath: true,
+      qrScanId: true,
+      resourceType: {
+        select: {
+          resourceCode: true,
+          resourceName: true,
+        },
+      },
+      unit: {
+        select: {
+          symbol: true,
+        },
+      },
+      recorder: {
+        select: {
+          userId: true,
+          firstName: true,
+          lastName: true,
+        },
+      },
+      machine: {
+        select: {
+          machineId: true,
+          machineCode: true,
+          machineName: true,
+          machineType: {
+            select: {
+              machineTypeName: true,
+            },
+          },
+          productionLine: {
+            select: {
+              lineName: true,
+              department: {
+                select: {
+                  departmentName: true,
+                },
+              },
+            },
+          },
+        },
+      },
+      checkpoint: {
+        select: {
+          checkpointId: true,
+          checkpointCode: true,
+          checkpointName: true,
+          checkpointType: true,
+          productionLine: {
+            select: {
+              lineName: true,
+              department: {
+                select: {
+                  departmentName: true,
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   });
 
-  return records.map((rec) => {
-    const meta = RESOURCE_META[rec.equipment.resourceType];
+  return records.map((record) => {
+    const isMachine = Boolean(record.machine);
+
     return {
-      recordId: rec.recordId,
-      recordedAt: rec.recordedAt.toISOString(),
-      equipmentId: rec.equipmentId,
-      equipmentName: rec.equipment.name,
-      equipmentCode: rec.equipment.equipmentCode,
-      equipmentType: rec.equipment.equipmentType,
-      productionLine: rec.equipment.productionLine,
-      department: rec.equipment.department,
-      resourceType: rec.equipment.resourceType,
-      resourceLabel: meta?.label ?? rec.equipment.resourceType,
-      unit: rec.unit,
-      value: rec.value,
-      recordedById: rec.recordedById,
-      recordedByName: `${rec.recordedBy.firstName} ${rec.recordedBy.lastName}`.trim(),
-      status: rec.status,
-      note: rec.note,
-      attachmentUrl: rec.attachmentUrl,
+      recordId: record.usageId.toString(),
+      usageReference: record.usageReference,
+      recordedAt: record.usageAt.toISOString(),
+      targetType: isMachine ? "MACHINE" : "CHECKPOINT",
+      equipmentId:
+        record.machine?.machineId ??
+        record.checkpoint?.checkpointId ??
+        null,
+      equipmentName:
+        record.machine?.machineName ??
+        record.checkpoint?.checkpointName ??
+        "ไม่ระบุ",
+      equipmentCode:
+        record.machine?.machineCode ??
+        record.checkpoint?.checkpointCode ??
+        null,
+      equipmentType:
+        record.machine?.machineType.machineTypeName ??
+        record.checkpoint?.checkpointType ??
+        (record.checkpoint ? "Checkpoint" : null),
+      productionLine:
+        record.machine?.productionLine.lineName ??
+        record.checkpoint?.productionLine.lineName ??
+        null,
+      department:
+        record.machine?.productionLine.department.departmentName ??
+        record.checkpoint?.productionLine.department.departmentName ??
+        null,
+      resourceType: record.resourceType.resourceCode,
+      resourceLabel: record.resourceType.resourceName,
+      unit: record.unit.symbol,
+      value: Number(record.quantity),
+      recordedById: record.recorder.userId,
+      recordedByName:
+        `${record.recorder.firstName} ${record.recorder.lastName}`.trim(),
+      status: record.status === "ACTIVE" ? "RECORDED" : "PENDING",
+      processingStatus: record.processingStatus,
+      note: record.remark,
+      attachmentUrl: record.evidenceFilePath,
+      qrScanId: record.qrScanId?.toString() ?? null,
     };
   });
 }
 
-export async function getHistoryFilterOptions(companyId: number | null): Promise<HistoryFilterOptions> {
+export async function getHistoryFilterOptions(
+  companyId: number | null,
+): Promise<HistoryFilterOptions> {
   if (companyId === null) {
-    return { productionLines: [], departments: [], equipmentTypes: [], units: [], recorders: [] };
+    return {
+      resourceTypes: [],
+      productionLines: [],
+      departments: [],
+      equipmentTypes: [],
+      units: [],
+      recorders: [],
+    };
   }
 
-  const [equipmentList, records] = await Promise.all([
-    prisma.equipment.findMany({ where: { companyId }, select: { productionLine: true, department: true, equipmentType: true } }),
-    prisma.resourceRecord.findMany({
-      where: { equipment: { companyId } },
-      select: { unit: true, recordedBy: { select: { userId: true, firstName: true, lastName: true } } },
-      distinct: ["recordedById"],
-    }),
-  ]);
+  const records = await prisma.resourceUsage.findMany({
+    where: { companyId, status: "ACTIVE" },
+    select: {
+      resourceType: {
+        select: {
+          resourceCode: true,
+          resourceName: true,
+        },
+      },
+      unit: {
+        select: {
+          symbol: true,
+        },
+      },
+      recorder: {
+        select: {
+          userId: true,
+          firstName: true,
+          lastName: true,
+        },
+      },
+      machine: {
+        select: {
+          machineType: {
+            select: {
+              machineTypeName: true,
+            },
+          },
+          productionLine: {
+            select: {
+              lineName: true,
+              department: {
+                select: {
+                  departmentName: true,
+                },
+              },
+            },
+          },
+        },
+      },
+      checkpoint: {
+        select: {
+          checkpointType: true,
+          productionLine: {
+            select: {
+              lineName: true,
+              department: {
+                select: {
+                  departmentName: true,
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
 
-  const productionLines = [...new Set(equipmentList.map((e) => e.productionLine).filter((v): v is string => Boolean(v)))];
-  const departments = [...new Set(equipmentList.map((e) => e.department).filter((v): v is string => Boolean(v)))];
-  const equipmentTypes = [...new Set(equipmentList.map((e) => e.equipmentType).filter((v): v is string => Boolean(v)))];
-  const units = [...new Set(records.map((r) => r.unit))];
-  const recorders = records.map((r) => ({
-    id: r.recordedBy.userId,
-    name: `${r.recordedBy.firstName} ${r.recordedBy.lastName}`.trim(),
-  }));
+  const resourceTypeMap = new Map<string, string>();
+  const productionLineSet = new Set<string>();
+  const departmentSet = new Set<string>();
+  const equipmentTypeSet = new Set<string>();
+  const unitSet = new Set<string>();
+  const recorderMap = new Map<number, string>();
 
-  return { productionLines, departments, equipmentTypes, units, recorders };
+  for (const record of records) {
+    resourceTypeMap.set(
+      record.resourceType.resourceCode,
+      record.resourceType.resourceName,
+    );
+
+    if (record.unit.symbol) unitSet.add(record.unit.symbol);
+
+    const line =
+      record.machine?.productionLine.lineName ??
+      record.checkpoint?.productionLine.lineName;
+    if (line) productionLineSet.add(line);
+
+    const department =
+      record.machine?.productionLine.department.departmentName ??
+      record.checkpoint?.productionLine.department.departmentName;
+    if (department) departmentSet.add(department);
+
+    const equipmentType =
+      record.machine?.machineType.machineTypeName ??
+      record.checkpoint?.checkpointType ??
+      (record.checkpoint ? "Checkpoint" : null);
+    if (equipmentType) equipmentTypeSet.add(equipmentType);
+
+    recorderMap.set(
+      record.recorder.userId,
+      `${record.recorder.firstName} ${record.recorder.lastName}`.trim(),
+    );
+  }
+
+  return {
+    resourceTypes: Array.from(resourceTypeMap.entries()).map(
+      ([code, label]) => ({ code, label }),
+    ),
+    productionLines: Array.from(productionLineSet),
+    departments: Array.from(departmentSet),
+    equipmentTypes: Array.from(equipmentTypeSet),
+    units: Array.from(unitSet),
+    recorders: Array.from(recorderMap.entries()).map(([id, name]) => ({
+      id,
+      name,
+    })),
+  };
 }
-
-/**
- * หมายเหตุเรื่องสถานะ:
- * enum RecordStatus ตอนนี้มีแค่ PENDING / RECORDED (แปลว่า "ยังไม่บันทึก" / "บันทึกแล้ว")
- * mockup หน้านี้มี 3 สถานะ: บันทึกแล้ว / รออนุมัติ / ปฏิเสธ ซึ่งเป็น "ระบบอนุมัติ" (approval
- * workflow) ที่ยังไม่มีใน schema ปัจจุบัน — หน้านี้เลยแสดงแค่ 2 สถานะที่มีจริง
- * (RECORDED -> "บันทึกแล้ว", PENDING -> "รออนุมัติ") และไม่มีการ์ด "ปฏิเสธ"
- * ถ้าต้องการระบบอนุมัติจริง (Supervisor กดอนุมัติ/ปฏิเสธ) บอกได้ จะออกแบบ schema เพิ่มให้
- * (เช่นเพิ่ม APPROVED/REJECTED ใน enum + field approvedById/approvedAt)
- */

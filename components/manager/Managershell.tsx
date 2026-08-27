@@ -1,18 +1,20 @@
 "use client";
 
-import { useState } from "react";
-import Sidebar from "@/components/manager/Sidebar";
-import Header from "@/components/manager/Header";
+import ManagerTopbar from "@/components/manager/ManagerTopbar";
 
-export default function ManagerShell({ children }: { children: React.ReactNode }) {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-
+export default function ManagerShell({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
-    <div className="flex min-h-screen bg-slate-50">
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      <main className="min-w-0 flex-1">
-        <Header onMenuClick={() => setSidebarOpen(true)} />
-        <div className="flex flex-col gap-6 px-4 pb-10 sm:px-8">{children}</div>
+    <div className="min-h-screen w-full overflow-x-hidden bg-[#f6f8f7]">
+      <ManagerTopbar />
+
+      <main className="w-full">
+        <div className="mx-auto w-full max-w-[1600px] px-5 py-6 sm:px-8 lg:px-10">
+          {children}
+        </div>
       </main>
     </div>
   );

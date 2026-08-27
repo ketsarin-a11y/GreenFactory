@@ -3,37 +3,29 @@
 import { useMemo, useState } from "react";
 import {
   Calendar,
-  ChevronDown,
   ChevronUp,
-  Search,
-  RotateCcw,
+  ClipboardList,
   Download,
   Eye,
-  ClipboardList,
-  CheckCircle2,
-  Clock,
-  ChevronLeft,
-  ChevronsLeft,
-  ChevronRight,
-  ChevronsRight,
+  FileSearch,
+  Filter,
+  History,
   Paperclip,
+  QrCode,
+  RotateCcw,
+  Search,
+  SlidersHorizontal,
+  Trash2,
+  AlertTriangle,
+  X,
 } from "lucide-react";
-import { RESOURCE_META } from "@/lib/resource-meta";
-import type { HistoryRecordItem, HistoryFilterOptions } from "@/lib/History queries";
 
-/**
- * components/operator/HistoryPage.tsx
- * --------------------------------------
- * หน้า "ประวัติการบันทึก" ไฟล์เดียว (ไม่มีโฟลเดอร์ย่อย) — กรอง/แบ่งหน้าฝั่ง client
- * จากข้อมูลจริงที่ server ดึงมาให้ทั้งหมดแล้ว (lib/history-queries.ts)
- *
- * หมายเหตุ: มีแค่สถานะ "บันทึกแล้ว" กับ "รออนุมัติ" (ไม่มี "ปฏิเสธ" และไม่มีการ์ด
- * "ปริมาณรวมทั้งหมด" แบบ mockup เพราะหน่วยวัดต่างกัน (kWh/m³/kg) รวมกันตรงๆ ไม่ได้
- * จริง — ดูรายละเอียดเพิ่มท้ายไฟล์ lib/history-queries.ts)
- */
+import type {
+  HistoryFilterOptions,
+  HistoryRecordItem,
+} from "@/lib/History queries";
 
 const ALL = "ทั้งหมด";
-const PAGE_SIZE_OPTIONS = [10, 25, 50];
 
 interface HistoryPageProps {
   records: HistoryRecordItem[];
@@ -42,15 +34,20 @@ interface HistoryPageProps {
 }
 
 function defaultStartDate() {
-  const d = new Date();
-  d.setDate(1);
-  return d.toISOString().slice(0, 10);
+  const date = new Date();
+  date.setDate(1);
+  return date.toISOString().slice(0, 10);
 }
+
 function defaultEndDate() {
   return new Date().toISOString().slice(0, 10);
 }
 
-export default function HistoryPage({ records, filterOptions, currentUserId }: HistoryPageProps) {
+export default function HistoryPage({
+  records,
+  filterOptions,
+  currentUserId,
+}: HistoryPageProps) {
   const [showFilters, setShowFilters] = useState(true);
   const [startDate, setStartDate] = useState(defaultStartDate());
   const [endDate, setEndDate] = useState(defaultEndDate());
@@ -59,44 +56,100 @@ export default function HistoryPage({ records, filterOptions, currentUserId }: H
   const [productionLine, setProductionLine] = useState(ALL);
   const [department, setDepartment] = useState(ALL);
   const [unit, setUnit] = useState(ALL);
-  const [status, setStatus] = useState(ALL);
   const [recordedById, setRecordedById] = useState<string>(ALL);
-  const [pendingOnly, setPendingOnly] = useState(false);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [selectedRecord, setSelectedRecord] =
+    useState<HistoryRecordItem | null>(null);
+  const [localRecords, setLocalRecords] =
+    useState<HistoryRecordItem[]>(records);
+  const [deleteTarget, setDeleteTarget] =
+    useState<HistoryRecordItem | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   const filtered = useMemo(() => {
-    return records.filter((rec) => {
-      const recDate = rec.recordedAt.slice(0, 10);
-      if (startDate && recDate < startDate) return false;
-      if (endDate && recDate > endDate) return false;
-      if (resourceType !== ALL && rec.resourceType !== resourceType) return false;
-      if (productionLine !== ALL && rec.productionLine !== productionLine) return false;
-      if (department !== ALL && rec.department !== department) return false;
-      if (unit !== ALL && rec.unit !== unit) return false;
-      if (status !== ALL && rec.status !== status) return false;
-      if (recordedById !== ALL && String(rec.recordedById) !== recordedById) return false;
-      if (pendingOnly && rec.status !== "PENDING") return false;
-      if (equipmentSearch.trim()) {
-        const term = equipmentSearch.trim().toLowerCase();
+    return localRecords.filter((record) => {
+      const date = record.recordedAt.slice(0, 10);
+
+      if (startDate && date < startDate) return false;
+      if (endDate && date > endDate) return false;
+
+      if (
+        resourceType !== ALL &&
+        record.resourceType !== resourceType
+      ) {
+        return false;
+      }
+
+      if (
+        productionLine !== ALL &&
+        record.productionLine !== productionLine
+      ) {
+        return false;
+      }
+
+      if (
+        department !== ALL &&
+        record.department !== department
+      ) {
+        return false;
+      }
+
+      if (unit !== ALL && record.unit !== unit) {
+        return false;
+      }
+
+      if (
+        recordedById !== ALL &&
+        String(record.recordedById) !== recordedById
+      ) {
+        return false;
+      }
+
+      const term = equipmentSearch.trim().toLowerCase();
+
+      if (term) {
         const matches =
-          rec.equipmentName.toLowerCase().includes(term) ||
-          (rec.equipmentCode ?? "").toLowerCase().includes(term);
+          record.equipmentName.toLowerCase().includes(term) ||
+          (record.equipmentCode ?? "").toLowerCase().includes(term) ||
+          record.usageReference.toLowerCase().includes(term) ||
+          record.resourceLabel.toLowerCase().includes(term);
+
         if (!matches) return false;
       }
+
       return true;
     });
-  }, [records, startDate, endDate, resourceType, productionLine, department, unit, status, recordedById, pendingOnly, equipmentSearch]);
+  }, [
+    localRecords,
+    startDate,
+    endDate,
+    resourceType,
+    equipmentSearch,
+    productionLine,
+    department,
+    unit,
+    recordedById,
+  ]);
 
-  const summary = useMemo(() => {
-    const total = filtered.length;
-    const recorded = filtered.filter((r) => r.status === "RECORDED").length;
-    const pending = filtered.filter((r) => r.status === "PENDING").length;
-    return { total, recorded, pending };
-  }, [filtered]);
+  const summary = useMemo(
+    () => ({
+      total: filtered.length,
+      qr: filtered.filter((item) => item.qrScanId).length,
+      evidence: filtered.filter((item) => item.attachmentUrl).length,
+    }),
+    [filtered],
+  );
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
-  const pageItems = filtered.slice((page - 1) * pageSize, page * pageSize);
+  const activeFilterCount = [
+    startDate !== defaultStartDate(),
+    endDate !== defaultEndDate(),
+    resourceType !== ALL,
+    equipmentSearch.trim() !== "",
+    productionLine !== ALL,
+    department !== ALL,
+    unit !== ALL,
+    recordedById !== ALL,
+  ].filter(Boolean).length;
 
   function resetFilters() {
     setStartDate(defaultStartDate());
@@ -106,384 +159,801 @@ export default function HistoryPage({ records, filterOptions, currentUserId }: H
     setProductionLine(ALL);
     setDepartment(ALL);
     setUnit(ALL);
-    setStatus(ALL);
     setRecordedById(ALL);
-    setPendingOnly(false);
-    setPage(1);
+  }
+
+  async function deleteRecord() {
+    if (!deleteTarget || isDeleting) return;
+
+    setIsDeleting(true);
+    setDeleteError("");
+
+    try {
+      const response = await fetch(
+        `/api/operator/history/${deleteTarget.recordId}`,
+        {
+          method: "DELETE",
+          credentials: "include",
+        },
+      );
+
+      const responseText = await response.text();
+
+      let payload: {
+        success?: boolean;
+        message?: string;
+      } = {};
+
+      try {
+        payload = responseText ? JSON.parse(responseText) : {};
+      } catch {
+        payload = {
+          success: false,
+          message: `ลบรายการไม่สำเร็จ (${response.status})`,
+        };
+      }
+
+      if (!response.ok || !payload.success) {
+        throw new Error(
+          payload.message ?? "ไม่สามารถลบรายการได้",
+        );
+      }
+
+      setLocalRecords((current) =>
+        current.filter(
+          (item) => item.recordId !== deleteTarget.recordId,
+        ),
+      );
+
+      if (selectedRecord?.recordId === deleteTarget.recordId) {
+        setSelectedRecord(null);
+      }
+
+      setDeleteTarget(null);
+    } catch (error) {
+      setDeleteError(
+        error instanceof Error
+          ? error.message
+          : "ไม่สามารถลบรายการได้",
+      );
+    } finally {
+      setIsDeleting(false);
+    }
+  }
+
+  function exportCsv() {
+    const rows = [
+      [
+        "Reference",
+        "DateTime",
+        "Machine/Checkpoint",
+        "Code",
+        "Resource",
+        "Quantity",
+        "Unit",
+        "Recorder",
+        "QR Scan ID",
+        "Evidence",
+        "Remark",
+      ],
+      ...filtered.map((record) => [
+        record.usageReference,
+        record.recordedAt,
+        record.equipmentName,
+        record.equipmentCode ?? "",
+        record.resourceLabel,
+        String(record.value),
+        record.unit,
+        record.recordedByName,
+        record.qrScanId ?? "",
+        record.attachmentUrl ?? "",
+        record.note ?? "",
+      ]),
+    ];
+
+    const csv = rows
+      .map((row) =>
+        row
+          .map((value) => `"${String(value).replaceAll('"', '""')}"`)
+          .join(","),
+      )
+      .join("\n");
+
+    const blob = new Blob(["\uFEFF", csv], {
+      type: "text/csv;charset=utf-8",
+    });
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = `resource-usage-history-${new Date()
+      .toISOString()
+      .slice(0, 10)}.csv`;
+    link.click();
+
+    URL.revokeObjectURL(url);
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      {/* ตัวกรองการค้นหา */}
-      <section className="rounded-2xl border border-slate-200 bg-white p-6">
-        <button
-          type="button"
-          onClick={() => setShowFilters((v) => !v)}
-          className="mb-4 flex w-full items-center justify-between text-left"
-        >
-          <h2 className="text-base font-semibold text-slate-800">ตัวกรองการค้นหา</h2>
-          <span className="flex items-center gap-1 text-sm text-emerald-600">
-            {showFilters ? "ซ่อนตัวกรอง" : "แสดงตัวกรอง"}
-            {showFilters ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-          </span>
-        </button>
+    <div className="space-y-6 pb-10">
+      <section className="overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-sm">
 
-        {showFilters && (
-          <>
-            <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-              <FilterField label="ช่วงวันที่">
-                <div className="flex items-center gap-2">
-                  <DateInput value={startDate} onChange={setStartDate} />
-                  <span className="text-xs text-slate-400">ถึง</span>
-                  <DateInput value={endDate} onChange={setEndDate} />
-                </div>
-              </FilterField>
+        <div className="flex flex-col gap-6 px-6 py-6 lg:flex-row lg:items-center lg:justify-between lg:px-7">
+          <div className="max-w-2xl">
+            <h1 className="text-[28px] font-black tracking-[-0.025em] text-slate-950 sm:text-[30px]">
+              ประวัติการบันทึก
+            </h1>
 
-              <FilterField label="ประเภททรัพยากร">
-                <Select
-                  value={resourceType}
-                  onChange={(v) => { setResourceType(v); setPage(1); }}
-                  options={[ALL, ...Object.keys(RESOURCE_META)]}
-                  renderLabel={(v) => (v === ALL ? ALL : RESOURCE_META[v]?.label ?? v)}
-                />
-              </FilterField>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+              ตรวจสอบประวัติการใช้ทรัพยากรจากเครื่องจักรและจุดตรวจ พร้อม QR Scan และหลักฐานประกอบ
+            </p>
+          </div>
 
-              <FilterField label="เครื่องจักร / จุดตรวจ">
-                <div className="relative">
-                  <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input
-                    value={equipmentSearch}
-                    onChange={(e) => { setEquipmentSearch(e.target.value); setPage(1); }}
-                    placeholder="ค้นหาเครื่องจักร / จุดตรวจ"
-                    className="w-full rounded-xl border border-slate-200 py-2.5 pl-8 pr-3 text-sm outline-none focus:border-emerald-400"
-                  />
-                </div>
-              </FilterField>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setShowFilters((value) => !value)}
+              className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+            >
+              <SlidersHorizontal className="h-4 w-4 text-slate-500" />
+              ตัวกรอง
+              {activeFilterCount > 0 && (
+                <span className="rounded-full bg-slate-900 px-2 py-0.5 text-[10px] font-black text-white">
+                  {activeFilterCount}
+                </span>
+              )}
+            </button>
 
-              <FilterField label="ไลน์การผลิต">
-                <Select value={productionLine} onChange={(v) => { setProductionLine(v); setPage(1); }} options={[ALL, ...filterOptions.productionLines]} />
-              </FilterField>
+            <button
+              type="button"
+              onClick={exportCsv}
+              disabled={filtered.length === 0}
+              className="inline-flex h-10 items-center gap-2 rounded-xl bg-slate-900 px-4 text-sm font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <Download className="h-4 w-4" />
+              ส่งออก CSV
+            </button>
+          </div>
+        </div>
+      </section>
 
-              <FilterField label="แผนก">
-                <Select value={department} onChange={(v) => { setDepartment(v); setPage(1); }} options={[ALL, ...filterOptions.departments]} />
-              </FilterField>
+      <section className="grid gap-3 md:grid-cols-3">
+        <MetricCard
+          icon={ClipboardList}
+          value={summary.total}
+          label="รายการทั้งหมด"
+          hint="ตามตัวกรองปัจจุบัน"
+          tone="emerald"
+        />
+        <MetricCard
+          icon={QrCode}
+          value={summary.qr}
+          label="บันทึกผ่าน QR"
+          hint="ตรวจสอบย้อนกลับได้"
+          tone="violet"
+        />
+        <MetricCard
+          icon={Paperclip}
+          value={summary.evidence}
+          label="มีหลักฐาน"
+          hint="รูปภาพหรือไฟล์แนบ"
+          tone="amber"
+        />
+      </section>
 
-              <FilterField label="หน่วยวัด">
-                <Select value={unit} onChange={(v) => { setUnit(v); setPage(1); }} options={[ALL, ...filterOptions.units]} />
-              </FilterField>
-
-              <FilterField label="สถานะการบันทึก">
-                <Select
-                  value={status}
-                  onChange={(v) => { setStatus(v); setPage(1); }}
-                  options={[ALL, "RECORDED", "PENDING"]}
-                  renderLabel={(v) => (v === ALL ? ALL : v === "RECORDED" ? "บันทึกแล้ว" : "รออนุมัติ")}
-                />
-              </FilterField>
-
-              <FilterField label="ผู้บันทึก">
-                <Select
-                  value={recordedById}
-                  onChange={(v) => { setRecordedById(v); setPage(1); }}
-                  options={[ALL, ...filterOptions.recorders.map((r) => String(r.id))]}
-                  renderLabel={(v) => {
-                    if (v === ALL) return ALL;
-                    const rec = filterOptions.recorders.find((r) => String(r.id) === v);
-                    return rec ? `${rec.name}${rec.id === currentUserId ? " (คุณ)" : ""}` : v;
-                  }}
-                />
-              </FilterField>
+      {showFilters && (
+        <section className="overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-sm">
+          <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+            <div className="flex items-center gap-3">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
+                <Filter className="h-4 w-4" />
+              </span>
+              <div>
+                <p className="text-sm font-bold text-slate-900">
+                  ค้นหาและกรองข้อมูล
+                </p>
+                <p className="mt-0.5 text-xs text-slate-400">
+                  ปรับเงื่อนไขเพื่อดูเฉพาะรายการที่ต้องการ
+                </p>
+              </div>
             </div>
 
-            <label className="mb-4 flex w-fit cursor-pointer items-center gap-2 text-sm text-slate-600">
-              <input
-                type="checkbox"
-                checked={pendingOnly}
-                onChange={(e) => { setPendingOnly(e.target.checked); setPage(1); }}
-                className="h-4 w-4 rounded accent-emerald-600"
+            <button
+              type="button"
+              onClick={() => setShowFilters(false)}
+              className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+              aria-label="ซ่อนตัวกรอง"
+            >
+              <ChevronUp className="h-4 w-4" />
+            </button>
+          </div>
+
+          <div className="grid gap-4 px-6 py-5 md:grid-cols-2 xl:grid-cols-4">
+            <FilterField label="วันที่เริ่มต้น">
+              <DateInput value={startDate} onChange={setStartDate} />
+            </FilterField>
+
+            <FilterField label="วันที่สิ้นสุด">
+              <DateInput value={endDate} onChange={setEndDate} />
+            </FilterField>
+
+            <FilterField label="ประเภททรัพยากร">
+              <select
+                value={resourceType}
+                onChange={(event) => setResourceType(event.target.value)}
+                className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-50/70"
+              >
+                <option value={ALL}>{ALL}</option>
+                {filterOptions.resourceTypes.map((item) => (
+                  <option key={item.code} value={item.code}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+            </FilterField>
+
+            <FilterField label="เครื่องจักร / Reference">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  value={equipmentSearch}
+                  onChange={(event) =>
+                    setEquipmentSearch(event.target.value)
+                  }
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-700 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-50/70"
+                  placeholder="ชื่อ รหัส หรือ USG-..."
+                />
+              </div>
+            </FilterField>
+
+            <FilterField label="สายการผลิต">
+              <SimpleSelect
+                value={productionLine}
+                onChange={setProductionLine}
+                options={[ALL, ...filterOptions.productionLines]}
               />
-              แสดงเฉพาะรายการที่รออนุมัติ
-            </label>
+            </FilterField>
 
-            <div className="flex flex-wrap gap-3">
-              <button
-                type="button"
-                onClick={resetFilters}
-                className="flex items-center gap-2 rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
+            <FilterField label="แผนก">
+              <SimpleSelect
+                value={department}
+                onChange={setDepartment}
+                options={[ALL, ...filterOptions.departments]}
+              />
+            </FilterField>
+
+            <FilterField label="หน่วยวัด">
+              <SimpleSelect
+                value={unit}
+                onChange={setUnit}
+                options={[ALL, ...filterOptions.units]}
+              />
+            </FilterField>
+
+            <FilterField label="ผู้บันทึก">
+              <select
+                value={recordedById}
+                onChange={(event) => setRecordedById(event.target.value)}
+                className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-50/70"
               >
-                <RotateCcw size={15} />
-                ล้างตัวกรอง
-              </button>
-              <button
-                type="button"
-                onClick={() => setPage(1)}
-                className="flex items-center gap-2 rounded-xl bg-emerald-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700"
-              >
-                <Search size={15} />
-                ค้นหา
-              </button>
+                <option value={ALL}>{ALL}</option>
+                {filterOptions.recorders.map((recorder) => (
+                  <option key={recorder.id} value={String(recorder.id)}>
+                    {recorder.name}
+                    {recorder.id === currentUserId ? " (คุณ)" : ""}
+                  </option>
+                ))}
+              </select>
+            </FilterField>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 bg-slate-50/80 px-6 py-3.5">
+            <p className="text-xs text-slate-400">
+              พบ{" "}
+              <span className="font-bold text-slate-700">
+                {filtered.length.toLocaleString("th-TH")}
+              </span>{" "}
+              รายการ
+            </p>
+
+            <button
+              type="button"
+              onClick={resetFilters}
+              className="inline-flex h-9 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 text-xs font-bold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              ล้างตัวกรอง
+            </button>
+          </div>
+        </section>
+      )}
+
+      <section className="overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-sm">
+        <div className="flex flex-col gap-3 border-b border-slate-100 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 ring-4 ring-emerald-50" />
+              <h2 className="font-bold text-slate-900">
+                รายการบันทึกข้อมูล
+              </h2>
             </div>
-          </>
-        )}
-      </section>
+            <p className="mt-1.5 text-xs text-slate-400">
+              เรียงจากรายการล่าสุด • {filtered.length.toLocaleString("th-TH")} รายการ
+            </p>
+          </div>
 
-      {/* สรุปผลการบันทึก */}
-      <section className="rounded-2xl border border-slate-200 bg-white p-6">
-        <h2 className="mb-4 text-base font-semibold text-slate-800">สรุปผลการบันทึก (ตามตัวกรอง)</h2>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <SummaryCard icon={ClipboardList} tone="sky" label="รายการทั้งหมด" value={summary.total} />
-          <SummaryCard icon={CheckCircle2} tone="emerald" label="บันทึกแล้ว" value={summary.recorded} />
-          <SummaryCard icon={Clock} tone="amber" label="รออนุมัติ" value={summary.pending} />
-        </div>
-      </section>
-
-      {/* ตารางรายการ */}
-      <section className="rounded-2xl border border-slate-200 bg-white p-6">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-base font-semibold text-slate-800">รายการบันทึกข้อมูล</h2>
-          <button
-            type="button"
-            onClick={() => alert("ฟีเจอร์ส่งออกข้อมูล (CSV/Excel) จะเปิดใช้งานในเวอร์ชันถัดไป")}
-            className="flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
-          >
-            <Download size={15} />
-            ส่งออกข้อมูล
-          </button>
+          <span className="inline-flex w-fit items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-600">
+            <span className="h-2 w-2 rounded-full bg-emerald-500" />
+            ResourceUsage
+          </span>
         </div>
 
-        <div className="overflow-x-auto rounded-xl border border-slate-100">
-          <table className="w-full min-w-[980px] text-left text-sm">
-            <thead className="bg-slate-50 text-xs text-slate-500">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[1160px] text-left text-sm">
+            <thead className="sticky top-0 z-10 bg-slate-50/95 text-[11px] uppercase tracking-[0.05em] text-slate-400 backdrop-blur">
               <tr>
-                <th className="px-3 py-2.5 font-medium">วันที่และเวลา</th>
-                <th className="px-3 py-2.5 font-medium">เครื่องจักร/จุดตรวจ</th>
-                <th className="px-3 py-2.5 font-medium">ประเภทเครื่องจักร</th>
-                <th className="px-3 py-2.5 font-medium">ไลน์การผลิต</th>
-                <th className="px-3 py-2.5 font-medium">ประเภททรัพยากร</th>
-                <th className="px-3 py-2.5 font-medium">หน่วยวัด</th>
-                <th className="px-3 py-2.5 font-medium text-right">ปริมาณที่ใช้</th>
-                <th className="px-3 py-2.5 font-medium">ผู้บันทึก</th>
-                <th className="px-3 py-2.5 font-medium">สถานะ</th>
-                <th className="px-3 py-2.5 font-medium">การดำเนินการ</th>
+                <th className="px-6 py-3.5 font-bold">วันที่และเวลา</th>
+                <th className="px-5 py-3.5 font-bold">เครื่องจักร / จุดตรวจ</th>
+                <th className="px-5 py-3.5 font-bold">ตำแหน่ง</th>
+                <th className="px-5 py-3.5 font-bold">ทรัพยากร</th>
+                <th className="px-5 py-3.5 font-bold">ปริมาณ</th>
+                <th className="px-5 py-3.5 font-bold">ผู้บันทึก</th>
+                <th className="px-5 py-3.5 font-bold text-center">QR</th>
+                <th className="px-5 py-3.5 font-bold text-center">หลักฐาน</th>
+                <th className="px-5 py-3.5 font-bold text-center">การดำเนินการ</th>
               </tr>
             </thead>
+
             <tbody className="divide-y divide-slate-100">
-              {pageItems.map((rec) => (
-                <tr key={rec.recordId} className="hover:bg-slate-50">
-                  <td className="px-3 py-3 text-slate-500">{formatDateTime(rec.recordedAt)}</td>
-                  <td className="px-3 py-3">
-                    <p className="font-medium text-slate-800">{rec.equipmentName}</p>
-                    <p className="text-xs text-slate-400">{rec.equipmentCode ?? "-"}</p>
+              {filtered.map((record) => (
+                <tr
+                  key={record.recordId}
+                  className="group transition hover:bg-emerald-50/35"
+                >
+                  <td className="whitespace-nowrap px-6 py-4">
+                    <p className="font-semibold text-slate-800">
+                      {formatDate(record.recordedAt)}
+                    </p>
+                    <p className="mt-0.5 text-xs text-slate-400">
+                      {formatTime(record.recordedAt)}
+                    </p>
                   </td>
-                  <td className="px-3 py-3 text-slate-500">{rec.equipmentType ?? "-"}</td>
-                  <td className="px-3 py-3 text-slate-500">{rec.productionLine ?? "-"}</td>
-                  <td className="px-3 py-3 text-slate-500">{rec.resourceLabel}</td>
-                  <td className="px-3 py-3 text-slate-500">{rec.unit}</td>
-                  <td className="px-3 py-3 text-right font-medium text-slate-800">{rec.value.toLocaleString("th-TH")}</td>
-                  <td className="px-3 py-3 text-slate-500">{rec.recordedByName}</td>
-                  <td className="px-3 py-3">
-                    <StatusBadge status={rec.status} />
+
+                  <td className="px-5 py-4">
+                    <div className="flex items-center gap-3">
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-700 transition group-hover:bg-sky-100 group-hover:text-sky-800">
+                        <FileSearch className="h-4 w-4" />
+                      </span>
+
+                      <div className="min-w-0">
+                        <p className="max-w-[230px] truncate font-bold text-slate-900">
+                          {record.equipmentName}
+                        </p>
+                        <p className="mt-0.5 text-xs text-slate-400">
+                          {record.equipmentCode ?? "-"} •{" "}
+                          {record.equipmentType ?? "-"}
+                        </p>
+                      </div>
+                    </div>
                   </td>
-                  <td className="px-3 py-3">
-                    <div className="flex items-center gap-1">
+
+                  <td className="px-5 py-4">
+                    <p className="font-medium text-slate-700">
+                      {record.productionLine ?? "-"}
+                    </p>
+                    <p className="mt-0.5 text-xs text-slate-400">
+                      {record.department ?? "-"}
+                    </p>
+                  </td>
+
+                  <td className="px-5 py-4">
+                    <p className="font-bold text-slate-800">
+                      {record.resourceLabel}
+                    </p>
+                    <p className="mt-0.5 text-[11px] font-medium text-slate-400">
+                      {record.resourceType}
+                    </p>
+                  </td>
+
+                  <td className="whitespace-nowrap px-5 py-4">
+                    <span className="text-base font-black tracking-tight text-slate-900">
+                      {record.value.toLocaleString("th-TH")}
+                    </span>{" "}
+                    <span className="text-xs font-bold text-slate-400">
+                      {record.unit}
+                    </span>
+                  </td>
+
+                  <td className="px-5 py-4">
+                    <p className="max-w-[180px] truncate font-medium text-slate-700">
+                      {record.recordedByName}
+                    </p>
+                  </td>
+
+                  <td className="px-5 py-4 text-center">
+                    {record.qrScanId ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-violet-50 px-2.5 py-1.5 text-[11px] font-black text-violet-700 ring-1 ring-violet-100">
+                        <QrCode className="h-3.5 w-3.5" />
+                        #{record.qrScanId}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-slate-300">Manual</span>
+                    )}
+                  </td>
+
+                  <td className="px-5 py-4 text-center">
+                    {record.attachmentUrl ? (
+                      <a
+                        href={record.attachmentUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 transition hover:bg-emerald-100"
+                      >
+                        <Paperclip className="h-3.5 w-3.5" />
+                        เปิดไฟล์
+                      </a>
+                    ) : (
+                      <span className="text-xs text-slate-300">—</span>
+                    )}
+                  </td>
+
+                  <td className="px-5 py-4 text-center">
+                    <div className="inline-flex items-center gap-2">
                       <button
                         type="button"
-                        onClick={() => {
-                          const noteText = rec.note ? `\n\nหมายเหตุ: ${rec.note}` : "";
-                          alert(`รายละเอียดบันทึก #${rec.recordId}${noteText}`);
-                          if (rec.attachmentUrl) {
-                            window.open(rec.attachmentUrl, "_blank", "noopener,noreferrer");
-                          }
-                        }}
-                        className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                        onClick={() => setSelectedRecord(record)}
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-400 transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-700"
+                        title="ดูรายละเอียด"
+                        aria-label="ดูรายละเอียด"
                       >
-                        <Eye size={16} />
+                        <Eye className="h-4 w-4" />
                       </button>
-                      {rec.attachmentUrl && (
-                        <span title="มีไฟล์แนบ" className="text-slate-300">
-                          <Paperclip size={13} />
-                        </span>
+
+                      {record.recordedById === currentUserId && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDeleteError("");
+                            setDeleteTarget(record);
+                          }}
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-400 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600"
+                          title="ลบรายการ"
+                          aria-label="ลบรายการ"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
                       )}
                     </div>
                   </td>
                 </tr>
               ))}
-              {pageItems.length === 0 && (
+
+              {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="px-3 py-10 text-center text-sm text-slate-400">
-                    ไม่พบรายการที่ตรงกับตัวกรอง
+                  <td colSpan={9} className="px-6 py-20 text-center">
+                    <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
+                      <Search className="h-5 w-5" />
+                    </span>
+                    <p className="mt-4 font-bold text-slate-600">
+                      ไม่พบรายการที่ตรงกับตัวกรอง
+                    </p>
+                    <p className="mt-1 text-xs text-slate-400">
+                      ลองเปลี่ยนคำค้นหรือรีเซ็ตตัวกรอง
+                    </p>
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
-
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-500">
-          <p>
-            แสดง {filtered.length === 0 ? 0 : (page - 1) * pageSize + 1} - {Math.min(page * pageSize, filtered.length)} จาก{" "}
-            {filtered.length} รายการ
-          </p>
-
-          <div className="flex items-center gap-1.5">
-            <PageButton onClick={() => setPage(1)} disabled={page === 1}>
-              <ChevronsLeft size={15} />
-            </PageButton>
-            <PageButton onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
-              <ChevronLeft size={15} />
-            </PageButton>
-            {getPageNumbers(page, totalPages).map((p, i) =>
-              p === "..." ? (
-                <span key={`ellipsis-${i}`} className="px-1 text-slate-300">
-                  …
-                </span>
-              ) : (
-                <button
-                  key={p}
-                  type="button"
-                  onClick={() => setPage(p)}
-                  className={`h-8 w-8 rounded-lg text-xs font-medium ${p === page ? "bg-slate-900 text-white" : "text-slate-500 hover:bg-slate-100"}`}
-                >
-                  {p}
-                </button>
-              ),
-            )}
-            <PageButton onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
-              <ChevronRight size={15} />
-            </PageButton>
-            <PageButton onClick={() => setPage(totalPages)} disabled={page === totalPages}>
-              <ChevronsRight size={15} />
-            </PageButton>
-          </div>
-
-          <label className="flex items-center gap-2">
-            แสดง
-            <select
-              value={pageSize}
-              onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}
-              className="rounded-lg border border-slate-200 px-2 py-1 text-sm outline-none"
-            >
-              {PAGE_SIZE_OPTIONS.map((n) => (
-                <option key={n} value={n}>{n}</option>
-              ))}
-            </select>
-            รายการ/หน้า
-          </label>
-        </div>
       </section>
+
+      {deleteTarget && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
+          <button
+            type="button"
+            aria-label="ปิด"
+            onClick={() => {
+              if (!isDeleting) {
+                setDeleteTarget(null);
+                setDeleteError("");
+              }
+            }}
+            className="absolute inset-0"
+          />
+
+          <section className="relative z-10 w-full max-w-md overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-2xl">
+            <div className="px-6 pb-4 pt-6">
+              <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-rose-50 text-rose-600">
+                <AlertTriangle className="h-5 w-5" />
+              </span>
+
+              <h3 className="mt-4 text-lg font-black text-slate-950">
+                ลบรายการบันทึกนี้?
+              </h3>
+
+              <p className="mt-2 text-sm leading-6 text-slate-500">
+                รายการ {deleteTarget.usageReference} จะถูกนำออกจากหน้าประวัติ
+                โดยระบบจะเปลี่ยนสถานะเป็น INACTIVE เพื่อเก็บ Audit Trail ไว้
+              </p>
+
+              <div className="mt-4 rounded-xl bg-slate-50 px-4 py-3">
+                <p className="text-sm font-bold text-slate-800">
+                  {deleteTarget.equipmentName}
+                </p>
+                <p className="mt-1 text-xs text-slate-400">
+                  {deleteTarget.resourceLabel} •{" "}
+                  {deleteTarget.value.toLocaleString("th-TH")}{" "}
+                  {deleteTarget.unit}
+                </p>
+              </div>
+
+              {deleteError && (
+                <p className="mt-4 rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-600">
+                  {deleteError}
+                </p>
+              )}
+            </div>
+
+            <div className="flex gap-3 border-t border-slate-100 bg-slate-50/70 px-6 py-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setDeleteTarget(null);
+                  setDeleteError("");
+                }}
+                disabled={isDeleting}
+                className="h-11 flex-1 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+              >
+                ยกเลิก
+              </button>
+
+              <button
+                type="button"
+                onClick={deleteRecord}
+                disabled={isDeleting}
+                className="h-11 flex-1 rounded-xl bg-rose-600 text-sm font-bold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isDeleting ? "กำลังลบ..." : "ยืนยันลบ"}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {selectedRecord && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
+          <button
+            type="button"
+            aria-label="ปิด"
+            onClick={() => setSelectedRecord(null)}
+            className="absolute inset-0"
+          />
+
+          <section className="relative z-10 w-full max-w-xl overflow-hidden rounded-[28px] bg-white shadow-2xl">
+            <div className="border-b border-emerald-100 bg-gradient-to-r from-emerald-50 via-white to-sky-50 px-6 py-6 text-slate-900">
+              <button
+                type="button"
+                onClick={() => setSelectedRecord(null)}
+                className="absolute right-4 top-4 rounded-xl border border-slate-200 bg-white p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                aria-label="ปิด"
+              >
+                <X className="h-4 w-4" />
+              </button>
+
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-700">
+                Resource Usage Detail
+              </p>
+              <h3 className="mt-2 break-all text-lg font-black">
+                {selectedRecord.usageReference}
+              </h3>
+            </div>
+
+            <div className="space-y-1 px-6 py-5">
+              <Detail
+                label="เครื่องจักร / จุดตรวจ"
+                value={selectedRecord.equipmentName}
+              />
+              <Detail
+                label="รหัส"
+                value={selectedRecord.equipmentCode ?? "-"}
+              />
+              <Detail
+                label="ทรัพยากร"
+                value={`${selectedRecord.resourceLabel} • ${selectedRecord.value.toLocaleString(
+                  "th-TH",
+                )} ${selectedRecord.unit}`}
+              />
+              <Detail
+                label="สายการผลิต"
+                value={selectedRecord.productionLine ?? "-"}
+              />
+              <Detail
+                label="แผนก"
+                value={selectedRecord.department ?? "-"}
+              />
+              <Detail
+                label="ผู้บันทึก"
+                value={selectedRecord.recordedByName}
+              />
+              <Detail
+                label="QR Scan ID"
+                value={selectedRecord.qrScanId ?? "Manual"}
+              />
+              <Detail
+                label="Processing"
+                value={selectedRecord.processingStatus}
+              />
+              <Detail
+                label="หมายเหตุ"
+                value={selectedRecord.note ?? "-"}
+              />
+            </div>
+
+            <div className="flex gap-3 border-t border-slate-100 bg-slate-50/70 px-6 py-4">
+              {selectedRecord.attachmentUrl && (
+                <a
+                  href={selectedRecord.attachmentUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-white text-sm font-bold text-emerald-700 transition hover:bg-emerald-50"
+                >
+                  <Paperclip className="h-4 w-4" />
+                  เปิดหลักฐาน
+                </a>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setSelectedRecord(null)}
+                className="h-11 flex-1 rounded-xl bg-slate-900 text-sm font-bold text-white transition hover:bg-slate-800"
+              >
+                ปิด
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   );
 }
 
-function FilterField({ label, children }: { label: string; children: React.ReactNode }) {
+function FilterField({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-xs font-medium text-slate-500">{label}</span>
+      <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.04em] text-slate-500">
+        {label}
+      </span>
       {children}
     </label>
   );
 }
 
-function Select({
+function DateInput({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="relative">
+      <Calendar className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+      <input
+        type="date"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-700 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-50/70"
+      />
+    </div>
+  );
+}
+
+function SimpleSelect({
   value,
   onChange,
   options,
-  renderLabel,
 }: {
   value: string;
-  onChange: (v: string) => void;
+  onChange: (value: string) => void;
   options: string[];
-  renderLabel?: (v: string) => string;
 }) {
   return (
     <select
       value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-600 outline-none focus:border-emerald-400"
+      onChange={(event) => onChange(event.target.value)}
+      className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-50/70"
     >
-      {options.map((o) => (
-        <option key={o} value={o}>
-          {renderLabel ? renderLabel(o) : o}
+      {options.map((option) => (
+        <option key={option} value={option}>
+          {option}
         </option>
       ))}
     </select>
   );
 }
 
-function DateInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  return (
-    <div className="relative flex-1">
-      <Calendar size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-      <input
-        type="date"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-xl border border-slate-200 py-2.5 pl-8 pr-2 text-xs text-slate-600 outline-none focus:border-emerald-400"
-      />
-    </div>
-  );
-}
-
-function SummaryCard({ icon: Icon, tone, label, value }: { icon: typeof ClipboardList; tone: "sky" | "emerald" | "amber"; label: string; value: number }) {
-  const TONE = {
-    sky: "bg-sky-50 text-sky-600",
-    emerald: "bg-emerald-50 text-emerald-600",
-    amber: "bg-amber-50 text-amber-600",
+function MetricCard({
+  icon: Icon,
+  value,
+  label,
+  hint,
+  tone,
+}: {
+  icon: typeof ClipboardList;
+  value: number;
+  label: string;
+  hint: string;
+  tone: "emerald" | "violet" | "amber";
+}) {
+  const toneClass = {
+    emerald: "bg-emerald-50 text-emerald-700 ring-emerald-100",
+    violet: "bg-violet-50 text-violet-700 ring-violet-100",
+    amber: "bg-amber-50 text-amber-700 ring-amber-100",
   }[tone];
+
+  const accentClass = {
+    emerald: "bg-emerald-500",
+    violet: "bg-violet-500",
+    amber: "bg-amber-500",
+  }[tone];
+
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-slate-100 p-4">
-      <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${TONE}`}>
-        <Icon size={20} />
-      </span>
-      <div>
-        <p className="text-xl font-bold text-slate-800">{value.toLocaleString("th-TH")}</p>
-        <p className="text-xs text-slate-400">{label}</p>
+    <div className="relative overflow-hidden rounded-[20px] border border-slate-200 bg-white p-5 shadow-sm">
+      <div className={`absolute inset-x-0 bottom-0 h-0.5 ${accentClass}`} />
+      <div className="flex items-center gap-4">
+        <span
+          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ring-1 ${toneClass}`}
+        >
+          <Icon className="h-5 w-5" />
+        </span>
+
+        <div>
+          <p className="text-2xl font-black tracking-tight text-slate-900">
+            {value.toLocaleString("th-TH")}
+          </p>
+          <p className="text-sm font-bold text-slate-700">{label}</p>
+          <p className="mt-0.5 text-[11px] text-slate-400">{hint}</p>
+        </div>
       </div>
     </div>
   );
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const isRecorded = status === "RECORDED";
+function Detail({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
   return (
-    <span
-      className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${
-        isRecorded ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"
-      }`}
-    >
-      {isRecorded ? "บันทึกแล้ว" : "รออนุมัติ"}
-    </span>
+    <div className="grid gap-1 border-b border-slate-100 py-3 last:border-0 sm:grid-cols-[145px_1fr]">
+      <span className="text-xs font-medium text-slate-400">{label}</span>
+      <span className="text-sm font-bold text-slate-800">{value}</span>
+    </div>
   );
 }
 
-function PageButton({ children, onClick, disabled }: { children: React.ReactNode; onClick: () => void; disabled?: boolean }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
-    >
-      {children}
-    </button>
-  );
-}
-
-function getPageNumbers(current: number, total: number): (number | "...")[] {
-  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
-  if (current <= 4) return [1, 2, 3, 4, 5, "...", total];
-  if (current >= total - 3) return [1, "...", total - 4, total - 3, total - 2, total - 1, total];
-  return [1, "...", current - 1, current, current + 1, "...", total];
-}
-
-function formatDateTime(iso: string): string {
-  const date = new Date(iso);
+function formatDate(iso: string) {
   return new Intl.DateTimeFormat("th-TH", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
+  }).format(new Date(iso));
+}
+
+function formatTime(iso: string) {
+  return new Intl.DateTimeFormat("th-TH", {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
-  }).format(date);
+  }).format(new Date(iso));
 }

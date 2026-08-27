@@ -1,15 +1,25 @@
 import { redirect } from "next/navigation";
 
-import { getSession } from "@/lib/session";
-import { getManagerDashboardData } from "@/lib/manager queries";
 import ManagerHomePage from "@/components/manager/Managerhomepage";
+import {
+  getCarbonFootprint,
+  getManagerResourceDashboard,
+} from "@/lib/manager queries";
+import { getSession } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
-function defaultDate(daysAgo: number) {
-  const d = new Date();
-  d.setDate(d.getDate() - daysAgo);
-  return d.toISOString().slice(0, 10);
+function startOfDaysAgo(daysAgo: number) {
+  const date = new Date();
+  date.setDate(date.getDate() - daysAgo);
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+function endOfToday() {
+  const date = new Date();
+  date.setHours(23, 59, 59, 999);
+  return date;
 }
 
 export default async function ManagerPage() {
@@ -24,27 +34,30 @@ export default async function ManagerPage() {
   }
 
   if (!session.companyId) {
-    redirect("/");
+    throw new Error("Manager account does not have a companyId");
   }
 
-  const startDate = new Date(`${defaultDate(6)}T00:00:00`);
-  const endDate = new Date(`${defaultDate(0)}T23:59:59`);
+  const startDate = startOfDaysAgo(6);
+  const endDate = endOfToday();
 
-  const data = await getManagerDashboardData(
-    session.companyId,
-    startDate,
-    endDate
-  );
-
-  const currentUserName =
-    `${session.firstName ?? ""} ${session.lastName ?? ""}`.trim() ||
-    session.email;
+  const [resourceDashboard, carbon] = await Promise.all([
+    getManagerResourceDashboard(
+      session.companyId,
+      startDate,
+      endDate,
+    ),
+    getCarbonFootprint(
+      session.companyId,
+      startDate,
+      endDate,
+    ),
+  ]);
 
   return (
     <ManagerHomePage
-      energy={data.energy}
-      water={data.water}
-      currentUserName={currentUserName}
+      resourceDashboard={resourceDashboard}
+      carbon={carbon}
+      currentUserName={session.name ?? ""}
     />
   );
 }
