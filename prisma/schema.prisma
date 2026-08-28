@@ -1,0 +1,1355 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+/**
+ * |--------------------------------------------------------------------------
+ * | ENUMS
+ * |--------------------------------------------------------------------------
+ */
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  LOCKED
+}
+
+/**
+ * |--------------------------------------------------------------------------
+ * | LEGACY ENUMS
+ * |--------------------------------------------------------------------------
+ * | ใช้กับ Equipment / ResourceRecord เดิมชั่วคราว
+ * | จะถูก migrate ไป Reference Data + Resource Usage ภายหลัง
+ * |--------------------------------------------------------------------------
+ */
+
+enum ResourceType {
+  ELECTRICITY
+  WATER
+  DI_WATER
+  CHILLED_WATER
+  COMPRESSED_AIR
+  NITROGEN
+  GAS
+  STEAM
+  DIESEL
+}
+
+enum RecordStatus {
+  PENDING
+  RECORDED
+}
+
+/**
+ * |--------------------------------------------------------------------------
+ * | MODULE 02 — ORGANIZATION STRUCTURE
+ * |--------------------------------------------------------------------------
+ * |
+ * | COMPANY
+ * |   └── FACTORY
+ * |        └── BUILDING
+ * |             └── DEPARTMENT
+ * |                  └── PRODUCTION_LINE
+ * |
+ * |--------------------------------------------------------------------------
+ */
+
+model Company {
+  companyId   Int    @id @default(autoincrement()) @map("company_id")
+  companyCode String @unique @map("company_code") @db.VarChar(50)
+  companyName String @map("company_name") @db.VarChar(200)
+
+  taxId        String? @map("tax_id") @db.VarChar(30)
+  industryType String? @map("industry_type") @db.VarChar(100)
+
+  address    String? @db.VarChar(500)
+  province   String? @db.VarChar(100)
+  postalCode String? @map("postal_code") @db.VarChar(20)
+  country    String? @db.VarChar(100)
+
+  phone    String? @db.VarChar(30)
+  email    String? @db.VarChar(255)
+  website  String? @db.VarChar(255)
+  logoPath String? @map("logo_path") @db.VarChar(500)
+
+  subscriptionPlan String? @map("subscription_plan") @db.VarChar(50)
+  carbonStandard   String? @map("carbon_standard") @db.VarChar(100)
+
+  timezone String? @db.VarChar(100)
+  currency String? @db.VarChar(10)
+  language String? @db.VarChar(10)
+
+  status String @default("ACTIVE") @db.VarChar(30)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  factories         Factory[]
+  users             User[]
+  resourceUsages    ResourceUsage[]
+  kpis              KPI[]
+  alerts            Alert[]
+  aiRecommendations AIRecommendation[]
+  reports           Report[]
+
+  // Legacy
+  equipment Equipment[]
+
+  @@index([status])
+  @@index([companyName])
+  @@map("company")
+}
+
+model Factory {
+  factoryId Int @id @default(autoincrement()) @map("factory_id")
+  companyId Int @map("company_id")
+
+  factoryCode String @map("factory_code") @db.VarChar(50)
+  factoryName String @map("factory_name") @db.VarChar(200)
+
+  address    String? @db.VarChar(500)
+  province   String? @db.VarChar(100)
+  postalCode String? @map("postal_code") @db.VarChar(20)
+  country    String? @db.VarChar(100)
+
+  latitude  Decimal? @db.Decimal(10, 7)
+  longitude Decimal? @db.Decimal(10, 7)
+
+  googleMapUrl String? @map("google_map_url") @db.VarChar(500)
+  mapZoom      Int?    @map("map_zoom")
+
+  layoutImagePath String? @map("layout_image_path") @db.VarChar(500)
+
+  phone    String? @db.VarChar(30)
+  email    String? @db.VarChar(255)
+  timezone String? @db.VarChar(100)
+
+  status String @default("ACTIVE") @db.VarChar(30)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  company           Company            @relation(fields: [companyId], references: [companyId], onDelete: Restrict, onUpdate: Cascade)
+  buildings         Building[]
+  users             User[]
+  resourceUsages    ResourceUsage[]
+  kpis              KPI[]
+  alerts            Alert[]
+  aiRecommendations AIRecommendation[]
+  reports           Report[]
+
+  @@unique([companyId, factoryCode])
+  @@index([companyId])
+  @@index([status])
+  @@index([factoryName])
+  @@map("factory")
+}
+
+model Building {
+  buildingId Int @id @default(autoincrement()) @map("building_id")
+  factoryId  Int @map("factory_id")
+
+  buildingCode String  @map("building_code") @db.VarChar(50)
+  buildingName String  @map("building_name") @db.VarChar(200)
+  buildingType String? @map("building_type") @db.VarChar(100)
+
+  floorCount Int? @map("floor_count")
+
+  layoutX        Decimal? @map("layout_x") @db.Decimal(18, 4)
+  layoutY        Decimal? @map("layout_y") @db.Decimal(18, 4)
+  layoutWidth    Decimal? @map("layout_width") @db.Decimal(18, 4)
+  layoutHeight   Decimal? @map("layout_height") @db.Decimal(18, 4)
+  layoutRotation Decimal? @map("layout_rotation") @db.Decimal(18, 4)
+
+  description String? @db.VarChar(500)
+  status      String  @default("ACTIVE") @db.VarChar(30)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  factory           Factory            @relation(fields: [factoryId], references: [factoryId], onDelete: Restrict, onUpdate: Cascade)
+  departments       Department[]
+  resourceUsages    ResourceUsage[]
+  kpis              KPI[]
+  alerts            Alert[]
+  aiRecommendations AIRecommendation[]
+
+  @@unique([factoryId, buildingCode])
+  @@index([factoryId])
+  @@index([status])
+  @@index([buildingName])
+  @@map("building")
+}
+
+model Department {
+  departmentId Int @id @default(autoincrement()) @map("department_id")
+  buildingId   Int @map("building_id")
+
+  departmentCode String @map("department_code") @db.VarChar(50)
+  departmentName String @map("department_name") @db.VarChar(200)
+
+  description String? @db.VarChar(500)
+  status      String  @default("ACTIVE") @db.VarChar(30)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  building          Building           @relation(fields: [buildingId], references: [buildingId], onDelete: Restrict, onUpdate: Cascade)
+  productionLines   ProductionLine[]
+  users             User[]
+  resourceUsages    ResourceUsage[]
+  kpis              KPI[]
+  alerts            Alert[]
+  aiRecommendations AIRecommendation[]
+
+  @@unique([buildingId, departmentCode])
+  @@index([buildingId])
+  @@index([status])
+  @@index([departmentName])
+  @@map("department")
+}
+
+model ProductionLine {
+  lineId       Int @id @default(autoincrement()) @map("line_id")
+  departmentId Int @map("department_id")
+
+  lineCode String @map("line_code") @db.VarChar(50)
+  lineName String @map("line_name") @db.VarChar(200)
+
+  description String? @db.VarChar(500)
+  status      String  @default("ACTIVE") @db.VarChar(30)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  department Department @relation(fields: [departmentId], references: [departmentId], onDelete: Restrict, onUpdate: Cascade)
+
+  machines          Machine[]
+  checkpoints       Checkpoint[]
+  resourceUsages    ResourceUsage[]
+  kpis              KPI[]
+  alerts            Alert[]
+  aiRecommendations AIRecommendation[]
+
+  @@unique([departmentId, lineCode])
+  @@index([departmentId])
+  @@index([status])
+  @@index([lineName])
+  @@map("production_line")
+}
+
+/**
+ * |--------------------------------------------------------------------------
+ * | MODULE 03 — IDENTITY, ACCESS & GOVERNANCE
+ * |--------------------------------------------------------------------------
+ */
+
+model Role {
+  roleId   Int     @id @default(autoincrement()) @map("role_id")
+  roleCode String? @unique @map("role_code") @db.VarChar(50)
+  roleName String  @unique @map("role_name") @db.VarChar(100)
+
+  description String? @db.VarChar(500)
+  status      String  @default("ACTIVE") @db.VarChar(30)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  users           User[]
+  rolePermissions RolePermission[]
+
+  @@index([status])
+  @@map("role")
+}
+
+model Permission {
+  permissionId   Int    @id @default(autoincrement()) @map("permission_id")
+  permissionCode String @unique @map("permission_code") @db.VarChar(100)
+  permissionName String @map("permission_name") @db.VarChar(150)
+
+  groupCode String @map("group_code") @db.VarChar(100)
+  groupName String @map("group_name") @db.VarChar(150)
+
+  description String? @db.VarChar(500)
+  icon        String? @db.VarChar(50)
+  sortOrder   Int     @default(0) @map("sort_order")
+  status      String  @default("ACTIVE") @db.VarChar(30)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  rolePermissions RolePermission[]
+
+  @@index([groupCode])
+  @@index([status])
+  @@index([sortOrder])
+  @@map("permission")
+}
+
+model RolePermission {
+  rolePermissionId Int @id @default(autoincrement()) @map("role_permission_id")
+
+  roleId       Int @map("role_id")
+  permissionId Int @map("permission_id")
+
+  permissionLevel String @default("NONE") @map("permission_level") @db.VarChar(20)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  role       Role       @relation(fields: [roleId], references: [roleId], onDelete: Cascade, onUpdate: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [permissionId], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@index([roleId])
+  @@index([permissionId])
+  @@index([permissionLevel])
+  @@map("role_permission")
+}
+
+model User {
+  userId Int @id @default(autoincrement()) @map("user_id")
+
+  companyId    Int? @map("company_id")
+  factoryId    Int? @map("factory_id")
+  departmentId Int? @map("department_id")
+  roleId       Int  @map("role_id")
+
+  employeeCode String? @map("employee_code") @db.VarChar(50)
+
+  firstName String @map("first_name") @db.VarChar(100)
+  lastName  String @map("last_name") @db.VarChar(100)
+
+  email    String @unique @db.VarChar(255)
+  username String @unique @db.VarChar(100)
+
+  passwordHash String @map("password_hash") @db.VarChar(255)
+
+  phone            String? @db.VarChar(30)
+  profileImagePath String? @map("profile_image_path") @db.VarChar(500)
+
+  // คงชื่อ property เดิมไว้เพื่อไม่ให้โค้ด Login ปัจจุบันพัง
+  failedLogin Int       @default(0) @map("failed_login_count")
+  lockedUntil DateTime? @map("locked_until")
+
+  passwordChangedAt DateTime? @map("password_changed_at")
+  passwordExpiresAt DateTime? @map("password_expires_at")
+
+  status UserStatus @default(ACTIVE)
+
+  // คงชื่อ property เดิมไว้ แต่ map ให้ตรง ERD
+  lastLogin DateTime? @map("last_login_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  /**
+   * Legacy organization fields — เก็บไว้ชั่วคราวจนหน้าเดิม migrate เสร็จ
+   */
+  department     String? @db.VarChar(191)
+  productionLine String? @map("production_line") @db.VarChar(191)
+
+  company       Company?    @relation(fields: [companyId], references: [companyId], onDelete: SetNull, onUpdate: Cascade)
+  factory       Factory?    @relation(fields: [factoryId], references: [factoryId], onDelete: SetNull, onUpdate: Cascade)
+  departmentRef Department? @relation(fields: [departmentId], references: [departmentId], onDelete: SetNull, onUpdate: Cascade)
+  role          Role        @relation(fields: [roleId], references: [roleId], onDelete: Restrict, onUpdate: Cascade)
+
+  loginLogs               LoginLog[]
+  auditLogs               AuditLog[]
+  notifications           Notification[]
+  qrScanLogs              QRScanLog[]
+  resourceRecords         ResourceRecord[]
+  recordedResourceUsages  ResourceUsage[]
+  resolvedAlerts          Alert[]            @relation("AlertResolvedBy")
+  reviewedRecommendations AIRecommendation[] @relation("RecommendationReviewedBy")
+  generatedReports        Report[]           @relation("ReportGeneratedBy")
+
+  @@index([companyId])
+  @@index([factoryId])
+  @@index([departmentId])
+  @@index([roleId])
+  @@index([status])
+  @@index([companyId, roleId])
+  @@index([factoryId, roleId])
+  @@index([departmentId, roleId])
+  @@map("user")
+}
+
+model LoginLog {
+  loginLogId BigInt @id @default(autoincrement()) @map("login_log_id")
+  userId     Int?   @map("user_id")
+
+  attemptedEmail String?   @map("attempted_email") @db.VarChar(255)
+  loginAt        DateTime  @default(now()) @map("login_at")
+  logoutAt       DateTime? @map("logout_at")
+
+  ipAddress     String? @map("ip_address") @db.VarChar(45)
+  userAgent     String? @map("user_agent") @db.VarChar(500)
+  device        String? @db.VarChar(150)
+  loginMethod   String? @map("login_method") @db.VarChar(50)
+  loginStatus   String  @map("login_status") @db.VarChar(30)
+  failureReason String? @map("failure_reason") @db.VarChar(500)
+
+  user User? @relation(fields: [userId], references: [userId], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([userId, loginAt])
+  @@index([attemptedEmail, loginAt])
+  @@index([loginStatus])
+  @@map("login_log")
+}
+
+model AuditLog {
+  auditLogId BigInt @id @default(autoincrement()) @map("audit_log_id")
+  userId     Int?   @map("user_id")
+
+  tableName String @map("table_name") @db.VarChar(100)
+  recordId  BigInt @map("record_id")
+  action    String @db.VarChar(50)
+
+  oldData Json? @map("old_data")
+  newData Json? @map("new_data")
+
+  ipAddress String? @map("ip_address") @db.VarChar(45)
+  userAgent String? @map("user_agent") @db.VarChar(500)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [userId], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([tableName, recordId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_log")
+}
+
+model Notification {
+  notificationId BigInt  @id @default(autoincrement()) @map("notification_id")
+  userId         Int     @map("user_id")
+  alertId        BigInt? @map("alert_id")
+
+  notificationType String  @map("notification_type") @db.VarChar(50)
+  priority         String  @default("NORMAL") @db.VarChar(30)
+  title            String  @db.VarChar(255)
+  message          String  @db.VarChar(1000)
+  actionUrl        String? @map("action_url") @db.VarChar(500)
+
+  isRead Boolean   @default(false) @map("is_read")
+  readAt DateTime? @map("read_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user  User   @relation(fields: [userId], references: [userId], onDelete: Restrict, onUpdate: Cascade)
+  alert Alert? @relation(fields: [alertId], references: [alertId], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([userId, isRead, createdAt])
+  @@index([alertId])
+  @@index([priority])
+  @@index([notificationType])
+  @@map("notification")
+}
+
+/**
+ * |--------------------------------------------------------------------------
+ * | MODULE 01 — REFERENCE DATA
+ * |--------------------------------------------------------------------------
+ * | เริ่มเฉพาะ Reference Data ที่ Module 04 ต้องใช้งานก่อน
+ * |--------------------------------------------------------------------------
+ */
+
+model MachineType {
+  machineTypeId   Int    @id @default(autoincrement()) @map("machine_type_id")
+  machineTypeCode String @unique @map("machine_type_code") @db.VarChar(50)
+  machineTypeName String @map("machine_type_name") @db.VarChar(150)
+
+  description String? @db.VarChar(500)
+  status      String  @default("ACTIVE") @db.VarChar(30)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  machines Machine[]
+
+  @@index([status])
+  @@index([machineTypeName])
+  @@map("machine_type")
+}
+
+model SensorType {
+  sensorTypeId   Int    @id @default(autoincrement()) @map("sensor_type_id")
+  sensorTypeCode String @unique @map("sensor_type_code") @db.VarChar(50)
+  sensorTypeName String @map("sensor_type_name") @db.VarChar(150)
+
+  description String? @db.VarChar(500)
+  status      String  @default("ACTIVE") @db.VarChar(30)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  sensors Sensor[]
+
+  @@index([status])
+  @@index([sensorTypeName])
+  @@map("sensor_type")
+}
+
+model Unit {
+  unitId   Int    @id @default(autoincrement()) @map("unit_id")
+  unitCode String @unique @map("unit_code") @db.VarChar(50)
+  unitName String @map("unit_name") @db.VarChar(100)
+
+  symbol   String @db.VarChar(30)
+  unitType String @map("unit_type") @db.VarChar(50)
+
+  status String @default("ACTIVE") @db.VarChar(30)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  sensorData     SensorData[]
+  resourceTypes  ResourceTypeMaster[]
+  resourceUsages ResourceUsage[]
+  kpis           KPI[]
+
+  @@index([status])
+  @@index([unitType])
+  @@map("unit")
+}
+
+model ResourceCategory {
+  categoryId   Int    @id @default(autoincrement()) @map("category_id")
+  categoryCode String @unique @map("category_code") @db.VarChar(50)
+  categoryName String @map("category_name") @db.VarChar(150)
+
+  description String? @db.VarChar(500)
+  status      String  @default("ACTIVE") @db.VarChar(30)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  resourceTypes ResourceTypeMaster[]
+
+  @@index([status])
+  @@index([categoryName])
+  @@map("resource_category")
+}
+
+model ResourceTypeMaster {
+  resourceTypeId Int @id @default(autoincrement()) @map("resource_type_id")
+
+  categoryId    Int @map("category_id")
+  defaultUnitId Int @map("default_unit_id")
+
+  resourceCode String @unique @map("resource_code") @db.VarChar(50)
+  resourceName String @map("resource_name") @db.VarChar(150)
+
+  description      String? @db.VarChar(500)
+  carbonCalculable Boolean @default(false) @map("carbon_calculable")
+
+  status String @default("ACTIVE") @db.VarChar(30)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  category    ResourceCategory @relation(fields: [categoryId], references: [categoryId], onDelete: Restrict, onUpdate: Cascade)
+  defaultUnit Unit             @relation(fields: [defaultUnitId], references: [unitId], onDelete: Restrict, onUpdate: Cascade)
+
+  emissionFactors EmissionFactor[]
+  resourceUsages  ResourceUsage[]
+  kpis            KPI[]
+
+  @@index([categoryId])
+  @@index([defaultUnitId])
+  @@index([status])
+  @@index([resourceName])
+  @@index([carbonCalculable])
+  @@map("resource_type")
+}
+
+model EmissionFactor {
+  factorId       Int @id @default(autoincrement()) @map("factor_id")
+  resourceTypeId Int @map("resource_type_id")
+
+  scope  String? @db.VarChar(30)
+  region String? @db.VarChar(100)
+  source String? @db.VarChar(255)
+
+  factor     Decimal @db.Decimal(18, 6)
+  factorUnit String  @map("factor_unit") @db.VarChar(100)
+
+  effectiveDate DateTime  @map("effective_date") @db.Date
+  expiryDate    DateTime? @map("expiry_date") @db.Date
+
+  status String @default("ACTIVE") @db.VarChar(30)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  resourceType  ResourceTypeMaster @relation(fields: [resourceTypeId], references: [resourceTypeId], onDelete: Restrict, onUpdate: Cascade)
+  carbonResults CarbonResult[]
+
+  @@index([resourceTypeId])
+  @@index([status])
+  @@index([effectiveDate])
+  @@index([expiryDate])
+  @@map("emission_factor")
+}
+
+/**
+ * |--------------------------------------------------------------------------
+ * | MODULE 05 — RESOURCE & CARBON PROCESSING
+ * |--------------------------------------------------------------------------
+ * |
+ * | RESOURCE_USAGE
+ * |   ├── Organization Scope
+ * |   ├── Machine / Checkpoint
+ * |   ├── Resource Type / Unit
+ * |   ├── Sensor Data / QR Scan
+ * |   └── Recorded By
+ * |
+ * | RESOURCE_USAGE
+ * |      ↓
+ * | CARBON_RESULT
+ * |
+ * |--------------------------------------------------------------------------
+ */
+
+model ResourceUsage {
+  usageId        BigInt @id @default(autoincrement()) @map("usage_id")
+  usageReference String @unique @map("usage_reference") @db.VarChar(100)
+
+  companyId    Int  @map("company_id")
+  factoryId    Int? @map("factory_id")
+  buildingId   Int? @map("building_id")
+  departmentId Int? @map("department_id")
+  lineId       Int? @map("line_id")
+  machineId    Int? @map("machine_id")
+  checkpointId Int? @map("checkpoint_id")
+
+  resourceTypeId Int @map("resource_type_id")
+  unitId         Int @map("unit_id")
+
+  sensorDataId BigInt? @map("sensor_data_id")
+  qrScanId     BigInt? @map("qr_scan_id")
+
+  scopeType String @map("scope_type") @db.VarChar(50)
+
+  quantity Decimal  @db.Decimal(18, 6)
+  usageAt  DateTime @map("usage_at")
+
+  sourceType String @map("source_type") @db.VarChar(50)
+
+  evidenceFilePath String? @map("evidence_file_path") @db.VarChar(500)
+  remark           String? @db.VarChar(1000)
+
+  recordedBy Int @map("recorded_by")
+
+  processingStatus String @default("PENDING") @map("processing_status") @db.VarChar(30)
+  status           String @default("ACTIVE") @db.VarChar(30)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  company        Company         @relation(fields: [companyId], references: [companyId], onDelete: Restrict, onUpdate: Cascade)
+  factory        Factory?        @relation(fields: [factoryId], references: [factoryId], onDelete: Restrict, onUpdate: Cascade)
+  building       Building?       @relation(fields: [buildingId], references: [buildingId], onDelete: Restrict, onUpdate: Cascade)
+  department     Department?     @relation(fields: [departmentId], references: [departmentId], onDelete: Restrict, onUpdate: Cascade)
+  productionLine ProductionLine? @relation(fields: [lineId], references: [lineId], onDelete: Restrict, onUpdate: Cascade)
+  machine        Machine?        @relation(fields: [machineId], references: [machineId], onDelete: Restrict, onUpdate: Cascade)
+  checkpoint     Checkpoint?     @relation(fields: [checkpointId], references: [checkpointId], onDelete: Restrict, onUpdate: Cascade)
+
+  resourceType ResourceTypeMaster @relation(fields: [resourceTypeId], references: [resourceTypeId], onDelete: Restrict, onUpdate: Cascade)
+  unit         Unit               @relation(fields: [unitId], references: [unitId], onDelete: Restrict, onUpdate: Cascade)
+
+  sensorData SensorData? @relation(fields: [sensorDataId], references: [sensorDataId], onDelete: SetNull, onUpdate: Cascade)
+  qrScan     QRScanLog?  @relation(fields: [qrScanId], references: [scanId], onDelete: SetNull, onUpdate: Cascade)
+
+  recorder User @relation(fields: [recordedBy], references: [userId], onDelete: Restrict, onUpdate: Cascade)
+
+  carbonResults     CarbonResult[]
+  alerts            Alert[]
+  aiRecommendations AIRecommendation[]
+
+  @@index([companyId, usageAt])
+  @@index([factoryId, usageAt])
+  @@index([buildingId, usageAt])
+  @@index([departmentId, usageAt])
+  @@index([lineId, usageAt])
+  @@index([machineId, usageAt])
+  @@index([checkpointId, usageAt])
+  @@index([resourceTypeId, usageAt])
+  @@index([unitId])
+  @@index([sensorDataId])
+  @@index([qrScanId])
+  @@index([recordedBy, usageAt])
+  @@index([scopeType])
+  @@index([sourceType])
+  @@index([processingStatus])
+  @@index([status])
+  @@map("resource_usage")
+}
+
+/**
+ * |--------------------------------------------------------------------------
+ * | MODULE 04 — FACTORY ASSETS, QR & IoT
+ * |--------------------------------------------------------------------------
+ * |
+ * | PRODUCTION_LINE
+ * |   ├── MACHINE
+ * |   │    ├── SENSOR
+ * |   │    │    └── SENSOR_DATA
+ * |   │    └── QR_CODE
+ * |   │
+ * |   └── CHECKPOINT
+ * |        └── QR_CODE
+ * |
+ * |--------------------------------------------------------------------------
+ */
+
+model Machine {
+  machineId     Int @id @default(autoincrement()) @map("machine_id")
+  lineId        Int @map("line_id")
+  machineTypeId Int @map("machine_type_id")
+
+  machineCode String @map("machine_code") @db.VarChar(50)
+  machineName String @map("machine_name") @db.VarChar(200)
+
+  manufacturer String? @db.VarChar(150)
+  model        String? @db.VarChar(150)
+  serialNumber String? @map("serial_number") @db.VarChar(150)
+
+  installationDate DateTime? @map("installation_date") @db.Date
+
+  layoutX        Decimal? @map("layout_x") @db.Decimal(18, 4)
+  layoutY        Decimal? @map("layout_y") @db.Decimal(18, 4)
+  layoutWidth    Decimal? @map("layout_width") @db.Decimal(18, 4)
+  layoutHeight   Decimal? @map("layout_height") @db.Decimal(18, 4)
+  layoutRotation Decimal? @map("layout_rotation") @db.Decimal(18, 4)
+
+  locationNote String? @map("location_note") @db.VarChar(500)
+
+  operationalStatus String @default("NORMAL") @map("operational_status") @db.VarChar(30)
+  status            String @default("ACTIVE") @db.VarChar(30)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  productionLine ProductionLine @relation(fields: [lineId], references: [lineId], onDelete: Restrict, onUpdate: Cascade)
+  machineType    MachineType    @relation(fields: [machineTypeId], references: [machineTypeId], onDelete: Restrict, onUpdate: Cascade)
+
+  sensors           Sensor[]
+  qrCodes           QRCode[]
+  resourceUsages    ResourceUsage[]
+  kpis              KPI[]
+  alerts            Alert[]
+  aiRecommendations AIRecommendation[]
+
+  @@unique([lineId, machineCode])
+  @@index([lineId])
+  @@index([machineTypeId])
+  @@index([machineName])
+  @@index([operationalStatus])
+  @@index([status])
+  @@map("machine")
+}
+
+model Checkpoint {
+  checkpointId Int @id @default(autoincrement()) @map("checkpoint_id")
+  lineId       Int @map("line_id")
+
+  checkpointCode String  @map("checkpoint_code") @db.VarChar(50)
+  checkpointName String  @map("checkpoint_name") @db.VarChar(200)
+  checkpointType String? @map("checkpoint_type") @db.VarChar(100)
+
+  description String? @db.VarChar(500)
+  status      String  @default("ACTIVE") @db.VarChar(30)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  productionLine ProductionLine @relation(fields: [lineId], references: [lineId], onDelete: Restrict, onUpdate: Cascade)
+
+  qrCodes        QRCode[]
+  resourceUsages ResourceUsage[]
+
+  @@unique([lineId, checkpointCode])
+  @@index([lineId])
+  @@index([status])
+  @@index([checkpointName])
+  @@map("checkpoint")
+}
+
+model QRCode {
+  qrId BigInt @id @default(autoincrement()) @map("qr_id")
+
+  machineId    Int? @map("machine_id")
+  checkpointId Int? @map("checkpoint_id")
+
+  qrCode      String  @map("qr_code") @db.VarChar(500)
+  qrToken     String  @unique @map("qr_token") @db.VarChar(255)
+  qrImagePath String? @map("qr_image_path") @db.VarChar(500)
+
+  qrStatus String @default("ACTIVE") @map("qr_status") @db.VarChar(30)
+
+  generatedAt DateTime  @default(now()) @map("generated_at")
+  revokedAt   DateTime? @map("revoked_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  machine    Machine?    @relation(fields: [machineId], references: [machineId], onDelete: SetNull, onUpdate: Cascade)
+  checkpoint Checkpoint? @relation(fields: [checkpointId], references: [checkpointId], onDelete: SetNull, onUpdate: Cascade)
+  scans      QRScanLog[]
+
+  @@index([machineId])
+  @@index([checkpointId])
+  @@index([qrStatus])
+  @@map("qr_code")
+}
+
+model QRScanLog {
+  scanId BigInt @id @default(autoincrement()) @map("scan_id")
+
+  qrId   BigInt @map("qr_id")
+  userId Int    @map("user_id")
+
+  scanResult String @map("scan_result") @db.VarChar(50)
+
+  ipAddress String? @map("ip_address") @db.VarChar(45)
+  userAgent String? @map("user_agent") @db.VarChar(500)
+  device    String? @db.VarChar(150)
+
+  latitude  Decimal? @db.Decimal(10, 7)
+  longitude Decimal? @db.Decimal(10, 7)
+
+  scannedAt DateTime @default(now()) @map("scanned_at")
+
+  qrCode         QRCode          @relation(fields: [qrId], references: [qrId], onDelete: Restrict, onUpdate: Cascade)
+  user           User            @relation(fields: [userId], references: [userId], onDelete: Restrict, onUpdate: Cascade)
+  resourceUsages ResourceUsage[]
+
+  @@index([qrId, scannedAt])
+  @@index([userId, scannedAt])
+  @@index([scanResult])
+  @@map("qr_scan_log")
+}
+
+model Sensor {
+  sensorId     Int @id @default(autoincrement()) @map("sensor_id")
+  machineId    Int @map("machine_id")
+  sensorTypeId Int @map("sensor_type_id")
+
+  sensorCode String @map("sensor_code") @db.VarChar(50)
+  sensorName String @map("sensor_name") @db.VarChar(200)
+
+  serialNumber String? @map("serial_number") @db.VarChar(150)
+  manufacturer String? @db.VarChar(150)
+
+  protocol          String? @db.VarChar(50)
+  connectionAddress String? @map("connection_address") @db.VarChar(255)
+  dataTopic         String? @map("data_topic") @db.VarChar(255)
+
+  samplingIntervalSeconds Int? @map("sampling_interval_seconds")
+
+  lastConnectedAt     DateTime? @map("last_connected_at")
+  installationDate    DateTime? @map("installation_date") @db.Date
+  lastCalibrationDate DateTime? @map("last_calibration_date") @db.Date
+  nextCalibrationDate DateTime? @map("next_calibration_date") @db.Date
+
+  status String @default("ACTIVE") @db.VarChar(30)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  machine    Machine    @relation(fields: [machineId], references: [machineId], onDelete: Restrict, onUpdate: Cascade)
+  sensorType SensorType @relation(fields: [sensorTypeId], references: [sensorTypeId], onDelete: Restrict, onUpdate: Cascade)
+
+  data SensorData[]
+
+  @@unique([machineId, sensorCode])
+  @@index([machineId])
+  @@index([sensorTypeId])
+  @@index([status])
+  @@index([lastConnectedAt])
+  @@index([sensorName])
+  @@map("sensor")
+}
+
+model SensorData {
+  sensorDataId BigInt @id @default(autoincrement()) @map("sensor_data_id")
+
+  sensorId Int @map("sensor_id")
+  unitId   Int @map("unit_id")
+
+  rawValue       Decimal  @map("raw_value") @db.Decimal(18, 6)
+  processedValue Decimal? @map("processed_value") @db.Decimal(18, 6)
+
+  qualityStatus String @default("VALID") @map("quality_status") @db.VarChar(30)
+
+  measuredAt DateTime @map("measured_at")
+  receivedAt DateTime @default(now()) @map("received_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  sensor         Sensor          @relation(fields: [sensorId], references: [sensorId], onDelete: Restrict, onUpdate: Cascade)
+  unit           Unit            @relation(fields: [unitId], references: [unitId], onDelete: Restrict, onUpdate: Cascade)
+  resourceUsages ResourceUsage[]
+
+  @@index([sensorId, measuredAt])
+  @@index([unitId])
+  @@index([qualityStatus])
+  @@index([measuredAt])
+  @@map("sensor_data")
+}
+
+/**
+ * |--------------------------------------------------------------------------
+ * | LEGACY — CURRENT OPERATIONAL TABLES
+ * |--------------------------------------------------------------------------
+ * |
+ * | ห้ามลบตอนนี้
+ * |
+ * | Equipment
+ * |   → จะ migrate ไป Machine
+ * |
+ * | ResourceRecord
+ * |   → จะ migrate ไป ResourceUsage
+ * |
+ * |--------------------------------------------------------------------------
+ */
+
+model Equipment {
+  equipmentId Int @id @default(autoincrement()) @map("equipment_id")
+  companyId   Int @map("company_id")
+
+  name     String @db.VarChar(191)
+  location String @db.VarChar(191)
+
+  resourceType ResourceType @map("resource_type")
+  isActive     Boolean      @default(true) @map("is_active")
+
+  equipmentCode String? @unique @map("equipment_code") @db.VarChar(191)
+  equipmentType String? @map("equipment_type") @db.VarChar(191)
+
+  productionLine String? @map("production_line") @db.VarChar(191)
+  department     String? @map("department") @db.VarChar(191)
+
+  status String @default("NORMAL") @map("status") @db.VarChar(191)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  company Company @relation(fields: [companyId], references: [companyId], onDelete: Restrict, onUpdate: Cascade)
+
+  records ResourceRecord[]
+
+  @@index([companyId])
+  @@map("equipment")
+}
+
+model ResourceRecord {
+  recordId Int @id @default(autoincrement()) @map("record_id")
+
+  equipmentId  Int @map("equipment_id")
+  recordedById Int @map("recorded_by_id")
+
+  value Float
+
+  unit          String  @db.VarChar(191)
+  note          String? @map("note") @db.Text
+  attachmentUrl String? @map("attachment_url") @db.VarChar(191)
+
+  status     RecordStatus @default(RECORDED)
+  recordedAt DateTime     @default(now()) @map("recorded_at")
+
+  equipment  Equipment @relation(fields: [equipmentId], references: [equipmentId], onDelete: Restrict, onUpdate: Cascade)
+  recordedBy User      @relation(fields: [recordedById], references: [userId], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([recordedById, recordedAt])
+  @@index([equipmentId, recordedAt])
+  @@map("resource_record")
+}
+
+model CarbonResult {
+  carbonId BigInt @id @default(autoincrement()) @map("carbon_id")
+
+  usageId  BigInt @map("usage_id")
+  factorId Int    @map("factor_id")
+
+  quantityUsed Decimal @map("quantity_used") @db.Decimal(18, 6)
+  factorUsed   Decimal @map("factor_used") @db.Decimal(18, 6)
+  carbonValue  Decimal @map("carbon_value") @db.Decimal(18, 6)
+
+  carbonUnit String @map("carbon_unit") @db.VarChar(50)
+  scope      String @db.VarChar(30)
+
+  calculationStatus  String @default("CALCULATED") @map("calculation_status") @db.VarChar(30)
+  calculationVersion String @map("calculation_version") @db.VarChar(50)
+
+  calculatedAt DateTime @default(now()) @map("calculated_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  usage  ResourceUsage  @relation(fields: [usageId], references: [usageId], onDelete: Restrict, onUpdate: Cascade)
+  factor EmissionFactor @relation(fields: [factorId], references: [factorId], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([usageId])
+  @@index([factorId])
+  @@index([scope])
+  @@index([calculationStatus])
+  @@index([calculatedAt])
+  @@map("carbon_result")
+}
+
+/**
+ * |--------------------------------------------------------------------------
+ * | MODULE 06 — PERFORMANCE, AI & REPORTING
+ * |--------------------------------------------------------------------------
+ */
+
+model KPI {
+  kpiId Int @id @default(autoincrement()) @map("kpi_id")
+
+  companyId      Int  @map("company_id")
+  factoryId      Int? @map("factory_id")
+  buildingId     Int? @map("building_id")
+  departmentId   Int? @map("department_id")
+  lineId         Int? @map("line_id")
+  machineId      Int? @map("machine_id")
+  resourceTypeId Int? @map("resource_type_id")
+  unitId         Int  @map("unit_id")
+
+  kpiCode   String @map("kpi_code") @db.VarChar(50)
+  kpiName   String @map("kpi_name") @db.VarChar(200)
+  kpiType   String @map("kpi_type") @db.VarChar(100)
+  scopeType String @map("scope_type") @db.VarChar(50)
+
+  targetValue    Decimal @map("target_value") @db.Decimal(18, 6)
+  targetOperator String  @map("target_operator") @db.VarChar(20)
+  periodType     String  @map("period_type") @db.VarChar(30)
+
+  effectiveFrom DateTime  @map("effective_from") @db.Date
+  effectiveTo   DateTime? @map("effective_to") @db.Date
+
+  status String @default("ACTIVE") @db.VarChar(30)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  company        Company             @relation(fields: [companyId], references: [companyId], onDelete: Restrict, onUpdate: Cascade)
+  factory        Factory?            @relation(fields: [factoryId], references: [factoryId], onDelete: Restrict, onUpdate: Cascade)
+  building       Building?           @relation(fields: [buildingId], references: [buildingId], onDelete: Restrict, onUpdate: Cascade)
+  department     Department?         @relation(fields: [departmentId], references: [departmentId], onDelete: Restrict, onUpdate: Cascade)
+  productionLine ProductionLine?     @relation(fields: [lineId], references: [lineId], onDelete: Restrict, onUpdate: Cascade)
+  machine        Machine?            @relation(fields: [machineId], references: [machineId], onDelete: Restrict, onUpdate: Cascade)
+  resourceType   ResourceTypeMaster? @relation(fields: [resourceTypeId], references: [resourceTypeId], onDelete: Restrict, onUpdate: Cascade)
+  unit           Unit                @relation(fields: [unitId], references: [unitId], onDelete: Restrict, onUpdate: Cascade)
+
+  results KPIResult[]
+
+  @@unique([companyId, kpiCode])
+  @@index([factoryId])
+  @@index([buildingId])
+  @@index([departmentId])
+  @@index([lineId])
+  @@index([machineId])
+  @@index([resourceTypeId])
+  @@index([unitId])
+  @@index([scopeType])
+  @@index([periodType])
+  @@index([status])
+  @@map("kpi")
+}
+
+model KPIResult {
+  resultId BigInt @id @default(autoincrement()) @map("result_id")
+  kpiId    Int    @map("kpi_id")
+
+  actualValue        Decimal @map("actual_value") @db.Decimal(18, 6)
+  varianceValue      Decimal @map("variance_value") @db.Decimal(18, 6)
+  achievementPercent Decimal @map("achievement_percent") @db.Decimal(18, 4)
+
+  periodStart DateTime @map("period_start") @db.Date
+  periodEnd   DateTime @map("period_end") @db.Date
+
+  resultStatus String @map("result_status") @db.VarChar(30)
+
+  calculatedAt DateTime @default(now()) @map("calculated_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  kpi KPI @relation(fields: [kpiId], references: [kpiId], onDelete: Restrict, onUpdate: Cascade)
+
+  alerts            Alert[]
+  aiRecommendations AIRecommendation[]
+
+  @@unique([kpiId, periodStart, periodEnd])
+  @@index([kpiId, calculatedAt])
+  @@index([resultStatus])
+  @@index([periodStart, periodEnd])
+  @@map("kpi_result")
+}
+
+model Alert {
+  alertId BigInt @id @default(autoincrement()) @map("alert_id")
+
+  companyId    Int     @map("company_id")
+  factoryId    Int?    @map("factory_id")
+  buildingId   Int?    @map("building_id")
+  departmentId Int?    @map("department_id")
+  lineId       Int?    @map("line_id")
+  machineId    Int?    @map("machine_id")
+  usageId      BigInt? @map("usage_id")
+  kpiResultId  BigInt? @map("kpi_result_id")
+  resolvedBy   Int?    @map("resolved_by")
+
+  alertCode String @unique @map("alert_code") @db.VarChar(100)
+  alertType String @map("alert_type") @db.VarChar(100)
+  severity  String @db.VarChar(30)
+  title     String @db.VarChar(255)
+  message   String @db.VarChar(1000)
+
+  thresholdValue Decimal? @map("threshold_value") @db.Decimal(18, 6)
+  actualValue    Decimal? @map("actual_value") @db.Decimal(18, 6)
+
+  status String @default("OPEN") @db.VarChar(30)
+
+  triggeredAt    DateTime  @default(now()) @map("triggered_at")
+  acknowledgedAt DateTime? @map("acknowledged_at")
+  resolvedAt     DateTime? @map("resolved_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  company        Company         @relation(fields: [companyId], references: [companyId], onDelete: Restrict, onUpdate: Cascade)
+  factory        Factory?        @relation(fields: [factoryId], references: [factoryId], onDelete: Restrict, onUpdate: Cascade)
+  building       Building?       @relation(fields: [buildingId], references: [buildingId], onDelete: Restrict, onUpdate: Cascade)
+  department     Department?     @relation(fields: [departmentId], references: [departmentId], onDelete: Restrict, onUpdate: Cascade)
+  productionLine ProductionLine? @relation(fields: [lineId], references: [lineId], onDelete: Restrict, onUpdate: Cascade)
+  machine        Machine?        @relation(fields: [machineId], references: [machineId], onDelete: Restrict, onUpdate: Cascade)
+  usage          ResourceUsage?  @relation(fields: [usageId], references: [usageId], onDelete: SetNull, onUpdate: Cascade)
+  kpiResult      KPIResult?      @relation(fields: [kpiResultId], references: [resultId], onDelete: SetNull, onUpdate: Cascade)
+  resolver       User?           @relation("AlertResolvedBy", fields: [resolvedBy], references: [userId], onDelete: SetNull, onUpdate: Cascade)
+
+  notifications     Notification[]
+  aiRecommendations AIRecommendation[]
+
+  @@index([companyId, triggeredAt])
+  @@index([factoryId, triggeredAt])
+  @@index([buildingId])
+  @@index([departmentId])
+  @@index([lineId])
+  @@index([machineId])
+  @@index([usageId])
+  @@index([kpiResultId])
+  @@index([resolvedBy])
+  @@index([severity])
+  @@index([status])
+  @@map("alert")
+}
+
+model AIRecommendation {
+  recommendationId BigInt @id @default(autoincrement()) @map("recommendation_id")
+
+  companyId    Int     @map("company_id")
+  factoryId    Int?    @map("factory_id")
+  buildingId   Int?    @map("building_id")
+  departmentId Int?    @map("department_id")
+  lineId       Int?    @map("line_id")
+  machineId    Int?    @map("machine_id")
+  usageId      BigInt? @map("usage_id")
+  kpiResultId  BigInt? @map("kpi_result_id")
+  alertId      BigInt? @map("alert_id")
+  reviewedBy   Int?    @map("reviewed_by")
+
+  recommendationType String @map("recommendation_type") @db.VarChar(100)
+  title              String @db.VarChar(255)
+  description        String @db.VarChar(2000)
+
+  estimatedCostSaving   Decimal? @map("estimated_cost_saving") @db.Decimal(18, 4)
+  estimatedEnergySaving Decimal? @map("estimated_energy_saving") @db.Decimal(18, 4)
+  estimatedCarbonSaving Decimal? @map("estimated_carbon_saving") @db.Decimal(18, 4)
+
+  priority        Int      @default(3)
+  confidenceScore Decimal? @map("confidence_score") @db.Decimal(5, 4)
+
+  reviewStatus         String @default("PENDING") @map("review_status") @db.VarChar(30)
+  implementationStatus String @default("NOT_STARTED") @map("implementation_status") @db.VarChar(30)
+
+  reviewedAt    DateTime? @map("reviewed_at")
+  implementedAt DateTime? @map("implemented_at")
+
+  status String @default("ACTIVE") @db.VarChar(30)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  company        Company         @relation(fields: [companyId], references: [companyId], onDelete: Restrict, onUpdate: Cascade)
+  factory        Factory?        @relation(fields: [factoryId], references: [factoryId], onDelete: Restrict, onUpdate: Cascade)
+  building       Building?       @relation(fields: [buildingId], references: [buildingId], onDelete: Restrict, onUpdate: Cascade)
+  department     Department?     @relation(fields: [departmentId], references: [departmentId], onDelete: Restrict, onUpdate: Cascade)
+  productionLine ProductionLine? @relation(fields: [lineId], references: [lineId], onDelete: Restrict, onUpdate: Cascade)
+  machine        Machine?        @relation(fields: [machineId], references: [machineId], onDelete: Restrict, onUpdate: Cascade)
+  usage          ResourceUsage?  @relation(fields: [usageId], references: [usageId], onDelete: SetNull, onUpdate: Cascade)
+  kpiResult      KPIResult?      @relation(fields: [kpiResultId], references: [resultId], onDelete: SetNull, onUpdate: Cascade)
+  alert          Alert?          @relation(fields: [alertId], references: [alertId], onDelete: SetNull, onUpdate: Cascade)
+  reviewer       User?           @relation("RecommendationReviewedBy", fields: [reviewedBy], references: [userId], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([companyId, createdAt])
+  @@index([factoryId, createdAt])
+  @@index([buildingId])
+  @@index([departmentId])
+  @@index([lineId])
+  @@index([machineId])
+  @@index([usageId])
+  @@index([kpiResultId])
+  @@index([alertId])
+  @@index([reviewedBy])
+  @@index([priority])
+  @@index([reviewStatus])
+  @@index([implementationStatus])
+  @@index([status])
+  @@map("ai_recommendation")
+}
+
+model Report {
+  reportId BigInt @id @default(autoincrement()) @map("report_id")
+
+  companyId   Int  @map("company_id")
+  factoryId   Int? @map("factory_id")
+  generatedBy Int  @map("generated_by")
+
+  reportName   String  @map("report_name") @db.VarChar(255)
+  reportType   String  @map("report_type") @db.VarChar(100)
+  reportFormat String  @map("report_format") @db.VarChar(30)
+  filterScope  String? @map("filter_scope") @db.VarChar(500)
+
+  periodStart DateTime? @map("period_start") @db.Date
+  periodEnd   DateTime? @map("period_end") @db.Date
+
+  reportStatus  String  @default("REQUESTED") @map("report_status") @db.VarChar(30)
+  filePath      String? @map("file_path") @db.VarChar(500)
+  downloadCount Int     @default(0) @map("download_count")
+
+  requestedAt DateTime  @default(now()) @map("requested_at")
+  generatedAt DateTime? @map("generated_at")
+  expiresAt   DateTime? @map("expires_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  company   Company  @relation(fields: [companyId], references: [companyId], onDelete: Restrict, onUpdate: Cascade)
+  factory   Factory? @relation(fields: [factoryId], references: [factoryId], onDelete: Restrict, onUpdate: Cascade)
+  generator User     @relation("ReportGeneratedBy", fields: [generatedBy], references: [userId], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([companyId, requestedAt])
+  @@index([factoryId, requestedAt])
+  @@index([generatedBy, requestedAt])
+  @@index([reportType])
+  @@index([reportFormat])
+  @@index([reportStatus])
+  @@index([expiresAt])
+  @@map("report")
+}
+
+model BackupRecord {
+  backupId Int @id @default(autoincrement()) @map("backup_id")
+
+  backupCode String @unique @map("backup_code") @db.VarChar(100)
+
+  backupType  String @default("MANUAL") @map("backup_type") @db.VarChar(30)
+  backupScope String @default("FULL") @map("backup_scope") @db.VarChar(30)
+
+  storageType String @default("LOCAL") @map("storage_type") @db.VarChar(30)
+
+  fileName String? @map("file_name") @db.VarChar(255)
+  filePath String? @map("file_path") @db.VarChar(1000)
+
+  fileSize BigInt? @map("file_size")
+
+  status String @default("RUNNING") @db.VarChar(30)
+
+  verified Boolean @default(false)
+
+  startedAt   DateTime  @default(now()) @map("started_at")
+  completedAt DateTime? @map("completed_at")
+
+  durationSeconds Int? @map("duration_seconds")
+
+  createdByUserId Int?    @map("created_by_user_id")
+  createdByName   String? @map("created_by_name") @db.VarChar(200)
+
+  errorMessage String? @map("error_message") @db.Text
+
+  restoredAt       DateTime? @map("restored_at")
+  restoredByUserId Int?      @map("restored_by_user_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@index([backupType])
+  @@index([createdAt])
+  @@index([createdByUserId])
+  @@map("backup_record")
+}
+
+model SystemSetting {
+  systemSettingId Int @id @default(autoincrement()) @map("system_setting_id")
+
+  maintenanceMode Boolean @default(false) @map("maintenance_mode")
+
+  forceMfa         Boolean @default(false) @map("force_mfa")
+  ipProtection     Boolean @default(true) @map("ip_protection")
+  anomalyDetection Boolean @default(true) @map("anomaly_detection")
+  autoBlock        Boolean @default(true) @map("auto_block")
+
+  sessionTimeoutMinutes Int @default(60) @map("session_timeout_minutes")
+  maxLoginAttempts      Int @default(5) @map("max_login_attempts")
+
+  auditRetentionDays Int @default(365) @map("audit_retention_days")
+  loginRetentionDays Int @default(180) @map("login_retention_days")
+
+  backupFrequency String @default("DAILY") @map("backup_frequency") @db.VarChar(20)
+
+  carbonAnalyticsEnabled   Boolean @default(true) @map("carbon_analytics_enabled")
+  sensorMonitoringEnabled  Boolean @default(true) @map("sensor_monitoring_enabled")
+  aiRecommendationsEnabled Boolean @default(false) @map("ai_recommendations_enabled")
+  machineQrEnabled         Boolean @default(true) @map("machine_qr_enabled")
+  reportBuilderEnabled     Boolean @default(false) @map("report_builder_enabled")
+
+  updatedBy Int? @map("updated_by")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("system_setting")
+}
+
+
+
+model SupportTicket {
+  ticketId        Int      @id @default(autoincrement()) @map("ticket_id")
+  ticketReference String   @unique @map("ticket_reference") @db.VarChar(50)
+
+  reporterId Int  @map("reporter_id")
+  companyId  Int? @map("company_id")
+
+  subject     String  @db.VarChar(150)
+  category    String  @db.VarChar(30)
+  priority    String  @db.VarChar(20)
+  description String  @db.Text
+  pageUrl     String? @map("page_url") @db.VarChar(500)
+  status      String  @default("OPEN") @db.VarChar(30)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([reporterId])
+  @@index([companyId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("support_tickets")
+}

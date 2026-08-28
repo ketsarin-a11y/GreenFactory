@@ -1,0 +1,25 @@
+export type FactoryFormData = {
+  factoryCode: string;
+  factoryName: string;
+  englishName: string;
+  industryType: string;
+  factorySize: string;
+  taxId: string;
+  openingDate: string;
+  area: string;
+  employeeCount: string;
+  description: string;
+  contactName: string;
+  contactPosition: string;
+  phone: string;
+  email: string;
+  address: string;
+  subdistrict: string;
+  district: string;
+  province: string;
+  postalCode: string;
+  timezone: string;
+  currency: string;
+  dateFormat: string;
+  timeFormat: string;
+};
