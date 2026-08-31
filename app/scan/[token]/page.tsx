@@ -71,32 +71,62 @@ interface RequestEntry {
   promise: Promise<ScanApiResponse>;
 }
 
-/**
- * Development mode ของ React อาจเรียก effect ซ้ำเพื่อช่วยตรวจ side effects
- * แต่ API สแกนของเราสร้าง QRScanLog จริง จึงต้องกัน request ซ้ำฝั่ง client
- *
- * Cache นี้มีอายุสั้นมาก เพื่อรวม request ซ้ำที่เกิดติดกันเป็น request เดียว
- * การ refresh หน้าใหม่จริง ๆ จะยังถือเป็นการสแกนรอบใหม่ตามปกติ
- */
 const scanRequestCache = new Map<string, RequestEntry>();
+
 const REQUEST_DEDUPE_MS = 4_000;
 
-function requestScan(token: string): Promise<ScanApiResponse> {
+function requestScan(
+  token: string,
+): Promise<ScanApiResponse> {
   const now = Date.now();
-  const cached = scanRequestCache.get(token);
 
-  if (cached && now - cached.createdAt < REQUEST_DEDUPE_MS) {
+  const cached =
+    scanRequestCache.get(token);
+
+  if (
+    cached &&
+    now - cached.createdAt < REQUEST_DEDUPE_MS
+  ) {
     return cached.promise;
   }
 
-  const promise = fetch(`/api/qr/scan/${encodeURIComponent(token)}`, {
-    method: "GET",
-    cache: "no-store",
-  }).then(async (response) => {
-    const payload = (await response.json()) as ScanApiResponse;
+  const promise = fetch(
+    `/api/qr/scan/${encodeURIComponent(token)}`,
+    {
+      method: "GET",
+      cache: "no-store",
+      credentials: "include",
+    },
+  ).then(async (response) => {
+    const contentType =
+      response.headers.get("content-type") ?? "";
 
-    if (!response.ok || !payload.success || !payload.data) {
-      throw new Error(payload.message ?? "ไม่สามารถอ่าน QR Code ได้");
+    if (
+      !contentType.includes(
+        "application/json",
+      )
+    ) {
+      await response.text();
+
+      throw new Error(
+        response.status === 404
+          ? "ไม่พบ API สำหรับตรวจสอบ QR Code"
+          : `ระบบตรวจสอบ QR Code เกิดข้อผิดพลาด (${response.status})`,
+      );
+    }
+
+    const payload =
+      (await response.json()) as ScanApiResponse;
+
+    if (
+      !response.ok ||
+      !payload.success ||
+      !payload.data
+    ) {
+      throw new Error(
+        payload.message ??
+          "ไม่สามารถอ่าน QR Code ได้",
+      );
     }
 
     return payload;
@@ -108,7 +138,8 @@ function requestScan(token: string): Promise<ScanApiResponse> {
   });
 
   window.setTimeout(() => {
-    const current = scanRequestCache.get(token);
+    const current =
+      scanRequestCache.get(token);
 
     if (current?.promise === promise) {
       scanRequestCache.delete(token);
