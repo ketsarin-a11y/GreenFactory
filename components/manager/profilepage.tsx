@@ -1,6 +1,5 @@
 "use client";
-
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import {
   Camera,
@@ -23,7 +22,6 @@ import {
   Bell,
 } from "lucide-react";
 import type { ProfileDetail } from "@/lib/profile-queries";
-
 /**
  * components/manager/ProfilePage.tsx
  * --------------------------------------
@@ -39,33 +37,28 @@ import type { ProfileDetail } from "@/lib/profile-queries";
  * "โรงงาน" และ "ผู้สร้างบัญชี" ไม่มีใน schema ตอนนี้ ตัดออก (ดูรายละเอียดใน
  * prisma/user-profile-fields-update.md)
  */
-
 const QUICK_LINKS = [
   { href: "/manager/overview", label: "Overview", icon: LayoutDashboard },
   { href: "/manager/reports", label: "รายงาน", icon: FileText },
   { href: "/manager/alerts", label: "การแจ้งเตือน", icon: Bell },
 ];
-
 export default function ProfilePage({ profile }: { profile: ProfileDetail }) {
+  const [avatarUrl, setAvatarUrl] = useState<string | null>((profile as ProfileDetail & { profileImagePath?: string | null }).profileImagePath ?? null);
   return (
     <div className="flex flex-col gap-6">
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.6fr_1fr]">
-        <ProfileInfoCard profile={profile} />
+        <ProfileInfoCard profile={profile} avatarUrl={avatarUrl} onAvatarChanged={setAvatarUrl} />
         <ChangePasswordCard />
       </div>
-
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <CompanyAccessCard profile={profile} />
         <AccountUsageCard profile={profile} />
       </div>
-
       <QuickLinksCard />
-
       <SecurityTip />
     </div>
   );
 }
-
 function QuickLinksCard() {
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-6">
@@ -88,29 +81,42 @@ function QuickLinksCard() {
     </section>
   );
 }
-
-function ProfileInfoCard({ profile }: { profile: ProfileDetail }) {
+function ProfileInfoCard({
+  profile,
+  avatarUrl,
+  onAvatarChanged,
+}: {
+  profile: ProfileDetail;
+  avatarUrl: string | null;
+  onAvatarChanged: (url: string) => void;
+}) {
+  const [firstName, setFirstName] = useState(profile.firstName ?? "");
+  const [lastName, setLastName] = useState(profile.lastName ?? "");
   const [phone, setPhone] = useState(profile.phone ?? "");
   const [department, setDepartment] = useState(profile.department ?? "");
   const [productionLine, setProductionLine] = useState(profile.productionLine ?? "");
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-
+  const avatarInputRef = useRef<HTMLInputElement | null>(null);
   async function handleSave() {
     setIsSaving(true);
     setMessage(null);
     try {
-      const res = await fetch("/api/profile", {
+      const res = await fetch("/api/Profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone, department, productionLine }),
+        credentials: "include",
+        body: JSON.stringify({ firstName, lastName, phone, department, productionLine }),
       });
-      const data = (await res.json()) as { success: boolean; message?: string };
-      if (!res.ok || !data.success) {
-        setMessage({ type: "error", text: data.message ?? "บันทึกข้อมูลไม่สำเร็จ" });
+      const data = (await res.json().catch(() => null)) as { success?: boolean; message?: string } | null;
+      if (!res.ok || !data?.success) {
+        setMessage({ type: "error", text: data?.message ?? `บันทึกข้อมูลไม่สำเร็จ (HTTP ${res.status})` });
         return;
       }
-      setMessage({ type: "success", text: "บันทึกข้อมูลเรียบร้อยแล้ว" });
+      setMessage({ type: "success", text: data.message ?? "บันทึกข้อมูลเรียบร้อยแล้ว" });
+      window.dispatchEvent(new CustomEvent("greenfactory:profile-updated", { detail: { firstName, lastName } }));
     } catch (err) {
       console.error("Update profile error:", err);
       setMessage({ type: "error", text: "ไม่สามารถเชื่อมต่อระบบได้ กรุณาลองใหม่" });
@@ -118,61 +124,117 @@ function ProfileInfoCard({ profile }: { profile: ProfileDetail }) {
       setIsSaving(false);
     }
   }
-
-  const fullName = `${profile.firstName} ${profile.lastName}`.trim();
-
+  async function handleAvatarChange(file?: File) {
+    if (!file) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setMessage({ type: "error", text: "รองรับเฉพาะไฟล์ JPG, PNG และ WEBP" });
+      return;
+    }
+    if (file.size <= 0 || file.size > 5 * 1024 * 1024) {
+      setMessage({ type: "error", text: "รูปโปรไฟล์ต้องมีขนาดไม่เกิน 5 MB" });
+      return;
+    }
+    const preview = URL.createObjectURL(file);
+    setAvatarPreview(preview);
+    setIsUploadingAvatar(true);
+    setMessage(null);
+    try {
+      const formData = new FormData();
+      formData.append("avatar", file);
+      const res = await fetch("/api/Profile/avatar", {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      });
+      const data = (await res.json().catch(() => null)) as {
+        success?: boolean;
+        message?: string;
+        avatarUrl?: string;
+      } | null;
+      if (!res.ok || !data?.success || !data.avatarUrl) {
+        setAvatarPreview(null);
+        setMessage({ type: "error", text: data?.message ?? "เปลี่ยนรูปโปรไฟล์ไม่สำเร็จ" });
+        return;
+      }
+      onAvatarChanged(data.avatarUrl);
+      setAvatarPreview(null);
+      setMessage({ type: "success", text: "เปลี่ยนรูปโปรไฟล์เรียบร้อยแล้ว" });
+      window.dispatchEvent(new CustomEvent("greenfactory:profile-updated", {
+        detail: { avatarUrl: data.avatarUrl },
+      }));
+    } catch (err) {
+      console.error("Profile avatar upload error:", err);
+      setAvatarPreview(null);
+      setMessage({ type: "error", text: "ไม่สามารถอัปโหลดรูปโปรไฟล์ได้ กรุณาลองใหม่" });
+    } finally {
+      URL.revokeObjectURL(preview);
+      setIsUploadingAvatar(false);
+      if (avatarInputRef.current) avatarInputRef.current.value = "";
+    }
+  }
+  const fullName = `${firstName} ${lastName}`.trim();
+  const displayedAvatar = avatarPreview || avatarUrl;
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-6">
       <h2 className="mb-4 text-base font-semibold text-slate-800">ข้อมูลโปรไฟล์</h2>
-
       <div className="flex flex-col gap-6 sm:flex-row">
         <div className="flex shrink-0 flex-col items-center gap-2 sm:w-40">
+          <input
+            ref={avatarInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="hidden"
+            onChange={(event) => void handleAvatarChange(event.target.files?.[0])}
+          />
           <div className="relative">
-            <span className="flex h-24 w-24 items-center justify-center rounded-full bg-emerald-100 text-3xl font-semibold text-emerald-700">
-              {profile.firstName.charAt(0)}
+            <span className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-emerald-100 text-3xl font-semibold text-emerald-700 ring-4 ring-white shadow-sm">
+              {displayedAvatar ? (
+                <img src={displayedAvatar} alt={`รูปโปรไฟล์ ${fullName}`} className="h-full w-full object-cover" />
+              ) : (
+                firstName.charAt(0).toUpperCase()
+              )}
             </span>
             <button
               type="button"
-              onClick={() => alert("ฟีเจอร์อัปโหลดรูปโปรไฟล์จะเปิดใช้งานในเวอร์ชันถัดไป")}
-              className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full bg-emerald-600 text-white hover:bg-emerald-700"
+              onClick={() => avatarInputRef.current?.click()}
+              disabled={isUploadingAvatar}
+              aria-label="เปลี่ยนรูปโปรไฟล์"
+              className="absolute -bottom-1 -right-1 flex h-9 w-9 items-center justify-center rounded-full border-2 border-white bg-emerald-600 text-white shadow-md transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <Camera size={14} />
+              {isUploadingAvatar ? <Loader2 size={15} className="animate-spin" /> : <Camera size={15} />}
             </button>
           </div>
           <button
             type="button"
-            onClick={() => alert("ฟีเจอร์อัปโหลดรูปโปรไฟล์จะเปิดใช้งานในเวอร์ชันถัดไป")}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
+            onClick={() => avatarInputRef.current?.click()}
+            disabled={isUploadingAvatar}
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700 disabled:opacity-60"
           >
-            เปลี่ยนรูปโปรไฟล์
+            {isUploadingAvatar ? "กำลังอัปโหลด..." : "เปลี่ยนรูปโปรไฟล์"}
           </button>
-          <p className="text-center text-[11px] text-slate-400">รองรับไฟล์ JPG, PNG (ขนาดไม่เกิน 5MB)</p>
+          <p className="text-center text-[11px] text-slate-400">JPG, PNG หรือ WEBP ขนาดไม่เกิน 5 MB</p>
         </div>
-
         <div className="grid flex-1 grid-cols-1 gap-4 sm:grid-cols-2">
-          <ReadOnlyField label="ชื่อ-นามสกุล" value={fullName} />
+          <EditableField label="ชื่อ" value={firstName} onChange={setFirstName} placeholder="ชื่อ" />
+          <EditableField label="นามสกุล" value={lastName} onChange={setLastName} placeholder="นามสกุล" />
           <ReadOnlyField label="ชื่อผู้ใช้ (Username)" value={profile.username} />
           <ReadOnlyField label="อีเมล" value={profile.email} />
           <ReadOnlyField label="รหัสพนักงาน" value={profile.employeeCode ?? "-"} />
-
           <EditableField label="เบอร์โทรศัพท์" value={phone} onChange={setPhone} placeholder="098-765-4321" />
           <ReadOnlyField label="ตำแหน่ง" value={profile.roleLabel} />
-
           <EditableField label="แผนก" value={department} onChange={setDepartment} placeholder="เช่น Utility" />
           <EditableField label="ไลน์การผลิต" value={productionLine} onChange={setProductionLine} placeholder="เช่น Production Line 1" />
         </div>
       </div>
-
       {message && (
-        <div
-          className={`mt-4 rounded-xl px-4 py-3 text-sm ${
-            message.type === "success" ? "border border-emerald-200 bg-emerald-50 text-emerald-700" : "border border-red-200 bg-red-50 text-red-600"
-          }`}
-        >
+        <div className={`mt-4 rounded-xl px-4 py-3 text-sm ${
+          message.type === "success"
+            ? "border border-emerald-200 bg-emerald-50 text-emerald-700"
+            : "border border-red-200 bg-red-50 text-red-600"
+        }`}>
           {message.text}
         </div>
       )}
-
       <div className="mt-5 flex justify-end">
         <button
           type="button"
@@ -187,7 +249,6 @@ function ProfileInfoCard({ profile }: { profile: ProfileDetail }) {
     </section>
   );
 }
-
 function ChangePasswordCard() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -197,7 +258,6 @@ function ChangePasswordCard() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-
   async function handleChangePassword() {
     setIsSaving(true);
     setMessage(null);
@@ -207,9 +267,9 @@ function ChangePasswordCard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ currentPassword, newPassword, confirmPassword }),
       });
-      const data = (await res.json()) as { success: boolean; message?: string };
-      if (!res.ok || !data.success) {
-        setMessage({ type: "error", text: data.message ?? "เปลี่ยนรหัสผ่านไม่สำเร็จ" });
+      const data = (await res.json().catch(() => null)) as { success?: boolean; message?: string } | null;
+      if (!res.ok || !data?.success) {
+        setMessage({ type: "error", text: data?.message ?? `เปลี่ยนรหัสผ่านไม่สำเร็จ (HTTP ${res.status})` });
         return;
       }
       setMessage({ type: "success", text: "เปลี่ยนรหัสผ่านเรียบร้อยแล้ว" });
@@ -223,17 +283,14 @@ function ChangePasswordCard() {
       setIsSaving(false);
     }
   }
-
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-6">
       <h2 className="mb-4 text-base font-semibold text-slate-800">เปลี่ยนรหัสผ่าน</h2>
-
       <div className="flex flex-col gap-4">
         <PasswordField label="รหัสผ่านปัจจุบัน" value={currentPassword} onChange={setCurrentPassword} show={showCurrent} onToggleShow={() => setShowCurrent((v) => !v)} placeholder="กรอกรหัสผ่านปัจจุบัน" />
         <PasswordField label="รหัสผ่านใหม่" value={newPassword} onChange={setNewPassword} show={showNew} onToggleShow={() => setShowNew((v) => !v)} placeholder="กรอกรหัสผ่านใหม่" />
         <PasswordField label="ยืนยันรหัสผ่านใหม่" value={confirmPassword} onChange={setConfirmPassword} show={showConfirm} onToggleShow={() => setShowConfirm((v) => !v)} placeholder="ยืนยันรหัสผ่านใหม่" />
       </div>
-
       {message && (
         <div
           className={`mt-4 rounded-xl px-4 py-3 text-sm ${
@@ -243,7 +300,6 @@ function ChangePasswordCard() {
           {message.text}
         </div>
       )}
-
       <button
         type="button"
         onClick={handleChangePassword}
@@ -256,7 +312,6 @@ function ChangePasswordCard() {
     </section>
   );
 }
-
 function CompanyAccessCard({ profile }: { profile: ProfileDetail }) {
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-6">
@@ -275,7 +330,6 @@ function CompanyAccessCard({ profile }: { profile: ProfileDetail }) {
     </section>
   );
 }
-
 function AccountUsageCard({ profile }: { profile: ProfileDetail }) {
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-6">
@@ -300,7 +354,6 @@ function AccountUsageCard({ profile }: { profile: ProfileDetail }) {
     </section>
   );
 }
-
 function SecurityTip() {
   const [dismissed, setDismissed] = useState(false);
   if (dismissed) return null;
@@ -319,7 +372,6 @@ function SecurityTip() {
     </section>
   );
 }
-
 function ReadOnlyField({ label, value }: { label: string; value: string }) {
   return (
     <label className="block">
@@ -328,7 +380,6 @@ function ReadOnlyField({ label, value }: { label: string; value: string }) {
     </label>
   );
 }
-
 function EditableField({
   label,
   value,
@@ -352,7 +403,6 @@ function EditableField({
     </label>
   );
 }
-
 function PasswordField({
   label,
   value,
@@ -386,7 +436,6 @@ function PasswordField({
     </label>
   );
 }
-
 function InfoRow({ icon: Icon, label, value }: { icon: typeof Building2; label: string; value: string }) {
   return (
     <li className="flex items-center justify-between py-3 text-sm">
@@ -401,11 +450,9 @@ function InfoRow({ icon: Icon, label, value }: { icon: typeof Building2; label: 
     </li>
   );
 }
-
 function formatDate(iso: string): string {
   return new Intl.DateTimeFormat("th-TH", { day: "numeric", month: "long", year: "numeric" }).format(new Date(iso));
 }
-
 function formatDateTime(iso: string | null): string {
   if (!iso) return "-";
   return new Intl.DateTimeFormat("th-TH", {

@@ -29,11 +29,18 @@ type UpdateFactoryBody = {
 async function requireCompanyAdmin() {
   const session = await getSession();
 
-  if (!session || session.roleName !== "COMPANY_ADMIN" || !session.companyId) {
+  if (
+    !session ||
+    session.roleName !== "COMPANY_ADMIN" ||
+    session.companyId == null
+  ) {
     return null;
   }
 
-  return session;
+  return {
+    session,
+    companyId: session.companyId,
+  };
 }
 
 function toNumber(value: unknown) {
@@ -44,14 +51,16 @@ function toNumber(value: unknown) {
 
 export async function PATCH(request: Request, context: RouteContext) {
   try {
-    const session = await requireCompanyAdmin();
+    const auth = await requireCompanyAdmin();
 
-    if (!session) {
+    if (!auth) {
       return NextResponse.json(
         { success: false, message: "ไม่มีสิทธิ์จัดการข้อมูลโรงงาน" },
         { status: 403 },
       );
     }
+
+    const companyId = auth.companyId;
 
     const { id } = await context.params;
     const factoryId = Number(id);
@@ -66,7 +75,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     const current = await prisma.factory.findFirst({
       where: {
         factoryId,
-        companyId: session.companyId,
+        companyId,
       },
       select: {
         factoryId: true,
@@ -105,7 +114,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     if (factoryCode && factoryCode !== current.factoryCode) {
       const duplicate = await prisma.factory.findFirst({
         where: {
-          companyId: session.companyId,
+          companyId,
           factoryCode,
           NOT: { factoryId },
         },
@@ -120,7 +129,10 @@ export async function PATCH(request: Request, context: RouteContext) {
       }
     }
 
-    if (body.status !== undefined && !["ACTIVE", "INACTIVE"].includes(body.status)) {
+    if (
+      body.status !== undefined &&
+      !["ACTIVE", "INACTIVE"].includes(body.status)
+    ) {
       return NextResponse.json(
         { success: false, message: "สถานะโรงงานไม่ถูกต้อง" },
         { status: 400 },
@@ -204,7 +216,9 @@ export async function PATCH(request: Request, context: RouteContext) {
       {
         success: false,
         message:
-          error instanceof Error ? error.message : "ไม่สามารถแก้ไขข้อมูลโรงงานได้",
+          error instanceof Error
+            ? error.message
+            : "ไม่สามารถแก้ไขข้อมูลโรงงานได้",
       },
       { status: 500 },
     );

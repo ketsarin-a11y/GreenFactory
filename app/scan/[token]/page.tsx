@@ -7,7 +7,6 @@ import {
   ArrowLeft,
   Building2,
   Check,
-  CheckCircle2,
   ChevronRight,
   Factory,
   LoaderCircle,
@@ -71,22 +70,26 @@ interface RequestEntry {
   promise: Promise<ScanApiResponse>;
 }
 
+class ScanRequestError extends Error {
+  status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = "ScanRequestError";
+    this.status = status;
+  }
+}
+
 const scanRequestCache = new Map<string, RequestEntry>();
 
 const REQUEST_DEDUPE_MS = 4_000;
 
-function requestScan(
-  token: string,
-): Promise<ScanApiResponse> {
+function requestScan(token: string): Promise<ScanApiResponse> {
   const now = Date.now();
 
-  const cached =
-    scanRequestCache.get(token);
+  const cached = scanRequestCache.get(token);
 
-  if (
-    cached &&
-    now - cached.createdAt < REQUEST_DEDUPE_MS
-  ) {
+  if (cached && now - cached.createdAt < REQUEST_DEDUPE_MS) {
     return cached.promise;
   }
 
@@ -101,14 +104,11 @@ function requestScan(
     const contentType =
       response.headers.get("content-type") ?? "";
 
-    if (
-      !contentType.includes(
-        "application/json",
-      )
-    ) {
+    if (!contentType.includes("application/json")) {
       await response.text();
 
-      throw new Error(
+      throw new ScanRequestError(
+        response.status,
         response.status === 404
           ? "ไม่พบ API สำหรับตรวจสอบ QR Code"
           : `ระบบตรวจสอบ QR Code เกิดข้อผิดพลาด (${response.status})`,
@@ -123,9 +123,9 @@ function requestScan(
       !payload.success ||
       !payload.data
     ) {
-      throw new Error(
-        payload.message ??
-          "ไม่สามารถอ่าน QR Code ได้",
+      throw new ScanRequestError(
+        response.status,
+        payload.message ?? "ไม่สามารถอ่าน QR Code ได้",
       );
     }
 
@@ -138,8 +138,7 @@ function requestScan(
   });
 
   window.setTimeout(() => {
-    const current =
-      scanRequestCache.get(token);
+    const current = scanRequestCache.get(token);
 
     if (current?.promise === promise) {
       scanRequestCache.delete(token);
@@ -149,9 +148,12 @@ function requestScan(
   return promise;
 }
 
-export default function QRTokenPage({ params }: ScanPageProps) {
+export default function QRTokenPage({
+  params,
+}: ScanPageProps) {
   const [loading, setLoading] = useState(true);
-  const [result, setResult] = useState<ScanResult | null>(null);
+  const [result, setResult] =
+    useState<ScanResult | null>(null);
   const [error, setError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -167,10 +169,13 @@ export default function QRTokenPage({ params }: ScanPageProps) {
         const normalizedToken = token.trim();
 
         if (!normalizedToken) {
-          throw new Error("QR Code นี้ไม่มี Token ที่ถูกต้อง");
+          throw new Error(
+            "QR Code นี้ไม่มี Token ที่ถูกต้อง",
+          );
         }
 
-        const payload = await requestScan(normalizedToken);
+        const payload =
+          await requestScan(normalizedToken);
 
         if (!active || !payload.data) {
           return;
@@ -182,7 +187,35 @@ export default function QRTokenPage({ params }: ScanPageProps) {
           return;
         }
 
+        if (
+          err instanceof ScanRequestError &&
+          err.status === 401
+        ) {
+          const { token } = await params;
+          const normalizedToken = token.trim();
+
+          const returnTo =
+            `/scan/${encodeURIComponent(normalizedToken)}`;
+
+          window.location.replace(
+            `/login?returnTo=${encodeURIComponent(returnTo)}`,
+          );
+
+          return;
+        }
+
         setResult(null);
+
+        if (
+          err instanceof ScanRequestError &&
+          err.status === 403
+        ) {
+          setError(
+            "บัญชีนี้ไม่มีสิทธิ์เข้าถึง QR Code ของโรงงานนี้",
+          );
+          return;
+        }
+
         setError(
           err instanceof Error
             ? err.message
@@ -207,11 +240,14 @@ export default function QRTokenPage({ params }: ScanPageProps) {
       return null;
     }
 
-    const isMachine = result.targetType === "MACHINE";
+    const isMachine =
+      result.targetType === "MACHINE";
 
     const targetName = isMachine
-      ? result.machine?.machineName ?? "ไม่พบชื่อเครื่องจักร"
-      : result.checkpoint?.checkpointName ?? "ไม่พบชื่อจุดตรวจ";
+      ? result.machine?.machineName ??
+        "ไม่พบชื่อเครื่องจักร"
+      : result.checkpoint?.checkpointName ??
+        "ไม่พบชื่อจุดตรวจ";
 
     const targetCode = isMachine
       ? result.machine?.machineCode ?? "-"
@@ -219,15 +255,20 @@ export default function QRTokenPage({ params }: ScanPageProps) {
 
     const targetType = isMachine
       ? result.machine?.machineType ?? "เครื่องจักร"
-      : result.checkpoint?.checkpointType ?? "จุดตรวจ";
+      : result.checkpoint?.checkpointType ??
+        "จุดตรวจ";
 
     const status = isMachine
       ? result.machine?.operationalStatus ?? "UNKNOWN"
       : "ACTIVE";
 
     const recordUrl = isMachine
-      ? `/operator/record?machineId=${result.machine?.machineId ?? ""}&scanId=${encodeURIComponent(result.scanId)}`
-      : `/operator/record?checkpointId=${result.checkpoint?.checkpointId ?? ""}&scanId=${encodeURIComponent(result.scanId)}`;
+      ? `/operator/record?machineId=${
+          result.machine?.machineId ?? ""
+        }&scanId=${encodeURIComponent(result.scanId)}`
+      : `/operator/record?checkpointId=${
+          result.checkpoint?.checkpointId ?? ""
+        }&scanId=${encodeURIComponent(result.scanId)}`;
 
     return {
       isMachine,
@@ -246,7 +287,9 @@ export default function QRTokenPage({ params }: ScanPageProps) {
   if (error || !result || !viewModel) {
     return (
       <ErrorState
-        message={error || "ไม่พบข้อมูลจาก QR Code นี้"}
+        message={
+          error || "ไม่พบข้อมูลจาก QR Code นี้"
+        }
         onRetry={() => {
           setResult(null);
           setError("");
@@ -299,7 +342,9 @@ export default function QRTokenPage({ params }: ScanPageProps) {
                     </span>
 
                     <span className="rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-semibold text-white/75 ring-1 ring-white/10">
-                      {viewModel.isMachine ? "MACHINE" : "CHECKPOINT"}
+                      {viewModel.isMachine
+                        ? "MACHINE"
+                        : "CHECKPOINT"}
                     </span>
                   </div>
 
@@ -324,6 +369,7 @@ export default function QRTokenPage({ params }: ScanPageProps) {
                   <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-emerald-700">
                     Asset Information
                   </p>
+
                   <h2 className="mt-1 text-lg font-bold text-[#24352c]">
                     ข้อมูลหน้างาน
                   </h2>
@@ -336,20 +382,31 @@ export default function QRTokenPage({ params }: ScanPageProps) {
 
               <div className="grid gap-3 sm:grid-cols-2">
                 <InfoCard
-                  icon={viewModel.isMachine ? Wrench : QrCode}
-                  label={viewModel.isMachine ? "ประเภทเครื่องจักร" : "ประเภทจุดตรวจ"}
+                  icon={
+                    viewModel.isMachine
+                      ? Wrench
+                      : QrCode
+                  }
+                  label={
+                    viewModel.isMachine
+                      ? "ประเภทเครื่องจักร"
+                      : "ประเภทจุดตรวจ"
+                  }
                   value={viewModel.targetType}
                 />
+
                 <InfoCard
                   icon={Factory}
                   label="โรงงาน"
                   value={organization.factoryName}
                 />
+
                 <InfoCard
                   icon={Building2}
                   label="อาคาร"
                   value={organization.buildingName}
                 />
+
                 <InfoCard
                   icon={MapPin}
                   label="แผนก"
@@ -376,8 +433,10 @@ export default function QRTokenPage({ params }: ScanPageProps) {
                     <p className="text-xs font-bold text-emerald-900">
                       ตรวจสอบตำแหน่งแล้ว
                     </p>
+
                     <p className="mt-1 text-[11px] leading-5 text-emerald-800/70">
-                      ข้อมูลเครื่องจักรและโครงสร้างโรงงานถูกตรวจจาก Secure Token ก่อนสร้างรายการบันทึก
+                      ข้อมูลเครื่องจักรและโครงสร้างโรงงานถูกตรวจจาก
+                      Secure Token ก่อนสร้างรายการบันทึก
                     </p>
                   </div>
                 </div>
@@ -393,8 +452,11 @@ export default function QRTokenPage({ params }: ScanPageProps) {
                 <h2 className="mt-4 text-base font-bold text-[#273830]">
                   พร้อมบันทึกข้อมูล
                 </h2>
+
                 <p className="mt-1.5 text-[11px] leading-5 text-[#7e8a84]">
-                  ระบบจะส่ง Asset และ Scan ID ไปยังหน้าบันทึกโดยอัตโนมัติ ไม่ต้องเลือกเครื่องจักรซ้ำ
+                  ระบบจะส่ง Asset และ Scan ID
+                  ไปยังหน้าบันทึกโดยอัตโนมัติ
+                  ไม่ต้องเลือกเครื่องจักรซ้ำ
                 </p>
 
                 <Link
@@ -418,6 +480,7 @@ export default function QRTokenPage({ params }: ScanPageProps) {
                 <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-[#9aa49f]">
                   Secure Scan
                 </p>
+
                 <p className="mt-1.5 break-all font-mono text-[10px] leading-5 text-[#66756d]">
                   {result.token}
                 </p>
@@ -442,8 +505,10 @@ function LoadingState() {
         <h1 className="mt-5 text-lg font-bold text-[#273830]">
           กำลังตรวจสอบ QR Code
         </h1>
+
         <p className="mt-2 text-xs leading-5 text-[#859189]">
-          กำลังยืนยัน Token และตรวจสอบสิทธิ์การเข้าถึง Asset
+          กำลังยืนยัน Token
+          และตรวจสอบสิทธิ์การเข้าถึง Asset
         </p>
 
         <div className="mt-5 h-1.5 overflow-hidden rounded-full bg-[#edf2ef]">
@@ -472,6 +537,7 @@ function ErrorState({
           <h1 className="mt-4 text-xl font-black tracking-[-0.02em] text-[#362b2d]">
             ใช้ QR Code นี้ไม่ได้
           </h1>
+
           <p className="mt-2 text-xs leading-6 text-rose-700/70">
             {message}
           </p>
@@ -522,7 +588,10 @@ function InfoCard({
       </span>
 
       <div className="min-w-0">
-        <p className="text-[10px] font-medium text-[#97a19c]">{label}</p>
+        <p className="text-[10px] font-medium text-[#97a19c]">
+          {label}
+        </p>
+
         <p className="mt-1 break-words text-[13px] font-bold text-[#415148]">
           {value || "-"}
         </p>
@@ -531,9 +600,16 @@ function InfoCard({
   );
 }
 
-function StatusPill({ status }: { status: string }) {
+function StatusPill({
+  status,
+}: {
+  status: string;
+}) {
   const normalized = status.toUpperCase();
-  const normal = normalized === "NORMAL" || normalized === "ACTIVE";
+
+  const normal =
+    normalized === "NORMAL" ||
+    normalized === "ACTIVE";
 
   return (
     <span
@@ -545,9 +621,12 @@ function StatusPill({ status }: { status: string }) {
     >
       <span
         className={`h-1.5 w-1.5 rounded-full ${
-          normal ? "bg-emerald-300" : "bg-amber-300"
+          normal
+            ? "bg-emerald-300"
+            : "bg-amber-300"
         }`}
       />
+
       {normal ? "สถานะปกติ" : status}
     </span>
   );

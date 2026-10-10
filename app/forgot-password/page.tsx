@@ -1,10 +1,11 @@
 "use client";
 
+
+import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowLeft,
   CheckCircle2,
-  Leaf,
   LoaderCircle,
   Mail,
   Send,
@@ -14,32 +15,30 @@ import { FormEvent, useState } from "react";
 type ForgotPasswordResponse = {
   success: boolean;
   message?: string;
+  devResetUrl?: string;
 };
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [devResetUrl, setDevResetUrl] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSent, setIsSent] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-
-    if (isSubmitting) {
-      return;
-    }
+    if (isSubmitting) return;
 
     setError("");
     setMessage("");
+    setDevResetUrl("");
     setIsSubmitting(true);
 
     try {
       const response = await fetch("/api/auth/forgot-password", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: email.trim().toLowerCase(),
         }),
@@ -60,9 +59,12 @@ export default function ForgotPasswordPage() {
         data.message ??
           "หากอีเมลนี้มีบัญชีอยู่ในระบบ เราจะส่งลิงก์สำหรับตั้งรหัสผ่านใหม่ให้คุณ",
       );
+
+      if (data.devResetUrl) {
+        setDevResetUrl(data.devResetUrl);
+      }
     } catch (requestError) {
       console.error("Forgot password request error:", requestError);
-
       setError(
         "ไม่สามารถเชื่อมต่อระบบได้ กรุณาตรวจสอบการเชื่อมต่อแล้วลองใหม่อีกครั้ง",
       );
@@ -72,64 +74,65 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <main className="fixed inset-0 z-[100] overflow-y-auto bg-[#f2f6f1]">
-      {/* Background */}
+    <main className="fixed inset-0 z-[100] overflow-y-auto bg-[#f7faf8]">
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute -left-40 -top-44 h-[420px] w-[420px] rounded-full bg-[#cce8d3]/55 blur-[110px]" />
-        <div className="absolute -bottom-52 -right-36 h-[430px] w-[430px] rounded-full bg-[#b9dfc4]/45 blur-[120px]" />
-        <div className="absolute inset-0 opacity-[0.035] [background-image:linear-gradient(rgba(27,77,45,0.22)_1px,transparent_1px),linear-gradient(90deg,rgba(27,77,45,0.22)_1px,transparent_1px)] [background-size:64px_64px]" />
+        <div className="absolute -left-28 -top-28 h-[360px] w-[360px] rounded-full bg-emerald-200/35 blur-[90px]" />
+        <div className="absolute -right-24 top-[8%] h-[340px] w-[340px] rounded-full bg-cyan-200/35 blur-[100px]" />
+        <div className="absolute bottom-[-140px] left-1/3 h-[360px] w-[360px] rounded-full bg-lime-200/25 blur-[110px]" />
+        <div className="absolute inset-0 opacity-[0.025] [background-image:linear-gradient(rgba(15,23,42,0.35)_1px,transparent_1px),linear-gradient(90deg,rgba(15,23,42,0.35)_1px,transparent_1px)] [background-size:52px_52px]" />
       </div>
 
-      <div className="relative flex min-h-screen items-center justify-center px-5 py-10 sm:px-8">
-        <div className="w-full max-w-[450px]">
-          {/* Brand */}
-          <div className="mb-7 text-center">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-[16px] bg-[#1c7c4a] text-white shadow-[0_14px_32px_rgba(28,124,74,0.2)]">
-              <Leaf className="h-5 w-5" strokeWidth={1.8} />
-            </div>
-
-            <p className="mt-4 text-[17px] font-semibold tracking-[-0.035em] text-[#1c2d23]">
-              GreenFactory Insight
-            </p>
+      <div className="relative flex min-h-screen items-center justify-center px-5 py-8 sm:px-8">
+        <div className="w-full max-w-[470px]">
+          <div className="mb-7 flex justify-center">
+            <Image
+              src="/images/LOGO.png"
+              alt="GreenFactory Insight"
+              width={520}
+              height={150}
+              priority
+              className="h-auto w-[230px] object-contain drop-shadow-[0_10px_24px_rgba(20,95,57,0.10)]"
+            />
           </div>
 
-          <section className="rounded-[26px] border border-[#21432d]/10 bg-white p-6 shadow-[0_28px_80px_rgba(25,62,38,0.09)] sm:p-8">
+          <section className="rounded-[30px] border border-white/90 bg-white/95 p-6 shadow-[0_30px_80px_rgba(15,23,42,0.10)] ring-1 ring-slate-900/[0.03] backdrop-blur-xl sm:p-8">
             <Link
               href="/login"
-              className="mb-7 inline-flex items-center gap-2 rounded-full text-[11px] font-medium text-[#66756c] transition hover:text-[#1c7c4a]"
+              className="inline-flex items-center gap-2 text-xs font-semibold text-slate-500 transition hover:text-emerald-700"
             >
-              <ArrowLeft className="h-4 w-4" strokeWidth={1.7} />
+              <ArrowLeft className="h-4 w-4" />
               กลับไปหน้าเข้าสู่ระบบ
             </Link>
 
             {!isSent ? (
               <>
-                <div className="flex h-11 w-11 items-center justify-center rounded-[14px] bg-[#edf7f0] text-[#1c7c4a]">
-                  <Mail className="h-[19px] w-[19px]" strokeWidth={1.7} />
-                </div>
+                <div className="mt-8">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100">
+                    <Mail className="h-5 w-5" />
+                  </div>
 
-                <div className="mt-5">
-                  <h1 className="text-[25px] font-semibold tracking-[-0.04em] text-[#1b2c22] sm:text-[29px]">
+                  <p className="mt-5 text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-600">
+                    Password recovery
+                  </p>
+
+                  <h1 className="mt-2 text-[29px] font-semibold tracking-[-0.04em] text-slate-950">
                     ลืมรหัสผ่าน?
                   </h1>
 
-                  <p className="mt-2 max-w-[360px] text-[12px] leading-6 text-[#718078]">
-                    กรอกอีเมลที่ใช้กับบัญชี GreenFactory Insight
-                    ระบบจะส่งลิงก์สำหรับตั้งรหัสผ่านใหม่ไปยังอีเมลของคุณ
+                  <p className="mt-2 text-sm leading-6 text-slate-500">
+                    กรอกอีเมลที่ใช้กับ GreenFactory Insight
+                    หากพบบัญชี ระบบจะส่งลิงก์สำหรับตั้งรหัสผ่านใหม่ให้
                   </p>
                 </div>
 
-                <form onSubmit={handleSubmit} className="mt-7">
+                <form onSubmit={handleSubmit} className="mt-8">
                   <label className="block">
-                    <span className="text-[11px] font-medium text-[#34483b]">
+                    <span className="mb-2 block text-xs font-medium text-slate-700">
                       อีเมล
                     </span>
 
-                    <span className="mt-2 flex h-[54px] items-center gap-3 rounded-[15px] border border-[#24422f]/12 bg-[#fbfcfa] px-4 transition duration-200 focus-within:border-[#238252]/38 focus-within:bg-white focus-within:shadow-[0_0_0_4px_rgba(35,130,82,0.07)]">
-                      <Mail
-                        className="h-[17px] w-[17px] shrink-0 text-[#66806f]"
-                        strokeWidth={1.65}
-                      />
+                    <div className="flex h-[52px] items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50/80 px-4 transition-all focus-within:border-emerald-400 focus-within:bg-white focus-within:ring-4 focus-within:ring-emerald-100/70">
+                      <Mail className="h-[17px] w-[17px] shrink-0 text-slate-400" />
 
                       <input
                         required
@@ -139,15 +142,15 @@ export default function ForgotPasswordPage() {
                         onChange={(event) => setEmail(event.target.value)}
                         autoComplete="email"
                         placeholder="name@company.com"
-                        className="min-w-0 flex-1 bg-transparent text-[13px] text-[#203128] outline-none placeholder:text-[#a2aba5] disabled:cursor-not-allowed disabled:opacity-60"
+                        className="min-w-0 flex-1 bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400 disabled:cursor-not-allowed disabled:opacity-60"
                       />
-                    </span>
+                    </div>
                   </label>
 
                   {error && (
                     <div
                       role="alert"
-                      className="mt-5 rounded-[13px] border border-[#c94e4e]/15 bg-[#fff3f3] px-4 py-3 text-[11px] leading-5 text-[#a43e3e]"
+                      className="mt-5 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs leading-5 text-rose-700"
                     >
                       {error}
                     </div>
@@ -156,7 +159,7 @@ export default function ForgotPasswordPage() {
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="group mt-7 inline-flex min-h-[52px] w-full items-center justify-center gap-3 rounded-[15px] bg-[#1c7c4a] px-7 text-[13px] font-semibold text-white shadow-[0_14px_30px_rgba(25,119,69,0.2)] transition duration-200 hover:bg-[#166b40] hover:shadow-[0_17px_36px_rgba(25,119,69,0.25)] disabled:cursor-not-allowed disabled:opacity-60"
+                    className="group mt-7 inline-flex min-h-[52px] w-full items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 px-7 text-sm font-semibold text-white shadow-[0_16px_32px_rgba(5,150,105,0.22)] transition hover:-translate-y-0.5 hover:from-emerald-700 hover:to-teal-700 disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {isSubmitting ? (
                       <>
@@ -166,33 +169,50 @@ export default function ForgotPasswordPage() {
                     ) : (
                       <>
                         ส่งลิงก์ตั้งรหัสผ่านใหม่
-                        <Send className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+                        <Send className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                       </>
                     )}
                   </button>
                 </form>
 
-                <p className="mt-6 text-center text-[10px] leading-5 text-[#87938b]">
+                <p className="mt-6 text-center text-[10px] leading-5 text-slate-400">
                   เพื่อความปลอดภัย ระบบจะไม่เปิดเผยว่าอีเมลใดมีบัญชีอยู่ในระบบ
                 </p>
               </>
             ) : (
-              <div className="py-3 text-center">
-                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#edf7f0] text-[#1c7c4a]">
-                  <CheckCircle2 className="h-7 w-7" strokeWidth={1.7} />
+              <div className="py-5 text-center">
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100">
+                  <CheckCircle2 className="h-7 w-7" />
                 </div>
 
-                <h1 className="mt-5 text-[25px] font-semibold tracking-[-0.04em] text-[#1b2c22]">
+                <h1 className="mt-5 text-[27px] font-semibold tracking-[-0.04em] text-slate-950">
                   ตรวจสอบอีเมลของคุณ
                 </h1>
 
-                <p className="mx-auto mt-3 max-w-[340px] text-[12px] leading-6 text-[#718078]">
+                <p className="mx-auto mt-3 max-w-[350px] text-sm leading-6 text-slate-500">
                   {message}
                 </p>
 
+                {devResetUrl && (
+                  <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-left">
+                    <p className="text-xs font-semibold text-amber-900">
+                      Development mode
+                    </p>
+                    <p className="mt-1 text-[11px] leading-5 text-amber-700">
+                      ยังไม่ได้ตั้งค่าอีเมล สามารถใช้ลิงก์นี้ทดสอบการรีเซ็ตได้:
+                    </p>
+                    <Link
+                      href={devResetUrl}
+                      className="mt-2 block break-all text-xs font-semibold text-emerald-700 underline"
+                    >
+                      {devResetUrl}
+                    </Link>
+                  </div>
+                )}
+
                 <Link
                   href="/login"
-                  className="mt-7 inline-flex min-h-[48px] w-full items-center justify-center rounded-[15px] bg-[#1c7c4a] px-6 text-[13px] font-semibold text-white transition hover:bg-[#166b40]"
+                  className="mt-7 inline-flex min-h-[50px] w-full items-center justify-center rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 px-6 text-sm font-semibold text-white transition hover:from-emerald-700 hover:to-teal-700"
                 >
                   กลับไปหน้าเข้าสู่ระบบ
                 </Link>
@@ -202,8 +222,9 @@ export default function ForgotPasswordPage() {
                   onClick={() => {
                     setIsSent(false);
                     setMessage("");
+                    setDevResetUrl("");
                   }}
-                  className="mt-4 text-[11px] font-medium text-[#66756c] transition hover:text-[#1c7c4a]"
+                  className="mt-4 text-xs font-semibold text-slate-500 transition hover:text-emerald-700"
                 >
                   ใช้อีเมลอื่น
                 </button>
@@ -211,7 +232,7 @@ export default function ForgotPasswordPage() {
             )}
           </section>
 
-          <p className="mt-6 text-center text-[9px] text-[#87938b]">
+          <p className="mt-6 text-center text-[10px] text-slate-400">
             © 2026 GreenFactory Insight
           </p>
         </div>

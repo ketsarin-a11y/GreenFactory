@@ -34,7 +34,10 @@ async function requireCompanyAdmin() {
     };
   }
 
-  if (session.roleName !== "COMPANY_ADMIN" || !session.companyId) {
+  if (
+    session.roleName !== "COMPANY_ADMIN" ||
+    session.companyId == null
+  ) {
     return {
       ok: false as const,
       response: NextResponse.json(
@@ -44,7 +47,11 @@ async function requireCompanyAdmin() {
     };
   }
 
-  return { ok: true as const, session };
+  return {
+    ok: true as const,
+    session,
+    companyId: session.companyId,
+  };
 }
 
 function toNumber(value: unknown) {
@@ -58,7 +65,7 @@ export async function GET() {
     const auth = await requireCompanyAdmin();
     if (!auth.ok) return auth.response;
 
-    const companyId = auth.session.companyId;
+    const companyId = auth.companyId;
 
     const factories = await prisma.factory.findMany({
       where: { companyId },
@@ -136,7 +143,8 @@ export async function GET() {
         }
       }
 
-      const hasLocation = factory.latitude !== null && factory.longitude !== null;
+      const hasLocation =
+        factory.latitude !== null && factory.longitude !== null;
 
       const checks = [
         Boolean(factory.factoryCode?.trim()),
@@ -163,8 +171,14 @@ export async function GET() {
         province: factory.province,
         postalCode: factory.postalCode,
         country: factory.country,
-        latitude: factory.latitude === null ? null : Number(factory.latitude),
-        longitude: factory.longitude === null ? null : Number(factory.longitude),
+        latitude:
+          factory.latitude === null
+            ? null
+            : Number(factory.latitude),
+        longitude:
+          factory.longitude === null
+            ? null
+            : Number(factory.longitude),
         googleMapUrl: factory.googleMapUrl,
         mapZoom: factory.mapZoom,
         layoutImagePath: factory.layoutImagePath,
@@ -181,7 +195,9 @@ export async function GET() {
         qrCodes,
         hasLocation,
         structureReady:
-          factory._count.buildings > 0 && departments > 0 && productionLines > 0,
+          factory._count.buildings > 0 &&
+          departments > 0 &&
+          productionLines > 0,
         readiness,
       };
     });
@@ -191,19 +207,31 @@ export async function GET() {
       data,
       summary: {
         total: data.length,
-        active: data.filter((factory) => factory.status === "ACTIVE").length,
-        ready: data.filter((factory) => factory.readiness >= 75).length,
-        users: data.reduce((sum, factory) => sum + factory.users, 0),
+        active: data.filter(
+          (factory) => factory.status === "ACTIVE",
+        ).length,
+        ready: data.filter(
+          (factory) => factory.readiness >= 75,
+        ).length,
+        users: data.reduce(
+          (sum, factory) => sum + factory.users,
+          0,
+        ),
       },
     });
   } catch (error) {
-    console.error("GET /api/company/factories failed:", error);
+    console.error(
+      "GET /api/company/factories failed:",
+      error,
+    );
 
     return NextResponse.json(
       {
         success: false,
         message:
-          error instanceof Error ? error.message : "ไม่สามารถโหลดข้อมูลโรงงานได้",
+          error instanceof Error
+            ? error.message
+            : "ไม่สามารถโหลดข้อมูลโรงงานได้",
       },
       { status: 500 },
     );
@@ -215,15 +243,19 @@ export async function POST(request: Request) {
     const auth = await requireCompanyAdmin();
     if (!auth.ok) return auth.response;
 
-    const companyId = auth.session.companyId;
+    const companyId = auth.companyId;
     const body = (await request.json()) as CreateFactoryBody;
 
-    const factoryCode = body.factoryCode?.trim().toUpperCase() ?? "";
+    const factoryCode =
+      body.factoryCode?.trim().toUpperCase() ?? "";
     const factoryName = body.factoryName?.trim() ?? "";
 
     if (!factoryCode || !factoryName) {
       return NextResponse.json(
-        { success: false, message: "กรุณากรอกรหัสโรงงานและชื่อโรงงาน" },
+        {
+          success: false,
+          message: "กรุณากรอกรหัสโรงงานและชื่อโรงงาน",
+        },
         { status: 400 },
       );
     }
@@ -235,7 +267,10 @@ export async function POST(request: Request) {
 
     if (duplicate) {
       return NextResponse.json(
-        { success: false, message: "รหัสโรงงานนี้มีอยู่ในบริษัทแล้ว" },
+        {
+          success: false,
+          message: "รหัสโรงงานนี้มีอยู่ในบริษัทแล้ว",
+        },
         { status: 409 },
       );
     }
@@ -243,16 +278,28 @@ export async function POST(request: Request) {
     const latitude = toNumber(body.latitude);
     const longitude = toNumber(body.longitude);
 
-    if (latitude !== null && (latitude < -90 || latitude > 90)) {
+    if (
+      latitude !== null &&
+      (latitude < -90 || latitude > 90)
+    ) {
       return NextResponse.json(
-        { success: false, message: "Latitude ต้องอยู่ระหว่าง -90 ถึง 90" },
+        {
+          success: false,
+          message: "Latitude ต้องอยู่ระหว่าง -90 ถึง 90",
+        },
         { status: 400 },
       );
     }
 
-    if (longitude !== null && (longitude < -180 || longitude > 180)) {
+    if (
+      longitude !== null &&
+      (longitude < -180 || longitude > 180)
+    ) {
       return NextResponse.json(
-        { success: false, message: "Longitude ต้องอยู่ระหว่าง -180 ถึง 180" },
+        {
+          success: false,
+          message: "Longitude ต้องอยู่ระหว่าง -180 ถึง 180",
+        },
         { status: 400 },
       );
     }
@@ -272,28 +319,38 @@ export async function POST(request: Request) {
         mapZoom: body.mapZoom ?? 16,
         phone: body.phone?.trim() || null,
         email: body.email?.trim().toLowerCase() || null,
-        timezone: body.timezone?.trim() || "Asia/Bangkok",
+        timezone:
+          body.timezone?.trim() || "Asia/Bangkok",
         status: "ACTIVE",
       },
-      select: { factoryId: true },
+      select: {
+        factoryId: true,
+      },
     });
 
     return NextResponse.json(
       {
         success: true,
         message: "เพิ่มโรงงานเรียบร้อยแล้ว",
-        data: { id: created.factoryId },
+        data: {
+          id: created.factoryId,
+        },
       },
       { status: 201 },
     );
   } catch (error) {
-    console.error("POST /api/company/factories failed:", error);
+    console.error(
+      "POST /api/company/factories failed:",
+      error,
+    );
 
     return NextResponse.json(
       {
         success: false,
         message:
-          error instanceof Error ? error.message : "ไม่สามารถเพิ่มโรงงานได้",
+          error instanceof Error
+            ? error.message
+            : "ไม่สามารถเพิ่มโรงงานได้",
       },
       { status: 500 },
     );

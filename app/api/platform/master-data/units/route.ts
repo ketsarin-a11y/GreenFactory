@@ -2,6 +2,30 @@ import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
 
+export const dynamic = "force-dynamic";
+
+function normalizeCode(value: unknown) {
+  return typeof value === "string"
+    ? value.trim().toUpperCase()
+    : "";
+}
+
+function normalizeText(value: unknown) {
+  return typeof value === "string"
+    ? value.trim()
+    : "";
+}
+
+function normalizeUnitType(value: unknown) {
+  return typeof value === "string"
+    ? value.trim().toUpperCase()
+    : "";
+}
+
+function isValidUnitCode(value: string) {
+  return /^[A-Z0-9_]+$/.test(value);
+}
+
 export async function GET() {
   try {
     const units = await prisma.unit.findMany({
@@ -73,25 +97,10 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
 
-    const unitCode =
-      typeof body.unitCode === "string"
-        ? body.unitCode.trim().toUpperCase()
-        : "";
-
-    const unitName =
-      typeof body.unitName === "string"
-        ? body.unitName.trim()
-        : "";
-
-    const symbol =
-      typeof body.symbol === "string"
-        ? body.symbol.trim()
-        : "";
-
-    const unitType =
-      typeof body.unitType === "string"
-        ? body.unitType.trim()
-        : "";
+    const unitCode = normalizeCode(body.unitCode);
+    const unitName = normalizeText(body.unitName);
+    const symbol = normalizeText(body.symbol);
+    const unitType = normalizeUnitType(body.unitType);
 
     if (!unitCode || !unitName || !symbol || !unitType) {
       return NextResponse.json(
@@ -103,17 +112,177 @@ export async function POST(request: Request) {
       );
     }
 
-    const existing = await prisma.unit.findUnique({
-      where: {
-        unitCode,
-      },
-    });
-
-    if (existing) {
+    if (!isValidUnitCode(unitCode)) {
       return NextResponse.json(
         {
           success: false,
-          message: "รหัสหน่วยวัดนี้มีอยู่แล้ว",
+          message:
+            "รหัสหน่วยวัดใช้ได้เฉพาะ A-Z, 0-9 และ _ เท่านั้น",
+        },
+        { status: 400 },
+      );
+    }
+
+    if (unitCode.length > 50) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "รหัสหน่วยวัดต้องไม่เกิน 50 ตัวอักษร",
+        },
+        { status: 400 },
+      );
+    }
+
+    if (unitName.length > 100) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "ชื่อหน่วยวัดต้องไม่เกิน 100 ตัวอักษร",
+        },
+        { status: 400 },
+      );
+    }
+
+    if (symbol.length > 30) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "สัญลักษณ์หน่วยต้องไม่เกิน 30 ตัวอักษร",
+        },
+        { status: 400 },
+      );
+    }
+
+    if (unitType.length > 50) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "ประเภทหน่วยต้องไม่เกิน 50 ตัวอักษร",
+        },
+        { status: 400 },
+      );
+    }
+
+    const [
+      existingByCode,
+      existingByName,
+      existingBySymbolAndType,
+    ] = await Promise.all([
+      prisma.unit.findUnique({
+        where: {
+          unitCode,
+        },
+        select: {
+          unitId: true,
+          unitCode: true,
+          unitName: true,
+          symbol: true,
+          unitType: true,
+          status: true,
+        },
+      }),
+
+      prisma.unit.findFirst({
+        where: {
+          unitName: {
+            equals: unitName,
+          },
+        },
+        select: {
+          unitId: true,
+          unitCode: true,
+          unitName: true,
+          symbol: true,
+          unitType: true,
+          status: true,
+        },
+      }),
+
+      prisma.unit.findFirst({
+        where: {
+          symbol: {
+            equals: symbol,
+          },
+          unitType: {
+            equals: unitType,
+          },
+        },
+        select: {
+          unitId: true,
+          unitCode: true,
+          unitName: true,
+          symbol: true,
+          unitType: true,
+          status: true,
+        },
+      }),
+    ]);
+
+    /*
+     * ถ้า CODE เดิมเคยถูกปิดใช้งาน
+     * ให้นำ Unit เดิมกลับมาใช้แทนการสร้าง record ใหม่
+     */
+    if (existingByCode) {
+      if (existingByCode.status !== "ACTIVE") {
+        const reactivated = await prisma.unit.update({
+          where: {
+            unitId: existingByCode.unitId,
+          },
+          data: {
+            unitName,
+            symbol,
+            unitType,
+            status: "ACTIVE",
+          },
+        });
+
+        return NextResponse.json(
+          {
+            success: true,
+            reactivated: true,
+            message: `นำหน่วย ${unitCode} กลับมาใช้งานแล้ว`,
+            data: reactivated,
+          },
+          { status: 200 },
+        );
+      }
+
+      return NextResponse.json(
+        {
+          success: false,
+          message: `รหัสหน่วยวัด ${unitCode} มีอยู่แล้ว`,
+        },
+        { status: 409 },
+      );
+    }
+
+    /*
+     * กันชื่อซ้ำใน Master Data
+     */
+    if (existingByName) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            existingByName.status === "ACTIVE"
+              ? `ชื่อหน่วย "${unitName}" มีอยู่แล้ว (${existingByName.unitCode})`
+              : `ชื่อหน่วย "${unitName}" มีอยู่แล้วแต่ถูกปิดใช้งาน (${existingByName.unitCode})`,
+        },
+        { status: 409 },
+      );
+    }
+
+    /*
+     * สัญลักษณ์เดียวกันสามารถมีได้ ถ้า unitType ต่างกัน
+     * แต่ symbol + unitType เดียวกันไม่ควรซ้ำ
+     */
+    if (existingBySymbolAndType) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            `สัญลักษณ์ "${symbol}" ในประเภท ${unitType} มีอยู่แล้ว ` +
+            `(${existingBySymbolAndType.unitCode})`,
         },
         { status: 409 },
       );

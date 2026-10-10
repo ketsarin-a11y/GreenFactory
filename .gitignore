@@ -29,3 +29,6 @@ Thumbs.db
 /storage/
 
 /operator-scan-current.txt
+
+# Local database backups
+/database/*.sql

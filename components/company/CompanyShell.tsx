@@ -9,7 +9,6 @@ import {
   CircleUserRound,
   Factory,
   Gauge,
-  Leaf,
   LoaderCircle,
   LogOut,
   Menu,
@@ -224,18 +223,31 @@ export default function CompanyShell({
               href="/company/dashboard"
               className={`flex items-center gap-3 group min-w-0 ${collapsed ? "justify-center" : ""}`}
             >
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-[#059669] to-[#10b981] text-white shadow-md shadow-emerald-500/25 transition-transform duration-300 group-hover:scale-105">
-                <Leaf className="h-5 w-5" strokeWidth={2.3} />
+              <div
+                className={`flex shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-emerald-100 bg-white shadow-sm transition-all duration-300 group-hover:shadow-md ${
+                  collapsed ? "h-11 w-11 p-1.5" : "h-12 w-12 p-1.5"
+                }`}
+              >
+                <img
+                  src="/images/LOGO.png"
+                  alt="GreenFactory Insight"
+                  className="h-full w-full object-contain"
+                />
               </div>
 
               {!collapsed && (
-                <div className="flex flex-col min-w-0">
-                  <span className="truncate text-base font-extrabold tracking-tight text-slate-900">
-                    GreenFactory
-                  </span>
-                  <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#059669]">
-                    Insight
-                  </span>
+                <div className="min-w-0">
+                  <div className="flex items-baseline gap-1">
+                    <span className="truncate text-[17px] font-extrabold tracking-[-0.03em] text-slate-900">
+                      GreenFactory
+                    </span>
+                    <span className="text-[17px] font-extrabold tracking-[-0.03em] text-emerald-600">
+                      Insight
+                    </span>
+                  </div>
+                  <p className="mt-0.5 truncate text-[9px] font-bold uppercase tracking-[0.17em] text-slate-400">
+                    Smart Factory Platform
+                  </p>
                 </div>
               )}
             </Link>

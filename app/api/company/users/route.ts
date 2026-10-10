@@ -47,7 +47,10 @@ async function requireCompanyAdmin() {
     };
   }
 
-  if (session.roleName !== "COMPANY_ADMIN" || !session.companyId) {
+  if (
+    session.roleName !== "COMPANY_ADMIN" ||
+    session.companyId == null
+  ) {
     return {
       ok: false as const,
       response: NextResponse.json(
@@ -57,7 +60,11 @@ async function requireCompanyAdmin() {
     };
   }
 
-  return { ok: true as const, session };
+  return {
+    ok: true as const,
+    session,
+    companyId: session.companyId,
+  };
 }
 
 async function validateScope(
@@ -65,51 +72,81 @@ async function validateScope(
   factoryId: number | null,
   departmentId: number | null,
 ) {
-  if (!factoryId) {
-    if (departmentId) {
-      return { ok: false as const, message: "ต้องเลือกโรงงานก่อนเลือกแผนก" };
+  if (factoryId == null) {
+    if (departmentId != null) {
+      return {
+        ok: false as const,
+        message: "ต้องเลือกโรงงานก่อนเลือกแผนก",
+      };
     }
+
     return { ok: true as const };
   }
 
   const factory = await prisma.factory.findFirst({
-    where: { factoryId, companyId },
-    select: { factoryId: true },
+    where: {
+      factoryId,
+      companyId,
+    },
+    select: {
+      factoryId: true,
+    },
   });
 
   if (!factory) {
-    return { ok: false as const, message: "โรงงานที่เลือกไม่ได้อยู่ในบริษัทนี้" };
+    return {
+      ok: false as const,
+      message: "โรงงานที่เลือกไม่ได้อยู่ในบริษัทนี้",
+    };
   }
 
-  if (!departmentId) return { ok: true as const };
+  if (departmentId == null) {
+    return { ok: true as const };
+  }
 
   const department = await prisma.department.findFirst({
     where: {
       departmentId,
       building: {
         factoryId,
-        factory: { companyId },
+        factory: {
+          companyId,
+        },
       },
     },
-    select: { departmentId: true },
+    select: {
+      departmentId: true,
+    },
   });
 
   if (!department) {
-    return { ok: false as const, message: "แผนกที่เลือกไม่ได้อยู่ในโรงงานนี้" };
+    return {
+      ok: false as const,
+      message: "แผนกที่เลือกไม่ได้อยู่ในโรงงานนี้",
+    };
   }
 
   return { ok: true as const };
 }
 
 async function makeUniqueUsername(email: string) {
-  const base = email.split("@")[0]?.toLowerCase().replace(/[^a-z0-9._-]/g, "") || "user";
+  const base =
+    email
+      .split("@")[0]
+      ?.toLowerCase()
+      .replace(/[^a-z0-9._-]/g, "") || "user";
+
   let username = base;
   let suffix = 1;
 
   while (
     await prisma.user.findUnique({
-      where: { username },
-      select: { userId: true },
+      where: {
+        username,
+      },
+      select: {
+        userId: true,
+      },
     })
   ) {
     username = `${base}${suffix}`;
@@ -122,14 +159,21 @@ async function makeUniqueUsername(email: string) {
 export async function GET() {
   try {
     const auth = await requireCompanyAdmin();
-    if (!auth.ok) return auth.response;
 
-    const companyId = auth.session.companyId;
+    if (!auth.ok) {
+      return auth.response;
+    }
+
+    const companyId = auth.companyId;
 
     const [users, factories, departments] = await Promise.all([
       prisma.user.findMany({
-        where: { companyId },
-        orderBy: { createdAt: "desc" },
+        where: {
+          companyId,
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
         select: {
           userId: true,
           employeeCode: true,
@@ -140,28 +184,58 @@ export async function GET() {
           lastLogin: true,
           factoryId: true,
           departmentId: true,
-          role: { select: { roleName: true } },
-          factory: { select: { factoryName: true } },
-          departmentRef: { select: { departmentName: true } },
+          role: {
+            select: {
+              roleName: true,
+            },
+          },
+          factory: {
+            select: {
+              factoryName: true,
+            },
+          },
+          departmentRef: {
+            select: {
+              departmentName: true,
+            },
+          },
         },
       }),
       prisma.factory.findMany({
-        where: { companyId, status: "ACTIVE" },
-        orderBy: { factoryName: "asc" },
-        select: { factoryId: true, factoryCode: true, factoryName: true },
+        where: {
+          companyId,
+          status: "ACTIVE",
+        },
+        orderBy: {
+          factoryName: "asc",
+        },
+        select: {
+          factoryId: true,
+          factoryCode: true,
+          factoryName: true,
+        },
       }),
       prisma.department.findMany({
         where: {
           status: "ACTIVE",
-          building: { factory: { companyId } },
+          building: {
+            factory: {
+              companyId,
+            },
+          },
         },
-        orderBy: { departmentName: "asc" },
+        orderBy: {
+          departmentName: "asc",
+        },
         select: {
           departmentId: true,
           departmentCode: true,
           departmentName: true,
           building: {
-            select: { factoryId: true, buildingName: true },
+            select: {
+              factoryId: true,
+              buildingName: true,
+            },
           },
         },
       }),
@@ -177,11 +251,14 @@ export async function GET() {
         email: user.email,
         role: user.role.roleName,
         factoryId: user.factoryId,
-        factoryName: user.factory?.factoryName ?? "ยังไม่กำหนด",
+        factoryName:
+          user.factory?.factoryName ?? "ยังไม่กำหนด",
         departmentId: user.departmentId,
         department:
           user.departmentRef?.departmentName ??
-          (user.role.roleName === "COMPANY_ADMIN" ? "ผู้บริหารบริษัท" : "ยังไม่กำหนด"),
+          (user.role.roleName === "COMPANY_ADMIN"
+            ? "ผู้บริหารบริษัท"
+            : "ยังไม่กำหนด"),
         status: user.status,
         lastLogin: formatLastLogin(user.lastLogin),
       })),
@@ -198,10 +275,14 @@ export async function GET() {
     });
   } catch (error) {
     console.error("GET /api/company/users failed:", error);
+
     return NextResponse.json(
       {
         success: false,
-        message: error instanceof Error ? error.message : "ไม่สามารถโหลดผู้ใช้งานได้",
+        message:
+          error instanceof Error
+            ? error.message
+            : "ไม่สามารถโหลดผู้ใช้งานได้",
       },
       { status: 500 },
     );
@@ -211,95 +292,182 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const auth = await requireCompanyAdmin();
-    if (!auth.ok) return auth.response;
 
-    const companyId = auth.session.companyId;
+    if (!auth.ok) {
+      return auth.response;
+    }
+
+    const companyId = auth.companyId;
     const body = (await request.json()) as CreateBody;
 
-    const employeeCode = body.employeeCode?.trim().toUpperCase() ?? "";
+    const employeeCode =
+      body.employeeCode?.trim().toUpperCase() ?? "";
     const firstName = body.firstName?.trim() ?? "";
     const lastName = body.lastName?.trim() ?? "";
     const email = body.email?.trim().toLowerCase() ?? "";
     const password = body.password ?? "";
     const roleName = body.role?.trim().toUpperCase() ?? "";
-    const factoryId = body.factoryId ? Number(body.factoryId) : null;
-    const departmentId = body.departmentId ? Number(body.departmentId) : null;
 
-    if (!employeeCode || !firstName || !lastName || !email || !password || !roleName) {
+    const factoryId =
+      body.factoryId == null || body.factoryId === 0
+        ? null
+        : Number(body.factoryId);
+
+    const departmentId =
+      body.departmentId == null || body.departmentId === 0
+        ? null
+        : Number(body.departmentId);
+
+    if (
+      !employeeCode ||
+      !firstName ||
+      !lastName ||
+      !email ||
+      !password ||
+      !roleName
+    ) {
       return NextResponse.json(
-        { success: false, message: "กรุณากรอกข้อมูลที่จำเป็นให้ครบ" },
+        {
+          success: false,
+          message: "กรุณากรอกข้อมูลที่จำเป็นให้ครบ",
+        },
         { status: 400 },
       );
     }
 
     if (!isAllowedRole(roleName)) {
       return NextResponse.json(
-        { success: false, message: "Company Admin สร้างได้เฉพาะ Manager หรือ Operator" },
+        {
+          success: false,
+          message:
+            "Company Admin สร้างได้เฉพาะ Manager หรือ Operator",
+        },
         { status: 400 },
       );
     }
 
     if (password.length < 8) {
       return NextResponse.json(
-        { success: false, message: "รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร" },
+        {
+          success: false,
+          message: "รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร",
+        },
         { status: 400 },
       );
     }
 
-    if (!factoryId) {
+    if (
+      factoryId == null ||
+      !Number.isInteger(factoryId) ||
+      factoryId <= 0
+    ) {
       return NextResponse.json(
-        { success: false, message: "Manager และ Operator ต้องสังกัดโรงงาน" },
+        {
+          success: false,
+          message: "Manager และ Operator ต้องสังกัดโรงงาน",
+        },
         { status: 400 },
       );
     }
 
-    if (roleName === "OPERATOR" && !departmentId) {
+    if (
+      departmentId != null &&
+      (!Number.isInteger(departmentId) || departmentId <= 0)
+    ) {
       return NextResponse.json(
-        { success: false, message: "Operator ต้องกำหนดแผนก" },
+        {
+          success: false,
+          message: "Department ID ไม่ถูกต้อง",
+        },
         { status: 400 },
       );
     }
 
-    const scope = await validateScope(companyId, factoryId, departmentId);
+    if (roleName === "OPERATOR" && departmentId == null) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Operator ต้องกำหนดแผนก",
+        },
+        { status: 400 },
+      );
+    }
+
+    const scope = await validateScope(
+      companyId,
+      factoryId,
+      departmentId,
+    );
+
     if (!scope.ok) {
       return NextResponse.json(
-        { success: false, message: scope.message },
+        {
+          success: false,
+          message: scope.message,
+        },
         { status: 400 },
       );
     }
 
-    const [duplicateEmail, duplicateEmployee, role] = await Promise.all([
-      prisma.user.findUnique({ where: { email }, select: { userId: true } }),
-      prisma.user.findFirst({
-        where: { companyId, employeeCode },
-        select: { userId: true },
-      }),
-      prisma.role.findFirst({
-        where: {
-          OR: [{ roleName }, { roleCode: roleName }],
-          status: "ACTIVE",
-        },
-        select: { roleId: true },
-      }),
-    ]);
+    const [duplicateEmail, duplicateEmployee, role] =
+      await Promise.all([
+        prisma.user.findUnique({
+          where: {
+            email,
+          },
+          select: {
+            userId: true,
+          },
+        }),
+        prisma.user.findFirst({
+          where: {
+            companyId,
+            employeeCode,
+          },
+          select: {
+            userId: true,
+          },
+        }),
+        prisma.role.findFirst({
+          where: {
+            OR: [
+              { roleName },
+              { roleCode: roleName },
+            ],
+            status: "ACTIVE",
+          },
+          select: {
+            roleId: true,
+          },
+        }),
+      ]);
 
     if (duplicateEmail) {
       return NextResponse.json(
-        { success: false, message: "อีเมลนี้มีผู้ใช้งานแล้ว" },
+        {
+          success: false,
+          message: "อีเมลนี้มีผู้ใช้งานแล้ว",
+        },
         { status: 409 },
       );
     }
 
     if (duplicateEmployee) {
       return NextResponse.json(
-        { success: false, message: "รหัสพนักงานนี้มีอยู่ในบริษัทแล้ว" },
+        {
+          success: false,
+          message: "รหัสพนักงานนี้มีอยู่ในบริษัทแล้ว",
+        },
         { status: 409 },
       );
     }
 
     if (!role) {
       return NextResponse.json(
-        { success: false, message: `ไม่พบ Role ${roleName} ในระบบ` },
+        {
+          success: false,
+          message: `ไม่พบ Role ${roleName} ในระบบ`,
+        },
         { status: 400 },
       );
     }
@@ -323,23 +491,31 @@ export async function POST(request: Request) {
         passwordHash,
         status: "ACTIVE",
       },
-      select: { userId: true },
+      select: {
+        userId: true,
+      },
     });
 
     return NextResponse.json(
       {
         success: true,
         message: "เพิ่มผู้ใช้งานเรียบร้อยแล้ว",
-        data: { id: user.userId },
+        data: {
+          id: user.userId,
+        },
       },
       { status: 201 },
     );
   } catch (error) {
     console.error("POST /api/company/users failed:", error);
+
     return NextResponse.json(
       {
         success: false,
-        message: error instanceof Error ? error.message : "ไม่สามารถเพิ่มผู้ใช้งานได้",
+        message:
+          error instanceof Error
+            ? error.message
+            : "ไม่สามารถเพิ่มผู้ใช้งานได้",
       },
       { status: 500 },
     );

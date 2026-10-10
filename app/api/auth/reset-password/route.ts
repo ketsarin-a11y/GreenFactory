@@ -1,108 +1,121 @@
-import { createHash } from "crypto";
-import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
+import crypto from "node:crypto";
+import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
 
+export const dynamic = "force-dynamic";
+
+type ResetPasswordBody = {
+  token?: string;
+  password?: string;
+};
+
+function sha256(value: string) {
+  return crypto.createHash("sha256").update(value).digest("hex");
+}
+
+function validatePassword(password: string) {
+  if (password.length < 8) {
+    return "รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร";
+  }
+
+  if (!/[A-Za-z]/.test(password) || !/\d/.test(password)) {
+    return "รหัสผ่านต้องมีทั้งตัวอักษรและตัวเลข";
+  }
+
+  return null;
+}
+
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    const body = (await request.json()) as ResetPasswordBody;
+    const token = body.token?.trim();
+    const password = body.password ?? "";
 
-    const token =
-      typeof body.token === "string"
-        ? body.token.trim()
-        : "";
+    if (!token || !password) {
+      return NextResponse.json(
+        { success: false, message: "ข้อมูลสำหรับตั้งรหัสผ่านใหม่ไม่ครบถ้วน" },
+        { status: 400 },
+      );
+    }
 
-    const password =
-      typeof body.password === "string"
-        ? body.password
-        : "";
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      return NextResponse.json(
+        { success: false, message: passwordError },
+        { status: 400 },
+      );
+    }
 
-    if (!token) {
+    const tokenHash = sha256(token);
+
+    const resetToken = await prisma.passwordResetToken.findUnique({
+      where: { tokenHash },
+    });
+
+    if (
+      !resetToken ||
+      resetToken.usedAt ||
+      resetToken.expiresAt.getTime() <= Date.now()
+    ) {
       return NextResponse.json(
         {
           success: false,
-          message: "ไม่พบ Token สำหรับตั้งรหัสผ่านใหม่",
+          message:
+            "ลิงก์ตั้งรหัสผ่านไม่ถูกต้องหรือหมดอายุแล้ว กรุณาขอลิงก์ใหม่",
         },
         { status: 400 },
       );
     }
 
-    if (password.length < 8) {
+    const user = await prisma.user.findUnique({
+      where: { userId: resetToken.userId },
+      select: {
+        userId: true,
+        status: true,
+      },
+    });
+
+    if (!user || user.status !== "ACTIVE") {
       return NextResponse.json(
         {
           success: false,
-          message: "รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร",
-        },
-        { status: 400 },
-      );
-    }
-
-    const tokenHash = createHash("sha256")
-      .update(token)
-      .digest("hex");
-
-    const resetToken =
-      await prisma.passwordResetToken.findUnique({
-        where: {
-          tokenHash,
-        },
-        select: {
-          resetTokenId: true,
-          userId: true,
-          expiresAt: true,
-          usedAt: true,
-        },
-      });
-
-    if (!resetToken) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "ลิงก์ตั้งรหัสผ่านไม่ถูกต้อง",
-        },
-        { status: 400 },
-      );
-    }
-
-    if (resetToken.usedAt) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "ลิงก์นี้ถูกใช้งานไปแล้ว",
-        },
-        { status: 400 },
-      );
-    }
-
-    if (resetToken.expiresAt.getTime() < Date.now()) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "ลิงก์ตั้งรหัสผ่านหมดอายุแล้ว กรุณาขอลิงก์ใหม่",
+          message:
+            "ลิงก์ตั้งรหัสผ่านไม่สามารถใช้งานได้ กรุณาติดต่อผู้ดูแลระบบ",
         },
         { status: 400 },
       );
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
+    const now = new Date();
 
     await prisma.$transaction([
       prisma.user.update({
-        where: {
-          userId: resetToken.userId,
-        },
+        where: { userId: user.userId },
         data: {
           passwordHash,
+          failedLogin: 0,
+          lockedUntil: null,
         },
       }),
 
       prisma.passwordResetToken.update({
+        where: { resetTokenId: resetToken.resetTokenId },
+        data: {
+          usedAt: now,
+        },
+      }),
+
+      prisma.passwordResetToken.updateMany({
         where: {
-          resetTokenId: resetToken.resetTokenId,
+          userId: user.userId,
+          resetTokenId: { not: resetToken.resetTokenId },
+          usedAt: null,
         },
         data: {
-          usedAt: new Date(),
+          usedAt: now,
         },
       }),
     ]);

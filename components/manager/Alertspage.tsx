@@ -1,522 +1,944 @@
 "use client";
-
-import { useMemo, useState } from "react";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
-  Zap,
-  Wind,
-  Cloud,
-  Droplet,
-  CheckCircle2,
-  Trash2,
-  Info,
   AlertTriangle,
-  MoreVertical,
-  ChevronRight,
   Building2,
-  Calendar,
-  Clock,
-  Settings2,
-  CheckSquare,
-  ArrowRight,
+  CalendarDays,
+  Check,
+  CheckCircle2,
+  ChevronRight,
+  CircleAlert,
+  Clock3,
+  LoaderCircle,
+  RefreshCw,
+  Search,
+  ShieldAlert,
   Wrench,
-  Gauge,
+  XCircle,
 } from "lucide-react";
 
-/**
- * components/manager/AlertsPage.tsx
- * -------------------------------------
- * หน้านี้ทั้งหมดเป็น MOCK DATA เพราะระบบยังไม่มีตาราง Alert/Notification
- * และไม่มีตารางเกณฑ์ (threshold) ที่ใช้เทียบเพื่อสร้างการแจ้งเตือนอัตโนมัติ
- * เลยแม้แต่ตัวเดียว — แต่การโต้ตอบ (เลือกดู, กรองแท็บ, ทำเครื่องหมายว่าอ่าน
- * แล้ว/เปลี่ยนสถานะดำเนินการ) ทำงานได้จริงในหน้าเว็บ (state บนเบราว์เซอร์
- * เท่านั้น ไม่บันทึกลง DB — รีเฟรชหน้าจะรีเซ็ตกลับเป็นค่าเริ่มต้น)
- *
- * ถ้าต้องการให้เป็นของจริง ต้องมีอย่างน้อย:
- *  - ตาราง Alert (title, description, severity, category, read, actionStatus, ...)
- *  - ตาราง Threshold/KPITarget ต่อประเภททรัพยากร เพื่อเทียบว่า "เกินเกณฑ์" จริง
- *  - Background job/cron ที่ตรวจข้อมูลแล้วสร้างแจ้งเตือนอัตโนมัติ
- */
+type AlertStatus = "OPEN" | "ACKNOWLEDGED" | "RESOLVED" | string;
+type AlertSeverity = "CRITICAL" | "HIGH" | "WARNING" | "MEDIUM" | "INFO" | string;
 
-type Severity = "สำคัญ" | "เตือน" | "ข้อมูล";
-type ActionStatus = "ยังไม่ดำเนินการ" | "กำลังดำเนินการ" | "ดำเนินการแล้ว";
-
-interface AlertDetail {
-  currentValue: number;
-  unit: string;
-  thresholdValue: number;
-  overValue: number;
-  overPercent: number;
-  building: string;
-  buildingType: string;
-  trend: { dateLabel: string; actual: number; threshold: number }[];
-  recommendations: string[];
-  analysisHref: string;
-  buildingHref: string;
-}
-
-interface AlertItem {
+interface ManagerAlert {
   id: string;
+  alertCode?: string;
+  alertType?: string;
+  severity: AlertSeverity;
   title: string;
-  description: string;
-  icon: typeof Zap;
-  iconTone: string;
-  severity: Severity;
-  location: string;
-  date: string;
-  time: string;
-  read: boolean;
-  actionStatus: ActionStatus;
-  detail?: AlertDetail;
+  message: string;
+  status: AlertStatus;
+  triggeredAt: string;
+
+  thresholdValue?: number | null;
+  actualValue?: number | null;
+
+  factoryName?: string | null;
+  buildingName?: string | null;
+  departmentName?: string | null;
+  lineName?: string | null;
+  machineId?: number | null;
+  machineCode?: string | null;
+  machineName?: string | null;
+
+  acknowledgedAt?: string | null;
+  resolvedAt?: string | null;
 }
 
-const INITIAL_ALERTS: AlertItem[] = [
-  {
-    id: "a1",
-    title: "การใช้พลังงานเกินเกณฑ์",
-    description: "การใช้พลังงานของอาคาร A เกินเกณฑ์ 110% เมื่อเวลา 09:30 น.",
-    icon: Zap,
-    iconTone: "bg-red-50 text-red-600",
-    severity: "สำคัญ",
-    location: "อาคาร A",
-    date: "26 มิ.ย. 2567",
-    time: "09:30 น.",
-    read: false,
-    actionStatus: "ยังไม่ดำเนินการ",
-    detail: {
-      currentValue: 125450,
-      unit: "kWh",
-      thresholdValue: 114000,
-      overValue: 11450,
-      overPercent: 110,
-      building: "อาคาร A",
-      buildingType: "Production Building",
-      trend: [
-        { dateLabel: "20 มิ.ย.", actual: 92000, threshold: 114000 },
-        { dateLabel: "21 มิ.ย.", actual: 96000, threshold: 114000 },
-        { dateLabel: "22 มิ.ย.", actual: 94000, threshold: 114000 },
-        { dateLabel: "23 มิ.ย.", actual: 101000, threshold: 114000 },
-        { dateLabel: "24 มิ.ย.", actual: 98000, threshold: 114000 },
-        { dateLabel: "25 มิ.ย.", actual: 108000, threshold: 114000 },
-        { dateLabel: "26 มิ.ย.", actual: 125450, threshold: 114000 },
-      ],
-      recommendations: [
-        "ตรวจสอบการทำงานของเครื่องจักรหลัก",
-        "ปิดอุปกรณ์ที่ไม่ได้ใช้งาน",
-        "ตรวจสอบการรั่วไหลของอากาศเย็น",
-        "พิจารณาปรับปรุงประสิทธิภาพเครื่องจักร",
-      ],
-      analysisHref: "/manager/overview/energy",
-      buildingHref: "/manager/overview/buildings",
-    },
-  },
-  {
-    id: "a2",
-    title: "คุณภาพอากาศอยู่ในระดับเริ่มมีผลกระทบ",
-    description: "AQI ของโรงงานอยู่ที่ 156 (เริ่มมีผลกระทบต่อสุขภาพ)",
-    icon: Wind,
-    iconTone: "bg-amber-50 text-amber-600",
-    severity: "เตือน",
-    location: "โรงงาน",
-    date: "26 มิ.ย. 2567",
-    time: "08:45 น.",
-    read: false,
-    actionStatus: "ยังไม่ดำเนินการ",
-    detail: {
-      currentValue: 156,
-      unit: "AQI",
-      thresholdValue: 100,
-      overValue: 56,
-      overPercent: 156,
-      building: "อาคาร Clean Room",
-      buildingType: "Cleanroom Facility",
-      trend: [
-        { dateLabel: "20 มิ.ย.", actual: 88, threshold: 100 },
-        { dateLabel: "21 มิ.ย.", actual: 92, threshold: 100 },
-        { dateLabel: "22 มิ.ย.", actual: 96, threshold: 100 },
-        { dateLabel: "23 มิ.ย.", actual: 104, threshold: 100 },
-        { dateLabel: "24 มิ.ย.", actual: 118, threshold: 100 },
-        { dateLabel: "25 มิ.ย.", actual: 133, threshold: 100 },
-        { dateLabel: "26 มิ.ย.", actual: 156, threshold: 100 },
-      ],
-      recommendations: ["ตรวจสอบระบบระบายอากาศ", "เพิ่มความถี่การเปลี่ยนแผ่นกรองอากาศ", "จำกัดกิจกรรมที่ก่อฝุ่นชั่วคราว"],
-      analysisHref: "/manager/overview/air-quality",
-      buildingHref: "/manager/overview/buildings",
-    },
-  },
-  {
-    id: "a3",
-    title: "Carbon Footprint เพิ่มขึ้น 12%",
-    description: "Carbon Footprint เดือนนี้เพิ่มขึ้น 12% เมื่อเทียบกับเดือนที่ผ่านมา",
-    icon: Cloud,
-    iconTone: "bg-violet-50 text-violet-600",
-    severity: "เตือน",
-    location: "โรงงาน",
-    date: "26 มิ.ย. 2567",
-    time: "08:30 น.",
-    read: false,
-    actionStatus: "ยังไม่ดำเนินการ",
-    detail: {
-      currentValue: 275.25,
-      unit: "tCO2e",
-      thresholdValue: 245,
-      overValue: 30.25,
-      overPercent: 112,
-      building: "ทั้งโรงงาน",
-      buildingType: "Facility-wide",
-      trend: [
-        { dateLabel: "ม.ค.", actual: 210, threshold: 245 },
-        { dateLabel: "ก.พ.", actual: 220, threshold: 245 },
-        { dateLabel: "มี.ค.", actual: 232, threshold: 245 },
-        { dateLabel: "เม.ย.", actual: 238, threshold: 245 },
-        { dateLabel: "พ.ค.", actual: 246, threshold: 245 },
-        { dateLabel: "มิ.ย.", actual: 275, threshold: 245 },
-      ],
-      recommendations: ["ตรวจสอบสัดส่วนการใช้เชื้อเพลิง Scope 1", "พิจารณาแหล่งพลังงานสะอาดทดแทน", "ทบทวนเป้าหมายลดคาร์บอนรายไตรมาส"],
-      analysisHref: "/manager/overview/carbon",
-      buildingHref: "/manager/overview/buildings",
-    },
-  },
-  {
-    id: "a4",
-    title: "ปริมาณการใช้น้ำใกล้ถึงเป้าหมาย",
-    description: "การใช้น้ำของอาคาร B ใกล้ถึงเป้าหมายรายเดือน (90%)",
-    icon: Droplet,
-    iconTone: "bg-sky-50 text-sky-600",
-    severity: "เตือน",
-    location: "อาคาร B",
-    date: "26 มิ.ย. 2567",
-    time: "08:15 น.",
-    read: false,
-    actionStatus: "ยังไม่ดำเนินการ",
-  },
-  {
-    id: "a5",
-    title: "รายงานรายวันพร้อมใช้งาน",
-    description: "รายงานสรุปการใช้พลังงานประจำวัน 25 มิ.ย. 2567 พร้อมให้ดาวน์โหลด",
-    icon: CheckCircle2,
-    iconTone: "bg-emerald-50 text-emerald-600",
-    severity: "ข้อมูล",
-    location: "ระบบ",
-    date: "26 มิ.ย. 2567",
-    time: "07:00 น.",
-    read: true,
-    actionStatus: "ดำเนินการแล้ว",
-  },
-  {
-    id: "a6",
-    title: "ปริมาณของเสียเกินเกณฑ์",
-    description: "ปริมาณของเสียประเภทพลาสติกเกินเกณฑ์ 120%",
-    icon: Trash2,
-    iconTone: "bg-red-50 text-red-600",
-    severity: "สำคัญ",
-    location: "อาคาร C",
-    date: "25 มิ.ย. 2567",
-    time: "16:20 น.",
-    read: false,
-    actionStatus: "ยังไม่ดำเนินการ",
-  },
-  {
-    id: "a7",
-    title: "บำรุงรักษาเครื่องจักรประจำเดือน",
-    description: "เครื่องจักร Machine-01 ถึงรอบบำรุงรักษาประจำเดือน",
-    icon: Wrench,
-    iconTone: "bg-slate-100 text-slate-600",
-    severity: "ข้อมูล",
-    location: "แผนกซ่อมบำรุง",
-    date: "25 มิ.ย. 2567",
-    time: "14:10 น.",
-    read: false,
-    actionStatus: "กำลังดำเนินการ",
-  },
-  {
-    id: "a8",
-    title: "OEE ต่ำกว่าเป้าหมาย",
-    description: "SMT Line 2 มีค่า OEE ต่ำกว่าเป้าหมาย 3 วันติดต่อกัน",
-    icon: Gauge,
-    iconTone: "bg-amber-50 text-amber-600",
-    severity: "สำคัญ",
-    location: "SMT Line 2",
-    date: "25 มิ.ย. 2567",
-    time: "13:05 น.",
-    read: true,
-    actionStatus: "กำลังดำเนินการ",
-  },
+type TabKey = "all" | "open" | "critical" | "high" | "warning" | "resolved";
+
+const TABS: Array<{ key: TabKey; label: string }> = [
+  { key: "all", label: "ทั้งหมด" },
+  { key: "open", label: "เปิดอยู่" },
+  { key: "critical", label: "Critical" },
+  { key: "high", label: "High" },
+  { key: "warning", label: "Warning" },
+  { key: "resolved", label: "Resolved" },
 ];
 
-const TABS = [
-  { key: "all", label: "ทั้งหมด" },
-  { key: "unread", label: "ยังไม่อ่าน" },
-  { key: "สำคัญ", label: "สำคัญ" },
-  { key: "เตือน", label: "เตือน" },
-  { key: "ข้อมูล", label: "ข้อมูล" },
-] as const;
+function severityMeta(severity: string) {
+  const s = severity.toUpperCase();
 
-const ACTION_OPTIONS: ActionStatus[] = ["ยังไม่ดำเนินการ", "กำลังดำเนินการ", "ดำเนินการแล้ว"];
+  if (s === "CRITICAL") {
+    return {
+      label: "CRITICAL",
+      icon: AlertTriangle,
+      badge: "bg-rose-50 text-rose-700 ring-rose-100",
+      iconBox: "bg-rose-100 text-rose-700 ring-rose-200",
+      border: "border-rose-200",
+      accent: "bg-rose-500",
+    };
+  }
+
+  if (s === "HIGH") {
+    return {
+      label: "HIGH",
+      icon: ShieldAlert,
+      badge: "bg-orange-50 text-orange-700 ring-orange-100",
+      iconBox: "bg-orange-100 text-orange-700 ring-orange-200",
+      border: "border-orange-200",
+      accent: "bg-orange-500",
+    };
+  }
+
+  if (s === "WARNING" || s === "MEDIUM") {
+    return {
+      label: "WARNING",
+      icon: CircleAlert,
+      badge: "bg-amber-50 text-amber-700 ring-amber-100",
+      iconBox: "bg-amber-100 text-amber-700 ring-amber-200",
+      border: "border-amber-200",
+      accent: "bg-amber-500",
+    };
+  }
+
+  return {
+    label: "INFO",
+    icon: CircleAlert,
+    badge: "bg-sky-50 text-sky-700 ring-sky-100",
+    iconBox: "bg-sky-100 text-sky-700 ring-sky-200",
+    border: "border-sky-200",
+    accent: "bg-sky-500",
+  };
+}
+
+function statusMeta(status: string) {
+  const s = status.toUpperCase();
+
+  if (s === "OPEN") {
+    return {
+      label: "เปิดอยู่",
+      className: "bg-rose-50 text-rose-700 ring-rose-100",
+    };
+  }
+
+  if (s === "ACKNOWLEDGED") {
+    return {
+      label: "รับทราบแล้ว",
+      className: "bg-amber-50 text-amber-700 ring-amber-100",
+    };
+  }
+
+  if (s === "RESOLVED") {
+    return {
+      label: "แก้ไขแล้ว",
+      className: "bg-emerald-50 text-emerald-700 ring-emerald-100",
+    };
+  }
+
+  return {
+    label: status,
+    className: "bg-slate-100 text-slate-600 ring-slate-200",
+  };
+}
+
+function formatDateTime(value?: string | null) {
+  if (!value) return "-";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+
+  return new Intl.DateTimeFormat("th-TH", {
+    day: "numeric",
+    month: "short",
+    year: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Asia/Bangkok",
+  }).format(date);
+}
+
+function fmt(value: number | null | undefined) {
+  if (value === null || value === undefined || !Number.isFinite(Number(value))) {
+    return "-";
+  }
+
+  return Number(value).toLocaleString("th-TH", {
+    maximumFractionDigits: 2,
+  });
+}
+
+function normalizePayload(payload: unknown): ManagerAlert[] {
+  if (Array.isArray(payload)) return payload as ManagerAlert[];
+
+  if (
+    payload &&
+    typeof payload === "object" &&
+    "alerts" in payload &&
+    Array.isArray((payload as { alerts?: unknown }).alerts)
+  ) {
+    return (payload as { alerts: ManagerAlert[] }).alerts;
+  }
+
+  return [];
+}
 
 export default function AlertsPage() {
-  const [alerts, setAlerts] = useState<AlertItem[]>(INITIAL_ALERTS);
-  const [tab, setTab] = useState<(typeof TABS)[number]["key"]>("all");
-  const [selectedId, setSelectedId] = useState<string>(INITIAL_ALERTS[0].id);
+  const [alerts, setAlerts] = useState<ManagerAlert[]>([]);
+  const [tab, setTab] = useState<TabKey>("all");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
 
-  const counts = useMemo(
-    () => ({
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState("");
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+
+  async function loadAlerts(options?: { silent?: boolean }) {
+    const silent = options?.silent ?? false;
+
+    if (!silent) setLoading(true);
+    else setRefreshing(true);
+
+    setError("");
+
+    try {
+      const response = await fetch("/api/manager/notifications", {
+        method: "GET",
+        credentials: "include",
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        throw new Error(`Notification request failed: ${response.status}`);
+      }
+
+      const payload = await response.json();
+      const nextAlerts = normalizePayload(payload);
+
+      setAlerts(nextAlerts);
+
+      setSelectedId((current) => {
+        if (current && nextAlerts.some((item) => item.id === current)) {
+          return current;
+        }
+
+        return nextAlerts[0]?.id ?? null;
+      });
+    } catch (e) {
+      console.error("Load manager alerts error:", e);
+      setError("โหลดการแจ้งเตือนไม่สำเร็จ");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }
+
+  useEffect(() => {
+    loadAlerts();
+
+    const timer = window.setInterval(() => {
+      loadAlerts({ silent: true });
+    }, 10000);
+
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const counts = useMemo(() => {
+    const open = alerts.filter((a) => a.status.toUpperCase() === "OPEN").length;
+    const critical = alerts.filter(
+      (a) => a.severity.toUpperCase() === "CRITICAL",
+    ).length;
+    const high = alerts.filter((a) => a.severity.toUpperCase() === "HIGH").length;
+    const warning = alerts.filter((a) =>
+      ["WARNING", "MEDIUM"].includes(a.severity.toUpperCase()),
+    ).length;
+    const resolved = alerts.filter(
+      (a) => a.status.toUpperCase() === "RESOLVED",
+    ).length;
+
+    return {
       all: alerts.length,
-      unread: alerts.filter((a) => !a.read).length,
-      สำคัญ: alerts.filter((a) => a.severity === "สำคัญ").length,
-      เตือน: alerts.filter((a) => a.severity === "เตือน").length,
-      ข้อมูล: alerts.filter((a) => a.severity === "ข้อมูล").length,
-    }),
-    [alerts],
-  );
+      open,
+      critical,
+      high,
+      warning,
+      resolved,
+    };
+  }, [alerts]);
 
   const filtered = useMemo(() => {
-    if (tab === "all") return alerts;
-    if (tab === "unread") return alerts.filter((a) => !a.read);
-    return alerts.filter((a) => a.severity === tab);
-  }, [alerts, tab]);
+    const q = search.trim().toLowerCase();
 
-  const selected = alerts.find((a) => a.id === selectedId) ?? filtered[0] ?? null;
+    return alerts.filter((alert) => {
+      const severity = alert.severity.toUpperCase();
+      const status = alert.status.toUpperCase();
 
-  function markRead(id: string, read = true) {
-    setAlerts((prev) => prev.map((a) => (a.id === id ? { ...a, read } : a)));
-  }
+      let tabMatch = true;
 
-  function setActionStatus(id: string, actionStatus: ActionStatus) {
-    setAlerts((prev) => prev.map((a) => (a.id === id ? { ...a, actionStatus } : a)));
-  }
+      if (tab === "open") tabMatch = status === "OPEN";
+      if (tab === "critical") tabMatch = severity === "CRITICAL";
+      if (tab === "high") tabMatch = severity === "HIGH";
+      if (tab === "warning") tabMatch = severity === "WARNING" || severity === "MEDIUM";
+      if (tab === "resolved") tabMatch = status === "RESOLVED";
 
-  function selectAlert(id: string) {
-    setSelectedId(id);
-    markRead(id, true);
+      if (!tabMatch) return false;
+      if (!q) return true;
+
+      return [
+        alert.title,
+        alert.message,
+        alert.alertCode,
+        alert.alertType,
+        alert.factoryName,
+        alert.buildingName,
+        alert.departmentName,
+        alert.lineName,
+        alert.machineCode,
+        alert.machineName,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(q);
+    });
+  }, [alerts, tab, search]);
+
+  const selected =
+    alerts.find((item) => item.id === selectedId) ??
+    filtered[0] ??
+    null;
+
+  async function acknowledge(alertId: string) {
+    if (updatingId) return;
+
+    setUpdatingId(alertId);
+
+    try {
+      const response = await fetch("/api/manager/notifications", {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          alertId,
+          action: "ACKNOWLEDGE",
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Acknowledge failed: ${response.status}`);
+      }
+
+      await loadAlerts({ silent: true });
+    } catch (e) {
+      console.error("Acknowledge alert error:", e);
+      setError("รับทราบ Alert ไม่สำเร็จ");
+    } finally {
+      setUpdatingId(null);
+    }
   }
 
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.1fr_1.4fr]">
-      {/* รายการแจ้งเตือน */}
-      <section className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-white p-2">
-          <div className="flex flex-wrap gap-1">
-            {TABS.map((t) => (
-              <button
-                key={t.key}
-                type="button"
-                onClick={() => setTab(t.key)}
-                className={`flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium ${
-                  tab === t.key ? "bg-slate-900 text-white" : "text-slate-500 hover:bg-slate-50"
-                }`}
-              >
-                {t.label}
-                <span className={`rounded-full px-1.5 text-[10px] ${tab === t.key ? "bg-white/20" : "bg-slate-100"}`}>{counts[t.key]}</span>
-              </button>
-            ))}
-          </div>
-        </div>
+    <main className="min-h-[calc(100vh-72px)] bg-[#f7f8f8] px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-[1500px] space-y-5">
 
-        <div className="flex flex-col gap-2">
-          {filtered.map((a) => (
-            <button
-              key={a.id}
-              type="button"
-              onClick={() => selectAlert(a.id)}
-              className={`flex items-start gap-3 rounded-2xl border p-4 text-left transition-colors ${
-                selected?.id === a.id ? "border-emerald-300 bg-emerald-50/50" : "border-slate-200 bg-white hover:bg-slate-50"
-              }`}
-            >
-              <span className="mt-1.5 flex flex-col items-center gap-1">{!a.read && <span className="h-2 w-2 rounded-full bg-emerald-500" />}</span>
-              <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${a.iconTone}`}>
-                <a.icon size={16} />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="mb-0.5 flex items-center gap-2">
-                  <span className="truncate text-sm font-semibold text-slate-800">{a.title}</span>
-                  {a.severity === "สำคัญ" && <SeverityBadge severity={a.severity} />}
-                </span>
-                <span className="block truncate text-xs text-slate-500">{a.description}</span>
-                <span className="mt-1 flex items-center gap-1.5 text-[11px] text-slate-400">
-                  {a.location} <span className="h-1 w-1 rounded-full bg-slate-300" /> {a.date} {a.time}
-                </span>
-              </span>
-              <ChevronRight size={16} className="mt-2 shrink-0 text-slate-300" />
-            </button>
-          ))}
-          {filtered.length === 0 && <p className="py-10 text-center text-sm text-slate-400">ไม่มีการแจ้งเตือนในหมวดนี้</p>}
-        </div>
+        {/* =========================================================
+            HEADER
+        ========================================================== */}
+        <section className="relative overflow-hidden rounded-[30px] border border-slate-200 bg-white px-6 py-6 shadow-[0_12px_36px_rgba(15,23,42,0.05)] sm:px-7">
+          <div className="absolute inset-x-0 top-0 h-[4px] bg-gradient-to-r from-rose-500 via-amber-400 to-sky-500" />
 
-        <button type="button" className="rounded-2xl border border-slate-200 bg-white py-2.5 text-sm font-medium text-slate-500 hover:bg-slate-50">
-          โหลดเพิ่มเติม
-        </button>
-      </section>
-
-      {/* รายละเอียด */}
-      <section className="flex flex-col gap-4">
-        {!selected ? (
-          <div className="flex h-full min-h-[300px] items-center justify-center rounded-2xl border border-slate-200 bg-white text-sm text-slate-400">
-            เลือกการแจ้งเตือนทางซ้ายเพื่อดูรายละเอียด
-          </div>
-        ) : (
-          <>
-            <div className="rounded-2xl border border-slate-200 bg-white p-6">
-              <div className="mb-3 flex items-start justify-between gap-3">
-                <div className="flex items-start gap-3">
-                  <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${selected.iconTone}`}>
-                    <selected.icon size={20} />
-                  </span>
-                  <div>
-                    <SeverityBadge severity={selected.severity} />
-                    <h2 className="mt-1 text-lg font-bold text-slate-900">{selected.title}</h2>
-                    <p className="text-sm text-slate-500">{selected.description}</p>
-                    <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-400">
-                      <span className="flex items-center gap-1">
-                        <Building2 size={12} /> {selected.location}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Calendar size={12} /> {selected.date}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Clock size={12} /> {selected.time}
-                      </span>
-                      <span>{selected.read ? "อ่านแล้ว" : "ยังไม่อ่าน"}</span>
-                    </p>
-                  </div>
-                </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => markRead(selected.id, !selected.read)}
-                    className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50"
-                  >
-                    <CheckSquare size={13} />
-                    {selected.read ? "ทำเครื่องหมายว่ายังไม่อ่าน" : "ทำเครื่องหมายว่าอ่านแล้ว"}
-                  </button>
-                  <button type="button" className="rounded-lg p-2 text-slate-400 hover:bg-slate-100">
-                    <MoreVertical size={16} />
-                  </button>
-                </div>
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-end">
+            <div>
+              <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-rose-50 px-3 py-1.5 text-xs font-bold text-rose-700 ring-1 ring-rose-100">
+                <ShieldAlert className="h-3.5 w-3.5" />
+                Alert Command Center
               </div>
 
-              {selected.detail ? (
-                <>
-                  <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                    <MetricCard label="ค่าปัจจุบัน" value={selected.detail.currentValue.toLocaleString("th-TH")} unit={selected.detail.unit} />
-                    <MetricCard label="เกณฑ์ที่กำหนด" value={selected.detail.thresholdValue.toLocaleString("th-TH")} unit={selected.detail.unit} />
-                    <MetricCard
-                      label="เกินเกณฑ์"
-                      value={selected.detail.overValue.toLocaleString("th-TH")}
-                      unit={selected.detail.unit}
-                      tone="text-red-500"
-                      sub={`(${selected.detail.overPercent}%)`}
-                    />
-                    <div className="rounded-xl border border-slate-100 p-3">
-                      <p className="mb-1 flex items-center gap-1 text-xs text-slate-400">
-                        <Building2 size={12} /> ตำแหน่ง
-                      </p>
-                      <p className="text-sm font-semibold text-slate-800">{selected.detail.building}</p>
-                      <p className="text-xs text-slate-400">{selected.detail.buildingType}</p>
-                    </div>
-                  </div>
+              <h1 className="text-3xl font-black tracking-tight text-slate-950">
+                ศูนย์แจ้งเตือนและเหตุการณ์
+              </h1>
 
-                  <div className="mb-4 rounded-xl border border-slate-100 p-4">
-                    <h3 className="mb-2 text-sm font-semibold text-slate-800">แนวโน้ม</h3>
-                    <ResponsiveContainer width="100%" height={200}>
-                      <LineChart data={selected.detail.trend}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                        <XAxis dataKey="dateLabel" tick={{ fontSize: 11, fill: "#94a3b8" }} />
-                        <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} width={45} />
-                        <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} />
-                        <Legend wrapperStyle={{ fontSize: 11 }} />
-                        <Line type="monotone" dataKey="actual" name="ค่าจริง" stroke="#059669" strokeWidth={2} dot={{ r: 3 }} />
-                        <Line type="monotone" dataKey="threshold" name="เกณฑ์ที่กำหนด" stroke="#ef4444" strokeDasharray="5 5" strokeWidth={1.5} dot={false} />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.3fr_1fr]">
-                    <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-4">
-                      <h3 className="mb-2 text-sm font-semibold text-emerald-700">คำแนะนำ</h3>
-                      <ul className="flex flex-col gap-1.5">
-                        {selected.detail.recommendations.map((r) => (
-                          <li key={r} className="flex items-start gap-2 text-sm text-slate-600">
-                            <Settings2 size={13} className="mt-0.5 shrink-0 text-emerald-500" />
-                            {r}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                    <div className="flex flex-col gap-2">
-                      <a href={selected.detail.analysisHref} className="flex items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-700">
-                        ดูรายละเอียดการวิเคราะห์
-                        <ArrowRight size={15} />
-                      </a>
-                      <a
-                        href={selected.detail.buildingHref}
-                        className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 py-3 text-sm font-medium text-slate-600 hover:bg-slate-50"
-                      >
-                        <Building2 size={15} />
-                        ดู{selected.detail.building}
-                      </a>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div className="flex items-center gap-2 rounded-xl bg-slate-50 px-4 py-6 text-sm text-slate-400">
-                  <Info size={16} />
-                  การแจ้งเตือนนี้ไม่มีรายละเอียดเชิงลึกเพิ่มเติม
-                </div>
-              )}
-            </div>
-
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4">
-              <p className="flex items-center gap-1.5 text-xs text-slate-400">
-                <Info size={13} /> สร้างโดยระบบ · {selected.date} {selected.time}
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+                ติดตาม Alert จริงจากฐานข้อมูล ดูระดับความรุนแรง ตำแหน่ง
+                ค่าที่เกินเกณฑ์ และรับทราบเหตุการณ์จากหน้าเดียว
               </p>
-              <div className="flex flex-wrap gap-1.5">
-                {ACTION_OPTIONS.map((opt) => (
-                  <button
-                    key={opt}
-                    type="button"
-                    onClick={() => setActionStatus(selected.id, opt)}
-                    className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium ${
-                      selected.actionStatus === opt ? actionStyle(opt) : "border border-slate-200 text-slate-400 hover:bg-slate-50"
-                    }`}
-                  >
-                    {opt === "ดำเนินการแล้ว" && <CheckCircle2 size={12} />}
-                    {opt === "กำลังดำเนินการ" && <AlertTriangle size={12} />}
-                    {opt}
-                  </button>
-                ))}
-              </div>
             </div>
-          </>
+
+            <div className="grid grid-cols-3 gap-3">
+              <SummaryBox
+                label="Open"
+                value={counts.open}
+                tone="rose"
+              />
+              <SummaryBox
+                label="Critical"
+                value={counts.critical}
+                tone="amber"
+              />
+              <SummaryBox
+                label="Resolved"
+                value={counts.resolved}
+                tone="emerald"
+              />
+            </div>
+          </div>
+        </section>
+
+        {/* =========================================================
+            FILTER BAR
+        ========================================================== */}
+        <section className="rounded-[24px] border border-slate-200 bg-white p-3 shadow-sm">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+            <div className="flex flex-wrap gap-1.5">
+              {TABS.map((item) => {
+                const count = counts[item.key];
+
+                return (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() => setTab(item.key)}
+                    className={[
+                      "inline-flex h-9 items-center gap-2 rounded-xl px-3 text-xs font-bold transition",
+                      tab === item.key
+                        ? "bg-slate-950 text-white"
+                        : "text-slate-500 hover:bg-slate-50 hover:text-slate-800",
+                    ].join(" ")}
+                  >
+                    {item.label}
+                    <span
+                      className={[
+                        "rounded-full px-1.5 py-0.5 text-[9px]",
+                        tab === item.key
+                          ? "bg-white/15 text-white"
+                          : "bg-slate-100 text-slate-500",
+                      ].join(" ")}
+                    >
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="flex gap-2">
+              <label className="relative min-w-0 flex-1 xl:w-[280px]">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-300" />
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="ค้นหา Alert, เครื่องจักร, อาคาร..."
+                  className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-xs text-slate-700 outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-50"
+                />
+              </label>
+
+              <button
+                type="button"
+                onClick={() => loadAlerts({ silent: true })}
+                disabled={refreshing}
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
+              >
+                {refreshing ? (
+                  <LoaderCircle className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" />
+                )}
+                Refresh
+              </button>
+            </div>
+          </div>
+        </section>
+
+        {error && (
+          <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+            {error}
+          </div>
         )}
-      </section>
+
+        {/* =========================================================
+            WORKSPACE
+        ========================================================== */}
+        <section className="grid gap-5 xl:grid-cols-[460px_minmax(0,1fr)]">
+          {/* LIST */}
+          <div className="overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.04)]">
+            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+              <div>
+                <h2 className="text-sm font-black text-slate-950">
+                  Alert Queue
+                </h2>
+                <p className="mt-1 text-[11px] text-slate-400">
+                  {filtered.length} รายการตามตัวกรองปัจจุบัน
+                </p>
+              </div>
+
+              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-500">
+                Live
+              </span>
+            </div>
+
+            {loading ? (
+              <div className="flex min-h-[420px] items-center justify-center">
+                <div className="text-center">
+                  <LoaderCircle className="mx-auto h-6 w-6 animate-spin text-slate-400" />
+                  <p className="mt-3 text-xs font-semibold text-slate-500">
+                    กำลังโหลด Alert
+                  </p>
+                </div>
+              </div>
+            ) : filtered.length === 0 ? (
+              <div className="flex min-h-[420px] items-center justify-center px-6 text-center">
+                <div>
+                  <CheckCircle2 className="mx-auto h-9 w-9 text-emerald-500" />
+                  <p className="mt-3 text-sm font-bold text-slate-800">
+                    ไม่มี Alert ในหมวดนี้
+                  </p>
+                  <p className="mt-1 text-xs text-slate-400">
+                    ลองเปลี่ยนตัวกรองหรือค้นหาใหม่
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="max-h-[720px] overflow-y-auto p-2.5">
+                <div className="space-y-2">
+                  {filtered.map((alert) => (
+                    <AlertListItem
+                      key={alert.id}
+                      alert={alert}
+                      selected={selected?.id === alert.id}
+                      onClick={() => setSelectedId(alert.id)}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* DETAIL */}
+          <div className="min-w-0">
+            {!selected ? (
+              <div className="flex min-h-[520px] items-center justify-center rounded-[26px] border border-slate-200 bg-white shadow-sm">
+                <div className="text-center">
+                  <CircleAlert className="mx-auto h-8 w-8 text-slate-300" />
+                  <p className="mt-3 text-sm font-bold text-slate-700">
+                    เลือก Alert เพื่อดูรายละเอียด
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <AlertDetailPanel
+                alert={selected}
+                updating={updatingId === selected.id}
+                onAcknowledge={() => acknowledge(selected.id)}
+              />
+            )}
+          </div>
+        </section>
+      </div>
+    </main>
+  );
+}
+
+function SummaryBox({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number;
+  tone: "rose" | "amber" | "emerald";
+}) {
+  const styles = {
+    rose: "border-rose-100 bg-rose-50 text-rose-900",
+    amber: "border-amber-100 bg-amber-50 text-amber-900",
+    emerald: "border-emerald-100 bg-emerald-50 text-emerald-900",
+  };
+
+  return (
+    <div className={`rounded-2xl border p-4 ${styles[tone]}`}>
+      <p className="text-[10px] font-black uppercase tracking-[0.12em] opacity-60">
+        {label}
+      </p>
+      <p className="mt-1 text-2xl font-black">
+        {value.toLocaleString("th-TH")}
+      </p>
     </div>
   );
 }
 
-function SeverityBadge({ severity }: { severity: Severity }) {
-  const styles: Record<Severity, string> = {
-    สำคัญ: "bg-red-50 text-red-600",
-    เตือน: "bg-amber-50 text-amber-600",
-    ข้อมูล: "bg-sky-50 text-sky-600",
-  };
-  return <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${styles[severity]}`}>{severity}</span>;
-}
+function AlertListItem({
+  alert,
+  selected,
+  onClick,
+}: {
+  alert: ManagerAlert;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  const severity = severityMeta(alert.severity);
+  const status = statusMeta(alert.status);
+  const Icon = severity.icon;
 
-function actionStyle(status: ActionStatus) {
-  if (status === "ดำเนินการแล้ว") return "bg-emerald-600 text-white";
-  if (status === "กำลังดำเนินการ") return "bg-amber-500 text-white";
-  return "bg-slate-400 text-white";
-}
+  const location = [
+    alert.machineName,
+    alert.lineName,
+    alert.departmentName,
+    alert.buildingName,
+  ].filter(Boolean);
 
-function MetricCard({ label, value, unit, tone, sub }: { label: string; value: string; unit: string; tone?: string; sub?: string }) {
   return (
-    <div className="rounded-xl border border-slate-100 p-3">
-      <p className="mb-1 text-xs text-slate-400">{label}</p>
-      <p className={`text-sm font-bold ${tone ?? "text-slate-800"}`}>
-        {value} <span className="text-xs font-normal text-slate-400">{unit}</span>
+    <button
+      type="button"
+      onClick={onClick}
+      className={[
+        "group relative w-full overflow-hidden rounded-[20px] border p-4 text-left transition duration-200",
+        selected
+          ? `${severity.border} bg-slate-50 shadow-[0_8px_22px_rgba(15,23,42,0.05)]`
+          : "border-slate-100 bg-white hover:border-slate-200 hover:bg-slate-50/70",
+      ].join(" ")}
+    >
+      <span className={`absolute inset-y-0 left-0 w-1 ${severity.accent}`} />
+
+      <div className="flex gap-3 pl-1">
+        <span
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ring-1 ${severity.iconBox}`}
+        >
+          <Icon className="h-4.5 w-4.5" />
+        </span>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span
+              className={`rounded-full px-2 py-0.5 text-[9px] font-black tracking-[0.08em] ring-1 ${severity.badge}`}
+            >
+              {severity.label}
+            </span>
+
+            <span
+              className={`rounded-full px-2 py-0.5 text-[9px] font-bold ring-1 ${status.className}`}
+            >
+              {status.label}
+            </span>
+          </div>
+
+          <p className="mt-2 line-clamp-1 text-[13px] font-extrabold text-slate-900">
+            {alert.title}
+          </p>
+
+          <p className="mt-1 line-clamp-2 text-[11px] leading-5 text-slate-500">
+            {alert.message}
+          </p>
+
+          <div className="mt-3 flex items-center justify-between gap-3">
+            <span className="truncate text-[9px] text-slate-400">
+              {location.join(" · ") || alert.factoryName || "GreenFactory"}
+            </span>
+
+            <span className="shrink-0 text-[9px] font-semibold text-slate-400">
+              {formatDateTime(alert.triggeredAt)}
+            </span>
+          </div>
+        </div>
+
+        <ChevronRight className="mt-2 h-4 w-4 shrink-0 text-slate-300 transition group-hover:translate-x-0.5" />
+      </div>
+    </button>
+  );
+}
+
+function AlertDetailPanel({
+  alert,
+  updating,
+  onAcknowledge,
+}: {
+  alert: ManagerAlert;
+  updating: boolean;
+  onAcknowledge: () => void;
+}) {
+  const severity = severityMeta(alert.severity);
+  const status = statusMeta(alert.status);
+  const Icon = severity.icon;
+
+  const canAcknowledge = alert.status.toUpperCase() === "OPEN";
+  const hasThreshold =
+    alert.thresholdValue !== null &&
+    alert.thresholdValue !== undefined &&
+    alert.actualValue !== null &&
+    alert.actualValue !== undefined;
+
+  const overValue =
+    hasThreshold
+      ? Number(alert.actualValue) - Number(alert.thresholdValue)
+      : null;
+
+  const overPercent =
+    hasThreshold && Number(alert.thresholdValue) !== 0
+      ? (Number(alert.actualValue) / Number(alert.thresholdValue)) * 100
+      : null;
+
+  const detailLink = alert.machineId
+    ? `/manager/overview/equipment/${alert.machineId}`
+    : "/manager/overview/equipment";
+
+  return (
+    <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_12px_34px_rgba(15,23,42,0.05)]">
+      <div className="relative border-b border-slate-100 px-6 py-6">
+        <span className={`absolute inset-x-0 top-0 h-[4px] ${severity.accent}`} />
+
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+          <div className="flex min-w-0 gap-4">
+            <span
+              className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ring-1 ${severity.iconBox}`}
+            >
+              <Icon className="h-5 w-5" />
+            </span>
+
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <span
+                  className={`rounded-full px-2.5 py-1 text-[9px] font-black tracking-[0.08em] ring-1 ${severity.badge}`}
+                >
+                  {severity.label}
+                </span>
+
+                <span
+                  className={`rounded-full px-2.5 py-1 text-[9px] font-bold ring-1 ${status.className}`}
+                >
+                  {status.label}
+                </span>
+
+                {alert.alertCode && (
+                  <span className="font-mono text-[9px] text-slate-400">
+                    {alert.alertCode}
+                  </span>
+                )}
+              </div>
+
+              <h2 className="mt-3 text-xl font-black tracking-tight text-slate-950">
+                {alert.title}
+              </h2>
+
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+                {alert.message}
+              </p>
+            </div>
+          </div>
+
+          {canAcknowledge && (
+            <button
+              type="button"
+              onClick={onAcknowledge}
+              disabled={updating}
+              className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 text-xs font-bold text-white transition hover:bg-emerald-700 disabled:opacity-50"
+            >
+              {updating ? (
+                <LoaderCircle className="h-4 w-4 animate-spin" />
+              ) : (
+                <Check className="h-4 w-4" />
+              )}
+              รับทราบ Alert
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="space-y-5 p-6">
+        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <DetailCard
+            icon={Building2}
+            label="ตำแหน่ง"
+            value={
+              alert.machineName ||
+              alert.lineName ||
+              alert.departmentName ||
+              alert.buildingName ||
+              "-"
+            }
+            sub={[
+              alert.machineCode,
+              alert.lineName,
+              alert.departmentName,
+              alert.buildingName,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          />
+
+          <DetailCard
+            icon={CalendarDays}
+            label="Triggered"
+            value={formatDateTime(alert.triggeredAt)}
+            sub={alert.alertType || "System Alert"}
+          />
+
+          <DetailCard
+            icon={Clock3}
+            label="Acknowledged"
+            value={formatDateTime(alert.acknowledgedAt)}
+            sub="เวลาที่ Manager รับทราบ"
+          />
+
+          <DetailCard
+            icon={CheckCircle2}
+            label="Resolved"
+            value={formatDateTime(alert.resolvedAt)}
+            sub="เวลาที่เหตุการณ์ถูกปิด"
+          />
+        </section>
+
+        {hasThreshold && (
+          <section>
+            <div className="mb-3">
+              <p className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400">
+                THRESHOLD INTELLIGENCE
+              </p>
+              <h3 className="mt-1 text-sm font-black text-slate-950">
+                ค่าที่ตรวจพบเทียบกับเกณฑ์
+              </h3>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-3">
+              <MetricBox
+                label="Threshold"
+                value={fmt(alert.thresholdValue)}
+                tone="slate"
+              />
+
+              <MetricBox
+                label="Actual"
+                value={fmt(alert.actualValue)}
+                tone="rose"
+              />
+
+              <MetricBox
+                label="Difference"
+                value={
+                  overValue !== null
+                    ? `${overValue > 0 ? "+" : ""}${fmt(overValue)}${
+                        overPercent !== null ? ` · ${fmt(overPercent)}% of threshold` : ""
+                      }`
+                    : "-"
+                }
+                tone={overValue !== null && overValue > 0 ? "amber" : "emerald"}
+              />
+            </div>
+          </section>
+        )}
+
+        <section className="grid gap-4 lg:grid-cols-[1.2fr_.8fr]">
+          <div className="rounded-[22px] border border-slate-200 bg-slate-50/60 p-5">
+            <p className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400">
+              EVENT CONTEXT
+            </p>
+
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <InfoRow label="Factory" value={alert.factoryName || "-"} />
+              <InfoRow label="Building" value={alert.buildingName || "-"} />
+              <InfoRow label="Department" value={alert.departmentName || "-"} />
+              <InfoRow label="Production Line" value={alert.lineName || "-"} />
+              <InfoRow label="Machine" value={alert.machineName || "-"} />
+              <InfoRow label="Machine Code" value={alert.machineCode || "-"} />
+            </div>
+          </div>
+
+          <div className="rounded-[22px] bg-slate-950 p-5 text-white">
+            <p className="text-[10px] font-black uppercase tracking-[0.12em] text-emerald-300">
+              NEXT ACTION
+            </p>
+
+            <p className="mt-3 text-sm font-bold">
+              ตรวจข้อมูลต้นทางของเครื่องจักร
+            </p>
+
+            <p className="mt-2 text-xs leading-5 text-slate-300">
+              เปิดหน้า Equipment Detail เพื่อดู ResourceUsage, Sensor,
+              QR และสถานะล่าสุดของเครื่องที่เกี่ยวข้อง
+            </p>
+
+            <Link
+              href={detailLink}
+              className="mt-4 inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-white px-4 text-xs font-black text-slate-950 transition hover:bg-emerald-100"
+            >
+              <Wrench className="h-4 w-4" />
+              เปิด Machine Detail
+            </Link>
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}
+
+function DetailCard({
+  icon: Icon,
+  label,
+  value,
+  sub,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: string;
+  sub?: string;
+}) {
+  return (
+    <div className="rounded-[20px] border border-slate-200 bg-white p-4">
+      <div className="flex items-center gap-2 text-slate-400">
+        <Icon className="h-4 w-4" />
+        <span className="text-[10px] font-black uppercase tracking-[0.08em]">
+          {label}
+        </span>
+      </div>
+
+      <p className="mt-3 text-sm font-black text-slate-900">
+        {value}
       </p>
-      {sub && <p className={`text-xs ${tone ?? "text-slate-400"}`}>{sub}</p>}
+
+      {sub && (
+        <p className="mt-1 line-clamp-2 text-[10px] leading-4 text-slate-400">
+          {sub}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function MetricBox({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone: "slate" | "rose" | "amber" | "emerald";
+}) {
+  const tones = {
+    slate: "border-slate-200 bg-slate-50 text-slate-900",
+    rose: "border-rose-100 bg-rose-50 text-rose-900",
+    amber: "border-amber-100 bg-amber-50 text-amber-900",
+    emerald: "border-emerald-100 bg-emerald-50 text-emerald-900",
+  };
+
+  return (
+    <div className={`rounded-[20px] border p-4 ${tones[tone]}`}>
+      <p className="text-[10px] font-black uppercase tracking-[0.1em] opacity-60">
+        {label}
+      </p>
+
+      <p className="mt-2 text-xl font-black">
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function InfoRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white px-3 py-3">
+      <p className="text-[9px] font-black uppercase tracking-[0.08em] text-slate-400">
+        {label}
+      </p>
+      <p className="mt-1 truncate text-xs font-bold text-slate-700">
+        {value}
+      </p>
     </div>
   );
 }

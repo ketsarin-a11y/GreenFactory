@@ -1,40 +1,54 @@
-﻿import { redirect } from "next/navigation";
-
+﻿
+import { redirect } from "next/navigation";
+import ManagerAnalyticsPage from "@/components/manager/ManagerAnalyticsPage";
+import {
+  computeResourceMetrics,
+  ENERGY_TYPES,
+  WATER_TYPES,
+  getManagerAnalyticsFilterOptions,
+  type ResourceMetricFilters,
+} from "@/lib/manager queries";
 import { getSession } from "@/lib/session";
-import { getManagerDashboardData } from "@/lib/manager queries";
-import ManagerDashboardPage from "@/components/manager/Managerdashboardpage";
 
 export const dynamic = "force-dynamic";
 
 function defaultDate(daysAgo: number) {
-  const d = new Date();
-  d.setDate(d.getDate() - daysAgo);
-  return d.toISOString().slice(0, 10);
+  const date = new Date();
+  date.setDate(date.getDate() - daysAgo);
+  return date.toISOString().slice(0, 10);
 }
 
-interface ManagerPageProps {
+function parseOptionalId(value?: string) {
+  if (!value) return undefined;
+
+  const parsed = Number(value);
+
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    return undefined;
+  }
+
+  return parsed;
+}
+
+interface ManagerAnalyticsRouteProps {
   searchParams: Promise<{
     from?: string;
     to?: string;
+    building?: string;
+    department?: string;
+    line?: string;
+    machine?: string;
   }>;
 }
 
-export default async function ManagerPage({
+export default async function ManagerAnalyticsRoute({
   searchParams,
-}: ManagerPageProps) {
+}: ManagerAnalyticsRouteProps) {
   const session = await getSession();
 
-  if (!session) {
-    redirect("/login");
-  }
-
-  if (session.roleName !== "MANAGER") {
-    redirect("/");
-  }
-
-  if (!session.companyId) {
-    redirect("/");
-  }
+  if (!session) redirect("/login");
+  if (session.roleName !== "MANAGER") redirect("/");
+  if (!session.companyId) redirect("/");
 
   const params = await searchParams;
 
@@ -44,20 +58,105 @@ export default async function ManagerPage({
   const startDate = new Date(`${fromStr}T00:00:00`);
   const endDate = new Date(`${toStr}T23:59:59`);
 
-  const data = await getManagerDashboardData(
-    session.companyId,
-    startDate,
-    endDate
-  );
+  if (
+    Number.isNaN(startDate.getTime()) ||
+    Number.isNaN(endDate.getTime()) ||
+    startDate > endDate
+  ) {
+    redirect("/manager/overview");
+  }
 
-  const currentUserName =
-    `${session.firstName ?? ""} ${session.lastName ?? ""}`.trim() ||
-    session.email;
+  const filters: ResourceMetricFilters = {
+    buildingId: parseOptionalId(params.building),
+    departmentId: parseOptionalId(params.department),
+    productionLineId: parseOptionalId(params.line),
+    machineId: parseOptionalId(params.machine),
+  };
+
+  const companyId = session.companyId;
+
+  const [
+    filterOptions,
+    energy,
+    water,
+    compressedAir,
+    gas,
+    steam,
+    nitrogen,
+    diesel,
+  ] = await Promise.all([
+    getManagerAnalyticsFilterOptions(companyId),
+    computeResourceMetrics(
+      companyId,
+      ENERGY_TYPES,
+      startDate,
+      endDate,
+      "kWh",
+      filters,
+    ),
+    computeResourceMetrics(
+      companyId,
+      WATER_TYPES,
+      startDate,
+      endDate,
+      "m³",
+      filters,
+    ),
+    computeResourceMetrics(
+      companyId,
+      ["COMPRESSED_AIR"],
+      startDate,
+      endDate,
+      "m³",
+      filters,
+    ),
+    computeResourceMetrics(
+      companyId,
+      ["GAS"],
+      startDate,
+      endDate,
+      "m³",
+      filters,
+    ),
+    computeResourceMetrics(
+      companyId,
+      ["STEAM"],
+      startDate,
+      endDate,
+      "kg",
+      filters,
+    ),
+    computeResourceMetrics(
+      companyId,
+      ["NITROGEN"],
+      startDate,
+      endDate,
+      "m³",
+      filters,
+    ),
+    computeResourceMetrics(
+      companyId,
+      ["DIESEL"],
+      startDate,
+      endDate,
+      "L",
+      filters,
+    ),
+  ]);
 
   return (
-    <ManagerDashboardPage
-      data={data}
-      currentUserName={currentUserName}
+    <ManagerAnalyticsPage
+      resources={{
+        energy,
+        water,
+        compressedAir,
+        gas,
+        steam,
+        nitrogen,
+        diesel,
+      }}
+      filterOptions={filterOptions}
+      selectedFilters={filters}
       dateFrom={fromStr}
       dateTo={toStr}
     />
