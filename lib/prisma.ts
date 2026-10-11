@@ -10,7 +10,7 @@ const globalForPrisma = globalThis as unknown as {
 function createAdapter() {
   const databaseUrl = process.env.DATABASE_URL;
 
-  // Production / Vercel -> ใช้ DATABASE_URL ของ Aiven
+  // Production / Vercel
   if (process.env.NODE_ENV === "production") {
     if (!databaseUrl) {
       throw new Error("DATABASE_URL is not configured");
@@ -18,17 +18,37 @@ function createAdapter() {
 
     const url = new URL(databaseUrl);
 
+    const database = decodeURIComponent(
+      url.pathname.replace(/^\/+/, "")
+    );
+
+    if (!database) {
+      throw new Error("Database name is missing from DATABASE_URL");
+    }
+
+    // Safe debug: ไม่แสดง username/password
+    console.log("[Database] Production connection target:", {
+      host: url.hostname,
+      port: Number(url.port || 3306),
+      database,
+    });
+
     return new PrismaMariaDb({
       host: url.hostname,
       port: Number(url.port || 3306),
       user: decodeURIComponent(url.username),
       password: decodeURIComponent(url.password),
-      database: url.pathname.replace(/^\//, "") || "greenfactory",
+      database,
       connectionLimit: 5,
+
+      // Aiven ต้องเชื่อมต่อผ่าน TLS/SSL
+      ssl: {
+        rejectUnauthorized: false,
+      },
     });
   }
 
-  // Local development -> ใช้ฐานข้อมูลเดิมในเครื่อง
+  // Local development
   return new PrismaMariaDb({
     host: "127.0.0.1",
     port: 3306,
