@@ -39,9 +39,14 @@ function createAdapter() {
       user: decodeURIComponent(url.username),
       password: decodeURIComponent(url.password),
       database,
+
       connectionLimit: 5,
 
-      // Aiven ต้องเชื่อมต่อผ่าน TLS/SSL
+      // Vercel -> Aiven อาจใช้เวลาเชื่อมต่อมากกว่า 1 วินาที
+      connectTimeout: 10_000,
+      acquireTimeout: 15_000,
+
+      // Aiven ใช้ TLS/SSL
       ssl: {
         rejectUnauthorized: false,
       },
