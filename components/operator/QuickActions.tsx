@@ -72,7 +72,7 @@ export default function QuickActions() {
   return (
     <section className="space-y-3">
       <div className="flex items-end justify-between gap-4">
-        <div>
+        <div className="min-w-0">
           <h2 className="text-[17px] font-extrabold tracking-tight text-slate-900">
             เริ่มต้นใช้งาน
           </h2>
@@ -83,7 +83,7 @@ export default function QuickActions() {
       </div>
 
       <div className="overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-sm">
-        <div className="grid grid-cols-1 divide-y divide-slate-100 md:grid-cols-3 md:divide-x md:divide-y-0">
+        <div className="grid grid-cols-1 divide-y divide-slate-100 lg:grid-cols-3 lg:divide-x lg:divide-y-0">
           {ACTIONS.map((action) => {
             const Icon = action.icon;
             const tone = TONE[action.tone];
@@ -94,7 +94,7 @@ export default function QuickActions() {
                 type="button"
                 onClick={() => router.push(action.href)}
                 className={[
-                  "group flex min-h-[118px] min-w-0 items-center gap-4 px-5 py-5 text-left",
+                  "group flex min-h-[112px] min-w-0 touch-manipulation items-center gap-3 px-4 py-4 text-left sm:gap-4 sm:px-5 sm:py-5",
                   "transition-colors duration-200",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-inset",
                   tone.hover,
@@ -110,7 +110,7 @@ export default function QuickActions() {
                 </span>
 
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[15px] font-extrabold text-slate-900">
+                  <span className="block break-words text-[15px] font-extrabold leading-5 text-slate-900">
                     {action.title}
                   </span>
 
