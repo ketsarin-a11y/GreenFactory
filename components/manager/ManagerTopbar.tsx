@@ -253,6 +253,10 @@ export default function ManagerTopbar() {
   const [openMenu, setOpenMenu] = useState<MenuKey | null>(null);
 
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [mobileGroups, setMobileGroups] = useState<Record<MenuKey, boolean>>({
+    analytics: false,
+    operations: false,
+  });
 
   const [notificationsOpen, setNotificationsOpen] = useState(false);
 
@@ -576,6 +580,15 @@ export default function ManagerTopbar() {
 
     setMobileOpen(false);
 
+  }, [pathname]);
+
+  useEffect(() => {
+    setMobileGroups({
+      analytics:
+        pathname.startsWith("/manager/overview") &&
+        !pathname.startsWith("/manager/overview/equipment"),
+      operations: pathname.startsWith("/manager/overview/equipment"),
+    });
   }, [pathname]);
 
   useEffect(() => {
@@ -1109,23 +1122,56 @@ export default function ManagerTopbar() {
               </p>
 
               <div className="space-y-1">
-
-                <MobileLink href="/manager" label="Command Center" />
-
-                <MobileLink href="/manager/overview" label="Analytics" />
-
-                <MobileLink href="/manager/ai" label="AI Intelligence" />
-
                 <MobileLink
-
-                  href="/manager/overview/equipment"
-
-                  label="Operations"
-
+                  href="/manager"
+                  label="Command Center"
+                  active={isActive("/manager")}
+                  onNavigate={() => setMobileOpen(false)}
                 />
 
-                <MobileLink href="/manager/reports" label="Reports" />
+                <MobileMenuGroup
+                  label="Analytics"
+                  open={mobileGroups.analytics}
+                  active={analyticsActive}
+                  onToggle={() =>
+                    setMobileGroups((current) => ({
+                      ...current,
+                      analytics: !current.analytics,
+                    }))
+                  }
+                  items={ANALYTICS_ITEMS}
+                  isActive={isActive}
+                  onNavigate={() => setMobileOpen(false)}
+                />
 
+                <MobileLink
+                  href="/manager/ai"
+                  label="AI Intelligence"
+                  active={isActive("/manager/ai")}
+                  onNavigate={() => setMobileOpen(false)}
+                />
+
+                <MobileMenuGroup
+                  label="Operations"
+                  open={mobileGroups.operations}
+                  active={operationsActive}
+                  onToggle={() =>
+                    setMobileGroups((current) => ({
+                      ...current,
+                      operations: !current.operations,
+                    }))
+                  }
+                  items={OPERATIONS_ITEMS}
+                  isActive={isActive}
+                  onNavigate={() => setMobileOpen(false)}
+                />
+
+                <MobileLink
+                  href="/manager/reports"
+                  label="Reports"
+                  active={isActive("/manager/reports")}
+                  onNavigate={() => setMobileOpen(false)}
+                />
               </div>
 
               <div className="my-5 h-px bg-slate-100" />
@@ -1176,7 +1222,12 @@ export default function ManagerTopbar() {
 
               <div className="my-5 h-px bg-slate-100" />
 
-              <MobileLink href="/manager/profile" label="โปรไฟล์ของฉัน" />
+              <MobileLink
+                href="/manager/profile"
+                label="โปรไฟล์ของฉัน"
+                active={isActive("/manager/profile")}
+                onNavigate={() => setMobileOpen(false)}
+              />
 
               <button
 
@@ -3032,7 +3083,7 @@ function AssistantAvatar() {
 
 function renderInlineMarkdown(text: string) {
 
-  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  const parts = text.split(/(\\*\\*[^*]+\\*\\*)/g);
 
   return parts.map((part, index) => {
 
@@ -3208,34 +3259,111 @@ function ChatBubble({
 
 }
 
-function MobileLink({
-
-  href,
-
+function MobileMenuGroup({
   label,
-
+  open,
+  active,
+  onToggle,
+  items,
+  isActive,
+  onNavigate,
 }: {
-
-  href: string;
-
   label: string;
-
+  open: boolean;
+  active: boolean;
+  onToggle: () => void;
+  items: typeof ANALYTICS_ITEMS | typeof OPERATIONS_ITEMS;
+  isActive: (href: string) => boolean;
+  onNavigate: () => void;
 }) {
-
   return (
+    <div className="overflow-hidden rounded-xl">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        className={[
+          "flex min-h-12 w-full items-center justify-between rounded-xl px-3 text-left text-sm font-semibold transition",
+          active
+            ? "bg-emerald-50 text-emerald-800"
+            : "text-slate-700 hover:bg-slate-100",
+        ].join(" ")}
+      >
+        <span>{label}</span>
+        <ChevronDown
+          className={[
+            "h-4 w-4 shrink-0 transition-transform duration-200",
+            open ? "rotate-180" : "",
+          ].join(" ")}
+        />
+      </button>
 
-    <Link
+      {open && (
+        <div className="mt-1 space-y-1 border-l border-slate-200 pl-3">
+          {items.map((item) => {
+            const Icon = item.icon;
+            const itemActive = isActive(item.href);
 
-      href={href}
-
-      className="flex min-h-12 items-center rounded-xl px-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
-
-    >
-
-      {label}
-
-    </Link>
-
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={onNavigate}
+                className={[
+                  "flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition",
+                  itemActive
+                    ? "bg-emerald-50 font-bold text-emerald-800"
+                    : "font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900",
+                ].join(" ")}
+              >
+                <span
+                  className={[
+                    "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
+                    itemActive
+                      ? "bg-emerald-100 text-emerald-700"
+                      : "bg-slate-100 text-slate-500",
+                  ].join(" ")}
+                >
+                  <Icon className="h-4 w-4" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate">{item.label}</span>
+                  <span className="mt-0.5 block text-[10px] font-normal leading-4 text-slate-400">
+                    {item.description}
+                  </span>
+                </span>
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
+}
 
+function MobileLink({
+  href,
+  label,
+  active = false,
+  onNavigate,
+}: {
+  href: string;
+  label: string;
+  active?: boolean;
+  onNavigate?: () => void;
+}) {
+  return (
+    <Link
+      href={href}
+      onClick={onNavigate}
+      className={[
+        "flex min-h-12 items-center rounded-xl px-3 text-sm font-semibold transition",
+        active
+          ? "bg-emerald-50 text-emerald-800"
+          : "text-slate-700 hover:bg-slate-100",
+      ].join(" ")}
+    >
+      {label}
+    </Link>
+  );
 }

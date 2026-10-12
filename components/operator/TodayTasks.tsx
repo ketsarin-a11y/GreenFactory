@@ -16,24 +16,15 @@ const ICON_TONE: Record<
   ResourceIcon,
   string
 > = {
-  zap:
-    "bg-amber-50 text-amber-500",
-  droplet:
-    "bg-sky-50 text-sky-500",
-  droplets:
-    "bg-sky-50 text-sky-500",
-  snowflake:
-    "bg-sky-50 text-sky-500",
-  wind:
-    "bg-slate-100 text-slate-500",
-  atom:
-    "bg-slate-100 text-slate-500",
-  flame:
-    "bg-violet-50 text-violet-500",
-  waves:
-    "bg-violet-50 text-violet-500",
-  fuel:
-    "bg-violet-50 text-violet-500",
+  zap: "bg-amber-50 text-amber-500",
+  droplet: "bg-sky-50 text-sky-500",
+  droplets: "bg-sky-50 text-sky-500",
+  snowflake: "bg-sky-50 text-sky-500",
+  wind: "bg-slate-100 text-slate-500",
+  atom: "bg-slate-100 text-slate-500",
+  flame: "bg-violet-50 text-violet-500",
+  waves: "bg-violet-50 text-violet-500",
+  fuel: "bg-violet-50 text-violet-500",
 };
 
 export default function TodayTasks({
@@ -49,17 +40,17 @@ export default function TodayTasks({
     summary.categories.slice(0, 4);
 
   return (
-    <section className="flex min-h-[360px] flex-col overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm">
-      <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-6 py-5">
-        <div>
-          <div className="flex items-center gap-2">
-            <h2 className="text-base font-extrabold text-slate-900">
+    <section className="flex min-h-[340px] min-w-0 flex-col overflow-hidden rounded-[20px] border border-slate-200 bg-white shadow-sm sm:min-h-[360px] sm:rounded-[24px]">
+      <div className="flex min-w-0 items-start justify-between gap-3 border-b border-slate-100 px-4 py-4 sm:px-6 sm:py-5">
+        <div className="min-w-0">
+          <div className="flex min-w-0 items-center gap-2">
+            <h2 className="truncate text-base font-extrabold text-slate-900">
               การบันทึกวันนี้
             </h2>
 
             <span
               className={[
-                "h-2 w-2 rounded-full",
+                "h-2 w-2 shrink-0 rounded-full",
                 isRefreshing
                   ? "animate-pulse bg-sky-400"
                   : "bg-emerald-400",
@@ -78,14 +69,14 @@ export default function TodayTasks({
         </div>
       </div>
 
-      <div className="flex flex-1 flex-col px-6 py-5">
-        <div className="flex items-center gap-4 rounded-[18px] bg-emerald-50/70 px-4 py-4">
-          <span className="flex h-11 w-11 items-center justify-center rounded-[14px] bg-emerald-100 text-emerald-600">
+      <div className="flex min-w-0 flex-1 flex-col px-4 py-4 sm:px-6 sm:py-5">
+        <div className="flex min-w-0 items-center gap-3 rounded-[16px] bg-emerald-50/70 px-3.5 py-3.5 sm:gap-4 sm:rounded-[18px] sm:px-4 sm:py-4">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[13px] bg-emerald-100 text-emerald-600 sm:h-11 sm:w-11 sm:rounded-[14px]">
             <ClipboardList className="h-5 w-5" />
           </span>
 
-          <div>
-            <p className="text-2xl font-black tracking-tight text-slate-950">
+          <div className="min-w-0">
+            <p className="text-xl font-black tracking-tight text-slate-950 sm:text-2xl">
               {summary.totalCount}
               <span className="ml-1.5 text-sm font-semibold text-slate-500">
                 รายการ
@@ -98,9 +89,8 @@ export default function TodayTasks({
           </div>
         </div>
 
-        {visibleCategories.length >
-        0 ? (
-          <ul className="mt-4 divide-y divide-slate-100">
+        {visibleCategories.length > 0 ? (
+          <ul className="mt-4 min-w-0 divide-y divide-slate-100">
             {visibleCategories.map(
               (category) => {
                 const Icon =
@@ -109,15 +99,18 @@ export default function TodayTasks({
                   ];
 
                 return (
-                  <li key={category.key}>
+                  <li
+                    key={category.key}
+                    className="min-w-0"
+                  >
                     <button
                       type="button"
                       onClick={() =>
                         router.push(
-                          `/operator/history`,
+                          "/operator/history",
                         )
                       }
-                      className="flex w-full items-center gap-3 py-3 text-left transition hover:bg-slate-50"
+                      className="flex w-full min-w-0 items-center gap-3 py-3 text-left transition hover:bg-slate-50"
                     >
                       <span
                         className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${

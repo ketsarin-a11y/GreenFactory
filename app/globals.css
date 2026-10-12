@@ -990,3 +990,58 @@
     display: none;
   }
 }
+
+
+/* =========================================================
+   GREENFACTORY APP RESPONSIVE SAFETY LAYER
+   Shared mobile protection for authenticated applications
+========================================================= */
+
+.gf-app-responsive {
+  width: 100%;
+  min-width: 0;
+}
+
+.gf-app-responsive main {
+  min-width: 0;
+}
+
+.gf-app-responsive img,
+.gf-app-responsive video,
+.gf-app-responsive canvas {
+  max-width: 100%;
+}
+
+@media (max-width: 767px) {
+  html,
+  body {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  .gf-app-responsive {
+    width: 100%;
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+
+  .gf-app-responsive main {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .gf-app-responsive input,
+  .gf-app-responsive select,
+  .gf-app-responsive textarea,
+  .gf-app-responsive button {
+    max-width: 100%;
+  }
+
+  .gf-app-responsive img,
+  .gf-app-responsive video,
+  .gf-app-responsive canvas,
+  .gf-app-responsive svg {
+    max-width: 100%;
+  }
+}
