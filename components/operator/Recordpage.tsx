@@ -837,245 +837,169 @@ export default function RecordPage({
             <>
 
               <section className="min-w-0 rounded-[18px] border border-slate-200 bg-white p-4 shadow-sm sm:rounded-[22px] sm:p-6">
-
                 <div className="mb-5 flex min-w-0 items-start justify-between gap-3 sm:items-center sm:gap-4">
-
-                  <div>
-
+                  <div className="min-w-0">
                     <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
-
                       Step 01
-
                     </p>
-
-                    <h2 className="mt-1 text-lg font-bold text-slate-900">
-
-                      เลือกเครื่องจักร
-
+                    <h2 className="mt-1 break-words text-lg font-bold text-slate-900">
+                      {isQrFlow ? "เครื่องจักรที่สแกน" : "เลือกเครื่องจักร"}
                     </h2>
-
                   </div>
 
-                  <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-500">
-
-                    {machineList.length} เครื่อง
-
-                  </span>
-
+                  {isQrFlow ? (
+                    <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">
+                      <QrCode className="h-3.5 w-3.5" />
+                      จาก QR
+                    </span>
+                  ) : (
+                    <span className="shrink-0 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-500">
+                      {machineList.length} เครื่อง
+                    </span>
+                  )}
                 </div>
 
-                <div className="relative mb-4">
+                {isQrFlow && selectedMachine ? (
+                  <div className="overflow-hidden rounded-2xl border border-emerald-200 bg-emerald-50/50">
+                    <div className="flex min-w-0 items-start gap-3 p-3.5 sm:items-center sm:gap-4 sm:p-4">
+                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm">
+                        <Wrench className="h-5 w-5" />
+                      </span>
 
-                  <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-
-                  <input
-
-                    value={search}
-
-                    onChange={(event) => {
-
-                      setSearch(
-
-                        event.target.value,
-
-                      );
-
-                      setPage(1);
-
-                    }}
-
-                    placeholder="ค้นหาชื่อหรือรหัสเครื่องจักร"
-
-                    className="h-12 w-full min-w-0 rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-base text-slate-800 outline-none transition focus:border-emerald-400 focus:bg-white sm:h-11 sm:text-sm"
-
-                  />
-
-                </div>
-
-                <div className="overflow-hidden rounded-2xl border border-slate-200">
-
-                  <div className="divide-y divide-slate-100">
-
-                    {pageItems.map((machine) => {
-
-                      const selected =
-
-                        machine.machineId ===
-
-                        selectedMachineId;
-
-                      return (
-
-                        <button
-
-                          key={machine.machineId}
-
-                          type="button"
-
-                          onClick={() =>
-
-                            setSelectedMachineId(
-
-                              machine.machineId,
-
-                            )
-
-                          }
-
-                          className={`flex w-full min-w-0 touch-manipulation items-center gap-3 px-3 py-3.5 text-left transition sm:gap-4 sm:px-4 ${
-
-                            selected
-
-                              ? "bg-emerald-50"
-
-                              : "bg-white hover:bg-slate-50"
-
-                          }`}
-
-                        >
-
-                          <span
-
-                            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${
-
-                              selected
-
-                                ? "bg-emerald-600 text-white"
-
-                                : "bg-slate-100 text-slate-500"
-
-                            }`}
-
-                          >
-
-                            <Wrench className="h-5 w-5" />
-
+                      <div className="min-w-0 flex-1">
+                        <div className="flex min-w-0 flex-wrap items-center gap-2">
+                          <p className="min-w-0 break-words text-sm font-bold text-slate-900 sm:text-base">
+                            {selectedMachine.machineName}
+                          </p>
+                          <span className="max-w-full rounded-md bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-600 shadow-sm">
+                            {selectedMachine.machineCode}
                           </span>
-
-                          <span className="min-w-0 flex-1">
-
-                            <span className="flex flex-wrap items-center gap-2">
-
-                              <span className="break-words text-sm font-semibold text-slate-900 sm:text-base">
-
-                                {machine.machineName}
-
-                              </span>
-
-                              <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-500">
-
-                                {machine.machineCode}
-
-                              </span>
-
-                            </span>
-
-                            <span className="mt-1 block truncate text-[11px] text-slate-500 sm:text-xs">
-
-                              {machine.machineType} •{" "}
-
-                              {machine.lineName}
-
-                            </span>
-
-                          </span>
-
-                          <span
-
-                            className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ${
-
-                              selected
-
-                                ? "border-emerald-600 bg-emerald-600 text-white"
-
-                                : "border-slate-300 text-transparent"
-
-                            }`}
-
-                          >
-
-                            <Check className="h-3.5 w-3.5" />
-
-                          </span>
-
-                        </button>
-
-                      );
-
-                    })}
-
-                    {pageItems.length === 0 && (
-
-                      <div className="px-5 py-12 text-center text-sm text-slate-400">
-
-                        ไม่พบเครื่องจักร
-
+                        </div>
+                        <p className="mt-1 break-words text-[11px] leading-5 text-slate-600 sm:text-xs">
+                          {selectedMachine.machineType} • {selectedMachine.lineName}
+                        </p>
                       </div>
 
+                      <span
+                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white"
+                        aria-label="เลือกเครื่องจักรจาก QR Code แล้ว"
+                      >
+                        <Check className="h-4 w-4" />
+                      </span>
+                    </div>
+
+                    <div className="border-t border-emerald-100 px-3.5 py-3 sm:px-4">
+                      <div className="flex min-w-0 items-start gap-2 text-xs font-medium text-emerald-800">
+                        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+                        <p className="min-w-0 break-words">
+                          ระบบระบุเครื่องจักรจาก QR Code แล้ว ไม่จำเป็นต้องเลือกเครื่องจักรอีก
+                        </p>
+                      </div>
+                    </div>
+
+                    <MachineCard machine={selectedMachine} />
+                  </div>
+                ) : (
+                  <>
+                    <div className="relative mb-4">
+                      <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                      <input
+                        value={search}
+                        onChange={(event) => {
+                          setSearch(event.target.value);
+                          setPage(1);
+                        }}
+                        placeholder="ค้นหาชื่อหรือรหัสเครื่องจักร"
+                        className="h-12 w-full min-w-0 rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-base text-slate-800 outline-none transition focus:border-emerald-400 focus:bg-white sm:h-11 sm:text-sm"
+                      />
+                    </div>
+
+                    <div className="overflow-hidden rounded-2xl border border-slate-200">
+                      <div className="divide-y divide-slate-100">
+                        {pageItems.map((machine) => {
+                          const selected = machine.machineId === selectedMachineId;
+
+                          return (
+                            <button
+                              key={machine.machineId}
+                              type="button"
+                              onClick={() => setSelectedMachineId(machine.machineId)}
+                              className={`flex w-full min-w-0 touch-manipulation items-center gap-3 px-3 py-3.5 text-left transition sm:gap-4 sm:px-4 ${
+                                selected
+                                  ? "bg-emerald-50"
+                                  : "bg-white hover:bg-slate-50"
+                              }`}
+                            >
+                              <span
+                                className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${
+                                  selected
+                                    ? "bg-emerald-600 text-white"
+                                    : "bg-slate-100 text-slate-500"
+                                }`}
+                              >
+                                <Wrench className="h-5 w-5" />
+                              </span>
+
+                              <span className="min-w-0 flex-1">
+                                <span className="flex min-w-0 flex-wrap items-center gap-2">
+                                  <span className="min-w-0 break-words text-sm font-semibold text-slate-900 sm:text-base">
+                                    {machine.machineName}
+                                  </span>
+                                  <span className="max-w-full rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-500">
+                                    {machine.machineCode}
+                                  </span>
+                                </span>
+                                <span className="mt-1 block truncate text-[11px] text-slate-500 sm:text-xs">
+                                  {machine.machineType} • {machine.lineName}
+                                </span>
+                              </span>
+
+                              <span
+                                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border ${
+                                  selected
+                                    ? "border-emerald-600 bg-emerald-600 text-white"
+                                    : "border-slate-300 text-transparent"
+                                }`}
+                              >
+                                <Check className="h-3.5 w-3.5" />
+                              </span>
+                            </button>
+                          );
+                        })}
+
+                        {pageItems.length === 0 && (
+                          <div className="px-5 py-12 text-center text-sm text-slate-400">
+                            ไม่พบเครื่องจักร
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {totalPages > 1 && (
+                      <div className="mt-4 flex max-w-full items-center justify-start gap-2 overflow-x-auto pb-1 sm:justify-center">
+                        {Array.from(
+                          { length: totalPages },
+                          (_, index) => index + 1,
+                        ).map((pageNumber) => (
+                          <button
+                            key={pageNumber}
+                            type="button"
+                            onClick={() => setPage(pageNumber)}
+                            className={`h-10 min-w-10 shrink-0 touch-manipulation rounded-lg px-2 text-xs font-semibold sm:h-8 sm:min-w-8 ${
+                              page === pageNumber
+                                ? "bg-slate-900 text-white"
+                                : "text-slate-500 hover:bg-slate-100"
+                            }`}
+                          >
+                            {pageNumber}
+                          </button>
+                        ))}
+                      </div>
                     )}
 
-                  </div>
-
-                </div>
-
-                {totalPages > 1 && (
-
-                  <div className="mt-4 flex max-w-full items-center justify-start gap-2 overflow-x-auto pb-1 sm:justify-center">
-
-                    {Array.from(
-
-                      { length: totalPages },
-
-                      (_, index) =>
-
-                        index + 1,
-
-                    ).map((pageNumber) => (
-
-                      <button
-
-                        key={pageNumber}
-
-                        type="button"
-
-                        onClick={() =>
-
-                          setPage(pageNumber)
-
-                        }
-
-                        className={`h-10 min-w-10 shrink-0 touch-manipulation rounded-lg px-2 text-xs font-semibold sm:h-8 sm:min-w-8 ${
-
-                          page === pageNumber
-
-                            ? "bg-slate-900 text-white"
-
-                            : "text-slate-500 hover:bg-slate-100"
-
-                        }`}
-
-                      >
-
-                        {pageNumber}
-
-                      </button>
-
-                    ))}
-
-                  </div>
-
+                    {selectedMachine && <MachineCard machine={selectedMachine} />}
+                  </>
                 )}
-
-                {selectedMachine && (
-
-                  <MachineCard
-
-                    machine={selectedMachine}
-
-                  />
-
-                )}
-
               </section>
 
               <section className="min-w-0 rounded-[18px] border border-slate-200 bg-white p-4 shadow-sm sm:rounded-[22px] sm:p-6">
@@ -1559,17 +1483,11 @@ export default function RecordPage({
 }
 
 function MachineCard({
-
   machine,
-
 }: {
-
   machine: MachineListItem;
-
 }) {
-
   return (
-
     <div className="mt-4 min-w-0 rounded-2xl border border-slate-200 bg-slate-50/70 p-3.5 sm:p-4">
 
       <div className="flex min-w-0 items-start gap-3">
