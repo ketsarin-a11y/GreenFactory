@@ -15,5 +15,7 @@ export const prisma = new PrismaClient({
       u.searchParams.get("ssl") === "true"
         ? { rejectUnauthorized: true, ca: process.env.DATABASE_CA_CERT }
         : undefined,
+    // MySQL 8 caching_sha2 auth over plain TCP (local/CI only) needs the server key; with TLS it isn't used.
+    allowPublicKeyRetrieval: u.searchParams.get("ssl") !== "true",
   }),
 });

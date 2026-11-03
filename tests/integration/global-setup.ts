@@ -13,6 +13,7 @@ export default async function setup() {
     port: Number(url.port || 3306),
     user: decodeURIComponent(url.username),
     password: decodeURIComponent(url.password),
+    allowPublicKeyRetrieval: true, // local/CI MySQL without TLS
   });
   await conn.query(`DROP DATABASE IF EXISTS \`${name}\``);
   await conn.query(`CREATE DATABASE \`${name}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
