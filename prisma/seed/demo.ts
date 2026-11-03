@@ -124,7 +124,7 @@ async function seedCompany(def: CompanyDef, passwordHash: string) {
       const sensor = await prisma.sensor.create({
         data: {
           machineId: m.machineId, sensorTypeId: st.sensorTypeId, sensorCode: s.code, sensorName: s.name, manufacturer: "Schneider Electric", protocol: "MQTT",
-          dataTopic: `${def.code.toLowerCase()}/${p.code.toLowerCase()}/${s.code.toLowerCase()}`, samplingIntervalSeconds: 60, lastConnectedAt: lastAt,
+          dataTopic: `${def.code.toLowerCase()}/${p.code.toLowerCase()}/${s.code.toLowerCase()}`, samplingIntervalSeconds: 900, lastConnectedAt: lastAt,
           installationDate: new Date("2023-01-10"), lastCalibrationDate: new Date("2026-05-01"), nextCalibrationDate: new Date("2027-05-01"),
         },
       });

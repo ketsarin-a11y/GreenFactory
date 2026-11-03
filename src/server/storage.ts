@@ -2,9 +2,12 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { del, get, put } from "@vercel/blob";
 
-// shortcut: files live on local disk (STORAGE_DIR). On serverless hosts (Vercel) swap this
-// module for object storage (S3/R2/Vercel Blob) — the rest of the app only uses these 3 functions.
+// Files go to Vercel Blob (private) when BLOB_READ_WRITE_TOKEN is set — needed on serverless
+// hosts with no persistent disk — otherwise to local disk under STORAGE_DIR. Either way they
+// are only ever served through an authorized route.
+const blobEnabled = () => !!process.env.BLOB_READ_WRITE_TOKEN;
 const ROOT = path.resolve(/* turbopackIgnore: true */ process.env.STORAGE_DIR ?? "storage");
 
 const KINDS = {
@@ -34,12 +37,22 @@ export async function saveFile(folder: "evidence" | "avatars" | "logos" | "layou
   const kind = sniff(buf);
   if (!kind || !allowed.includes(kind)) throw new Error("ชนิดไฟล์ไม่รองรับ");
   const key = `${folder}/${randomUUID()}.${KINDS[kind].ext}`;
+  if (blobEnabled()) {
+    await put(key, Buffer.from(buf), { access: "private", contentType: kind, addRandomSuffix: false });
+    return { key, kind };
+  }
   await mkdir(path.join(/* turbopackIgnore: true */ ROOT, folder), { recursive: true });
   await writeFile(path.join(/* turbopackIgnore: true */ ROOT, key), buf);
   return { key, kind };
 }
 
 export async function readStoredFile(key: string) {
+  if (blobEnabled()) {
+    const r = await get(key, { access: "private" });
+    if (!r) throw new Error("Not found");
+    const buf = new Uint8Array(await new Response(r.stream).arrayBuffer());
+    return { buf, kind: sniff(buf) ?? "application/octet-stream" };
+  }
   const full = path.resolve(/* turbopackIgnore: true */ ROOT, key);
   if (!full.startsWith(ROOT + path.sep)) throw new Error("Invalid key"); // no path traversal
   const buf = await readFile(/* turbopackIgnore: true */ full);
@@ -48,6 +61,7 @@ export async function readStoredFile(key: string) {
 
 export async function deleteStoredFile(key: string | null | undefined) {
   if (!key) return;
+  if (blobEnabled()) return void (await del(key).catch(() => {}));
   const full = path.resolve(ROOT, key);
   if (full.startsWith(ROOT + path.sep)) await unlink(full).catch(() => {});
 }

@@ -70,4 +70,4 @@ docs/legacy-spec/       สเปกที่ถอดจากระบบเ�
 ## Deploy
 
 - **Server ทั่วไป / Docker / VM**: `npm run build && npm start` ตั้ง env ตาม `.env.example` ใช้ MySQL ที่มี TLS (`?ssl=true` + `DATABASE_CA_CERT`) รัน `npx prisma migrate deploy` ทุกครั้งที่ deploy
-- **Vercel**: ใช้ได้ แต่ระบบไฟล์ไม่ถาวร ต้องเปลี่ยน `src/server/storage.ts` ไปใช้ object storage (S3/R2/Vercel Blob) และฟีเจอร์สำรองข้อมูลด้วย mysqldump จะใช้ไม่ได้ (หน้าแอดมินจะแจ้งไว้)
+- **Vercel**: ดูขั้นตอนเต็มใน [docs/DEPLOY-VERCEL.md](docs/DEPLOY-VERCEL.md) ไฟล์อัปโหลดเก็บใน Vercel Blob แบบ private อัตโนมัติเมื่อมี `BLOB_READ_WRITE_TOKEN` ฟีเจอร์สำรองข้อมูลด้วย mysqldump ใช้บน Vercel ไม่ได้ (หน้าแอดมินแจ้งไว้)
