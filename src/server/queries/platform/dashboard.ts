@@ -1,4 +1,5 @@
 import "server-only";
+import { bkkDaySql, bkkHourSql, epochSql } from "@/server/sql";
 import { Prisma } from "@/generated/prisma/client";
 import { db } from "@/server/db";
 import { addDays, bkkDay, startOfBkkDay } from "@/lib/time";
@@ -8,20 +9,20 @@ import { sensorConnection } from "@/server/domain/readiness";
 import { denseDays, hourMatrix, sum, type DayCount } from "./series";
 
 // Bangkok is UTC+7 with no DST; timestamps are stored in UTC.
-const BKK_DAY = (col: string) => Prisma.raw(`DATE_FORMAT(${col} + INTERVAL 7 HOUR, '%Y-%m-%d')`);
+const BKK_DAY = bkkDaySql;
 
 /** Active resource-usage records per company per Bangkok day since `from` (counts only, never quantities). */
 export async function dailyRecordsByCompany(from: string, companyIds?: number[]) {
   if (companyIds && !companyIds.length) return new Map<number, DayCount[]>();
-  const rows = await db.$queryRaw<{ companyId: number; day: string; n: bigint }[]>`
-    SELECT company_id AS companyId, ${BKK_DAY("usage_at")} AS day, COUNT(*) AS n
+  const rows = await db.$queryRaw<{ company_id: number; day: string; n: bigint }[]>`
+    SELECT company_id, ${BKK_DAY("usage_at")} AS day, COUNT(*) AS n
     FROM resource_usage
     WHERE status = 'ACTIVE' AND usage_at >= ${startOfBkkDay(from)}
       ${companyIds ? Prisma.sql`AND company_id IN (${Prisma.join(companyIds)})` : Prisma.empty}
     GROUP BY company_id, day`;
   const m = new Map<number, DayCount[]>();
   for (const r of rows) {
-    const id = Number(r.companyId);
+    const id = Number(r.company_id);
     m.set(id, [...(m.get(id) ?? []), { day: r.day, n: Number(r.n) }]);
   }
   return m;
@@ -63,7 +64,7 @@ export async function platformDashboard() {
       FROM login_log WHERE login_status = 'SUCCESS' AND user_id IS NOT NULL AND login_at >= ${startOfBkkDay(addDays(today, -13))}
       GROUP BY day`,
     db.$queryRaw<{ day: string; hour: number; n: bigint }[]>`
-      SELECT ${BKK_DAY("login_at")} AS day, HOUR(login_at + INTERVAL 7 HOUR) AS hour, COUNT(*) AS n
+      SELECT ${BKK_DAY("login_at")} AS day, ${bkkHourSql("login_at")} AS hour, COUNT(*) AS n
       FROM login_log WHERE login_status = 'SUCCESS' AND login_at >= ${startOfBkkDay(from14)}
       GROUP BY day, hour`,
     db.sensor.findMany({
@@ -144,7 +145,7 @@ async function sensorReadingsRecent() {
   const nowB = Math.floor(Date.now() / 1000 / BUCKET);
   const since = new Date((nowB - N + 1) * BUCKET * 1000);
   const rows = await db.$queryRaw<{ b: bigint; n: bigint }[]>`
-    SELECT FLOOR(UNIX_TIMESTAMP(received_at) / ${BUCKET}) AS b, COUNT(*) AS n
+    SELECT FLOOR(${epochSql("received_at")} / ${BUCKET}) AS b, COUNT(*) AS n
     FROM sensor_data WHERE received_at >= ${since} GROUP BY b`;
   const out = Array.from({ length: N }, () => 0);
   for (const r of rows) {

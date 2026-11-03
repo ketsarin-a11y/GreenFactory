@@ -42,8 +42,8 @@ export function companyWhere(sp: SP): Prisma.CompanyWhereInput {
 /** Machines hang off company → factory → building → department → line; count them in one query. */
 async function machineCounts(companyIds: number[]) {
   if (!companyIds.length) return new Map<number, number>();
-  const rows = await db.$queryRaw<{ companyId: number; n: bigint }[]>`
-    SELECT f.company_id AS companyId, COUNT(m.machine_id) AS n
+  const rows = await db.$queryRaw<{ company_id: number; n: bigint }[]>`
+    SELECT f.company_id, COUNT(m.machine_id) AS n
     FROM machine m
     JOIN production_line l ON l.line_id = m.line_id
     JOIN department d ON d.department_id = l.department_id
@@ -51,7 +51,7 @@ async function machineCounts(companyIds: number[]) {
     JOIN factory f ON f.factory_id = b.factory_id
     WHERE f.company_id IN (${Prisma.join(companyIds)})
     GROUP BY f.company_id`;
-  return new Map(rows.map((r) => [Number(r.companyId), Number(r.n)]));
+  return new Map(rows.map((r) => [Number(r.company_id), Number(r.n)]));
 }
 
 const listSelect = {
