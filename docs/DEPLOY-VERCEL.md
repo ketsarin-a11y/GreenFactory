@@ -32,14 +32,18 @@ DATABASE_URL="mysql://...?...ssl=true" DATABASE_CA_CERT="$(cat ca.pem)" npm run 
 4. Deploy แล้วแก้ `NEXT_PUBLIC_APP_URL` ให้ตรงกับโดเมนจริง แล้ว Redeploy (ค่านี้ใช้ในลิงก์ของ QR Code)
 
 ## 3. เซนเซอร์เดโมให้ "ออนไลน์"
-Vercel แผนฟรีรัน cron ได้วันละครั้ง จึงใช้ GitHub Actions ส่งค่าเข้า `/api/ingest/readings` ทุก 30 นาทีแทน
+มีสองทาง เลือกทางใดทางหนึ่งหรือใช้ทั้งคู่
+- **Vercel Cron (ใช้อยู่)** `vercel.json` เรียก `/api/cron/demo-sensors` วันละครั้ง ทำงานเฉพาะเมื่อ `NEXT_PUBLIC_DEMO_MODE=true` และต้องตั้ง `CRON_SECRET` แผนฟรีรันได้วันละครั้ง จึงตั้งรอบของเซนเซอร์เดโมเป็น 28800 วินาที (8 ชม.) ให้สถานะออนไลน์ต่อเนื่อง 24 ชม.
+- **GitHub Actions (ถี่กว่า)** workflow "Demo sensors" ส่งค่าผ่าน API จริงทุก 30 นาที ต้องตั้ง:
 ```bash
-DATABASE_URL="..." DATABASE_CA_CERT="$(cat ca.pem)" npx tsx scripts/issue-demo-tokens.mts > tokens.json
+DATABASE_URL="..." npx tsx scripts/issue-demo-tokens.mts > tokens.json
 gh secret set DEMO_SENSOR_TOKENS --repo Teera235/greenfactory-insight < tokens.json
 gh variable set DEMO_APP_URL --repo Teera235/greenfactory-insight --body "https://<โดเมน>"
 rm tokens.json
 ```
-แล้วรัน workflow "Demo sensors" ครั้งแรกจากแท็บ Actions (หรือ `gh workflow run demo-sensors.yml`)
+
+## 4. ฐานข้อมูล Postgres (Neon) แทน MySQL
+Vercel ไม่มี MySQL ใน Marketplace ระบบจึงรองรับ Postgres ด้วย: ถ้า `DATABASE_URL` ขึ้นต้นด้วย `postgres://` จะใช้ `prisma/postgres/schema.prisma` (สร้างอัตโนมัติจาก schema MySQL ด้วย `npm run db:pg-schema`) และ migration ของตัวเอง ใช้ `DATABASE_URL_UNPOOLED` ตอนรัน `prisma migrate deploy`
 
 ## สิ่งที่ใช้บน Vercel ไม่ได้
 - สำรอง/กู้คืนข้อมูลด้วย mysqldump (หน้าแอดมินแจ้งว่าใช้ไม่ได้) ใช้ backup ของผู้ให้บริการฐานข้อมูลแทน
