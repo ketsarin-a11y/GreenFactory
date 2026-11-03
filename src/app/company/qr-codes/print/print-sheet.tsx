@@ -25,7 +25,8 @@ export function PrintSheet({ rows }: { rows: QrRow[] }) {
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2 print:hidden">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">พิมพ์ป้าย QR Code</h1>
-          <p className="text-sm text-muted-foreground">{rows.length} ป้าย · {pages.length} หน้า A4 · ใช้ตั้งค่าพิมพ์ “ขนาดจริง (100%)”</p>
+          <p className="text-sm text-muted-foreground">{rows.length} ป้าย ใช้กระดาษ A4 {pages.length} หน้า</p>
+          <p className="text-sm text-muted-foreground">ตั้งค่าเครื่องพิมพ์เป็นขนาดจริง (100%)</p>
         </div>
         <Button className="h-10" onClick={() => window.print()}><Printer /> พิมพ์</Button>
       </div>
@@ -36,7 +37,7 @@ export function PrintSheet({ rows }: { rows: QrRow[] }) {
               <article key={q.id} className="flex flex-col items-center justify-center gap-[2mm] rounded-lg border border-dashed border-neutral-400 p-[4mm] text-center">
                 <QrImage token={q.token} size={140} alt={`QR ${q.qrCode}`} className="h-[37mm] w-[37mm]" />
                 <p className="text-[13pt] leading-tight font-semibold">{q.targetName}</p>
-                <p className="font-mono text-[10pt]">{q.qrCode} · {q.targetCode}</p>
+                <p className="flex gap-[2mm] font-display text-[10pt]"><span className="rounded border border-neutral-400 px-[1.5mm]">{q.qrCode}</span><span className="rounded border border-neutral-400 px-[1.5mm]">{q.targetCode}</span></p>
                 <p className="text-[9pt] leading-snug text-neutral-600">{q.building} › {q.department} › {q.line}</p>
                 {q.status !== "ACTIVE" && <p className="text-[9pt] font-medium">สถานะ: ระงับชั่วคราว</p>}
               </article>

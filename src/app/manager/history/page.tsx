@@ -1,5 +1,8 @@
 import { History, Paperclip } from "lucide-react";
 import { PageHeader } from "@/components/app/page-header";
+import { Nameplate } from "@/components/data/nameplate";
+import { Meta } from "@/components/manager/panel";
+import { factoryLabel } from "@/server/queries/context";
 import { EmptyState } from "@/components/data/empty-state";
 import { PROCESSING, Status } from "@/components/data/status-badge";
 import { UrlFilters } from "@/components/data/url-filters";
@@ -19,14 +22,15 @@ export default async function Page({ searchParams }: PageProps<"/manager/history
   const sp = await searchParams;
   const s = (k: string) => (typeof sp[k] === "string" ? (sp[k] as string) : undefined);
   const page = pageParam(sp.page);
-  const [d, opts] = await Promise.all([
+  const [d, opts, factory] = await Promise.all([
     getHistory(user, { q: s("q")?.trim().slice(0, 100), resource: s("resource"), source: s("source"), buildingId: intParam(sp.building), departmentId: intParam(sp.department), from: s("from"), to: s("to"), page }),
     structureFilterOptions(user),
+    factoryLabel(user),
   ]);
   return (
     <>
-      <PageHeader title="ประวัติการบันทึก" description="ทุกรายการที่บันทึกในโรงงาน เรียงจากล่าสุด" />
-      <section className="rounded-xl border bg-card p-5">
+      <PageHeader title="ประวัติการบันทึก" description={<Meta factory={factory.primary}><span>ทุกรายการที่บันทึก เรียงจากล่าสุด</span></Meta>} />
+      <section className="rounded-[10px] border bg-card p-5">
         <UrlFilters fields={[
           { type: "search", name: "q", placeholder: "ค้นหาเลขอ้างอิง เครื่องจักร แผนก อาคาร หรือทรัพยากร" },
           { type: "select", name: "resource", label: "ทรัพยากร", options: d.resources.map((r) => ({ value: r.resourceCode, label: r.resourceName })) },
@@ -52,13 +56,13 @@ export default async function Page({ searchParams }: PageProps<"/manager/history
                   return (
                     <TableRow key={r.id}>
                       <TableCell className="whitespace-nowrap tabular">{fmtDateTime(r.usageAt)}</TableCell>
-                      <TableCell className="text-sm">{r.target}<p className="text-xs text-muted-foreground">{r.location}</p></TableCell>
+                      <TableCell className="text-sm"><span className="flex flex-wrap items-center gap-2">{r.target}{r.targetCode && <Nameplate>{r.targetCode}</Nameplate>}</span><p className="text-xs text-muted-foreground">{r.location}</p></TableCell>
                       <TableCell><span className="flex items-center gap-1.5 whitespace-nowrap"><Icon className="size-4" style={{ color: resourceColor(r.resourceCode) }} aria-hidden />{r.resourceName}</span></TableCell>
                       <TableCell className="text-right whitespace-nowrap tabular">{fmtNum(r.quantity)} <span className="text-muted-foreground">{r.unit}</span></TableCell>
                       <TableCell className="text-sm">{SOURCE_LABEL[r.source] ?? r.source}<p className="text-xs text-muted-foreground">{r.recorder}</p></TableCell>
                       <TableCell><Status map={PROCESSING} value={r.processing} /></TableCell>
                       <TableCell>
-                        <span className="font-mono text-xs text-muted-foreground">{r.reference}</span>
+                        <Nameplate>{r.reference}</Nameplate>
                         {r.hasEvidence && <a href={`/api/files/evidence/${r.id}`} target="_blank" rel="noreferrer" className="mt-0.5 flex items-center gap-1 text-xs text-primary hover:underline"><Paperclip className="size-3" />หลักฐาน</a>}
                       </TableCell>
                     </TableRow>

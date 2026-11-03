@@ -16,6 +16,7 @@ type Msg = { role: "user" | "assistant"; content: string };
 type ConvItem = { id: string; title: string; updatedAt: string };
 
 const SUGGESTED = ["สรุปสถานการณ์โรงงาน 7 วันล่าสุด", "มีอะไรผิดปกติในการใช้ไฟฟ้า?", "เครื่องไหนมีสัดส่วนการใช้ไฟสูงสุด?", "สรุป Carbon Footprint ล่าสุด"];
+const chipCls = "rounded-full border px-3 py-1.5 text-left text-sm hover:border-primary hover:bg-accent disabled:opacity-50";
 
 /** **bold** and "- " lists; everything else is plain text (no HTML injection). */
 function Rich({ text }: { text: string }) {
@@ -30,7 +31,7 @@ function Rich({ text }: { text: string }) {
   );
 }
 
-export function Chat({ conversations, activeId, initial, prefill }: { conversations: ConvItem[]; activeId: string | null; initial: Msg[]; prefill?: string }) {
+export function Chat({ conversations, activeId, initial, prefill, followUps = [] }: { conversations: ConvItem[]; activeId: string | null; initial: Msg[]; prefill?: string; followUps?: string[] }) {
   const router = useRouter();
   const [messages, setMessages] = useState<Msg[]>(initial);
   const [input, setInput] = useState(prefill ?? "");
@@ -71,11 +72,16 @@ export function Chat({ conversations, activeId, initial, prefill }: { conversati
     }
   };
 
+  const asked = new Set(messages.filter((m) => m.role === "user").map((m) => m.content));
+  const next = followUps.filter((q) => !asked.has(q)).slice(0, 3);
+  const starters = [SUGGESTED[0], ...followUps.slice(0, 3), ...SUGGESTED.slice(1)].slice(0, 4);
+  const lastIsAnswer = !busy && messages.length > 0 && messages[messages.length - 1].role === "assistant";
+
   return (
-    <div className="grid gap-6 lg:grid-cols-[260px_1fr]">
-      <aside className="order-2 rounded-xl border bg-card p-4 lg:order-1">
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">
+      <aside className="order-2 rounded-[10px] border bg-card p-4 lg:order-1">
         <Button asChild variant="outline" className="mb-3 w-full"><Link href="/manager/assistant"><MessageSquarePlus /> บทสนทนาใหม่</Link></Button>
-        <h2 className="mb-2 text-xs font-medium text-muted-foreground">ประวัติ</h2>
+        <h2 className="mb-2 text-sm font-semibold">บทสนทนาก่อนหน้า</h2>
         {conversations.length === 0 ? <p className="text-sm text-muted-foreground">ยังไม่มีบทสนทนา</p> : (
           <ul className="space-y-0.5">
             {conversations.map((c) => (
@@ -92,7 +98,7 @@ export function Chat({ conversations, activeId, initial, prefill }: { conversati
         )}
       </aside>
 
-      <section className="order-1 flex min-h-[560px] flex-col rounded-xl border bg-card lg:order-2">
+      <section className="order-1 flex min-h-[560px] flex-col rounded-[10px] border bg-card lg:order-2">
         <div className="flex-1 space-y-4 overflow-y-auto p-5" aria-live="polite">
           {messages.length === 0 && (
             <div className="flex flex-col items-center py-8 text-center">
@@ -100,18 +106,26 @@ export function Chat({ conversations, activeId, initial, prefill }: { conversati
               <p className="mt-3 font-semibold">สวัสดี ฉันคือ G-FAY</p>
               <p className="mt-1 max-w-md text-sm text-muted-foreground">ถามเรื่องการใช้ไฟฟ้า น้ำ ทรัพยากร คาร์บอน หรือการแจ้งเตือนของโรงงาน ฉันตอบจากข้อมูล 30 วันล่าสุดของโรงงานนี้เท่านั้น</p>
               <div className="mt-5 grid w-full max-w-xl gap-2 sm:grid-cols-2">
-                {SUGGESTED.map((s) => <button key={s} type="button" onClick={() => send(s)} className="rounded-lg border px-3 py-2.5 text-left text-sm hover:border-primary hover:bg-accent">{s}</button>)}
+                {starters.map((s) => <button key={s} type="button" onClick={() => send(s)} className="rounded-lg border px-3 py-2.5 text-left text-sm hover:border-primary hover:bg-accent">{s}</button>)}
               </div>
             </div>
           )}
           {messages.map((m, i) => (
             <div key={i} className={cn("flex gap-3", m.role === "user" && "justify-end")}>
               {m.role === "assistant" && <Image src="/images/g-fay.gif" alt="" width={32} height={32} unoptimized className="size-8 shrink-0 rounded-full" />}
-              <div className={cn("max-w-[85%] rounded-xl px-4 py-3", m.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted/60")}>
+              <div className={cn("max-w-[85%] rounded-[10px] px-4 py-3", m.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted/60")}>
                 {m.role === "assistant" && !m.content ? <Loader2 className="size-4 animate-spin text-muted-foreground" aria-label="กำลังตอบ" /> : m.role === "user" ? <p className="text-sm whitespace-pre-wrap">{m.content}</p> : <Rich text={m.content} />}
               </div>
             </div>
           ))}
+          {lastIsAnswer && next.length > 0 && (
+            <div className="pl-11">
+              <p className="mb-2 text-xs text-muted-foreground">ถามต่อ</p>
+              <div className="flex flex-wrap gap-2">
+                {next.map((q) => <button key={q} type="button" onClick={() => send(q)} className={chipCls}>{q}</button>)}
+              </div>
+            </div>
+          )}
           <div ref={end} />
         </div>
         <form className="flex items-end gap-2 border-t p-4" onSubmit={(e) => { e.preventDefault(); send(input); }}>

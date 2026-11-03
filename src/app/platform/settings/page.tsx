@@ -30,7 +30,12 @@ export default async function Page() {
 
   return (
     <>
-      <PageHeader title="ตั้งค่าระบบ" description={`แก้ไขล่าสุด ${fmtDateTime(s.updatedAt)}${by ? ` โดย ${by}` : ""} · ทุกการเปลี่ยนแปลงถูกบันทึกใน Audit Log`} />
+      <PageHeader title="ตั้งค่าระบบ" description={
+          <>
+            <span className="block">แก้ไขล่าสุด {fmtDateTime(s.updatedAt)}{by ? ` โดย ${by}` : ""}</span>
+            <span className="block">ทุกการเปลี่ยนแปลงถูกบันทึกใน Audit Log</span>
+          </>
+        } />
       <Alert className="mb-6">
         <Info aria-hidden />
         <AlertTitle>ค่าเหล่านี้ถูกบันทึกแล้ว แต่บางส่วนยังไม่มีผลกับระบบ</AlertTitle>

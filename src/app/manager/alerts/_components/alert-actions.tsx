@@ -22,14 +22,14 @@ export function AlertButtons({ id, status }: { id: string; status: string }) {
   const res = useAction(resolveAlert, { success: "ปิดการแจ้งเตือนแล้ว" });
   if (status === "RESOLVED") return null;
   return (
-    <div className="flex gap-2">
+    <div className="flex flex-wrap gap-2">
       {status === "OPEN" && (
         <Button variant="outline" className="flex-1" disabled={ack.pending || res.pending} onClick={() => ack.run({ alertId: id })}>
           {ack.pending ? <Loader2 className="animate-spin" /> : <Eye />} รับทราบ
         </Button>
       )}
       <Button className="flex-1" disabled={ack.pending || res.pending} onClick={() => res.run({ alertId: id })}>
-        {res.pending ? <Loader2 className="animate-spin" /> : <CheckCircle2 />} แก้ไขแล้ว ปิดการแจ้งเตือน
+        {res.pending ? <Loader2 className="animate-spin" /> : <CheckCircle2 />} ปิดการแจ้งเตือน
       </Button>
     </div>
   );

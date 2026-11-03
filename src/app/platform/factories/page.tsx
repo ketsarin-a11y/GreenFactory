@@ -9,7 +9,8 @@ import { fmtNum } from "@/lib/format";
 import { fmtDate } from "@/lib/time";
 import { requireUser } from "@/server/auth/current-user";
 import { listFactories } from "@/server/queries/platform/factories";
-import { CreateFactoryButton, FactoryStatusSelect } from "./_components/factory-parts";
+import { Nameplate } from "@/components/data/nameplate";
+import { CreateFactoryButton, EditFactoryButton, FactoryStatusSelect } from "@/components/platform/factory-form";
 
 export default async function Page({ searchParams }: PageProps<"/platform/factories">) {
   await requireUser("PLATFORM_ADMIN");
@@ -40,7 +41,7 @@ export default async function Page({ searchParams }: PageProps<"/platform/factor
       {d.rows.length === 0 ? (
         <EmptyState icon={Factory} title="ไม่พบโรงงาน" description={active.length ? "ลองล้างตัวกรอง หรือกด “เพิ่มโรงงาน”" : "ต้องมีบริษัทที่ใช้งานอยู่ก่อนจึงจะเพิ่มโรงงานได้"} />
       ) : (
-        <div className="rounded-xl border bg-card">
+        <div className="rounded-[10px] border bg-card">
           <Table>
             <TableHeader>
               <TableRow>
@@ -49,9 +50,10 @@ export default async function Page({ searchParams }: PageProps<"/platform/factor
                 <TableHead>จังหวัด</TableHead>
                 <TableHead className="text-right">อาคาร</TableHead>
                 <TableHead className="text-right">ผู้ใช้</TableHead>
-                <TableHead className="text-right">รายการบันทึก</TableHead>
+                <TableHead className="text-right">รายการบันทึกทั้งหมด</TableHead>
                 <TableHead>สร้างเมื่อ</TableHead>
                 <TableHead>สถานะ</TableHead>
+                <TableHead className="w-10"><span className="sr-only">แก้ไข</span></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -59,7 +61,7 @@ export default async function Page({ searchParams }: PageProps<"/platform/factor
                 <TableRow key={f.factoryId}>
                   <TableCell>
                     <Link href={`/platform/companies/${f.company.companyId}/factories/${f.factoryId}`} className="block font-medium hover:underline">{f.factoryName}</Link>
-                    <span className="font-mono text-xs text-muted-foreground">{f.factoryCode}</span>
+                    <Nameplate className="mt-1">{f.factoryCode}</Nameplate>
                   </TableCell>
                   <TableCell>
                     <Link href={`/platform/companies/${f.company.companyId}`} className="hover:underline">{f.company.companyName}</Link>
@@ -70,6 +72,7 @@ export default async function Page({ searchParams }: PageProps<"/platform/factor
                   <TableCell className="text-right tabular">{fmtNum(f._count.resourceUsages, 0)}</TableCell>
                   <TableCell className="tabular">{fmtDate(f.createdAt)}</TableCell>
                   <TableCell><FactoryStatusSelect factoryId={f.factoryId} status={f.status} name={f.factoryName} /></TableCell>
+                  <TableCell><EditFactoryButton factory={f} compact /></TableCell>
                 </TableRow>
               ))}
             </TableBody>

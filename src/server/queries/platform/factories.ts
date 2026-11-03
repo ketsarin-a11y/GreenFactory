@@ -25,6 +25,14 @@ export async function listFactories(sp: SP, page: number) {
         factoryCode: true,
         factoryName: true,
         province: true,
+        address: true,
+        postalCode: true,
+        phone: true,
+        email: true,
+        latitude: true,
+        longitude: true,
+        googleMapUrl: true,
+        timezone: true,
         status: true,
         createdAt: true,
         company: { select: { companyId: true, companyName: true, companyCode: true } },
@@ -33,5 +41,11 @@ export async function listFactories(sp: SP, page: number) {
     }),
     db.company.findMany({ orderBy: { companyName: "asc" }, select: { companyId: true, companyName: true, status: true } }),
   ]);
-  return { total, totalPages: Math.ceil(total / PAGE_SIZE), rows, companies };
+  return {
+    total,
+    totalPages: Math.ceil(total / PAGE_SIZE),
+    // Decimal → number so the edit sheet (client) can receive the row.
+    rows: rows.map((r) => ({ ...r, latitude: r.latitude === null ? null : Number(r.latitude), longitude: r.longitude === null ? null : Number(r.longitude) })),
+    companies,
+  };
 }

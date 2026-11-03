@@ -113,11 +113,11 @@ describe("reports", () => {
 describe("aggregation never mixes units", () => {
   it("keeps TAP_WATER in m³ and L as separate totals", async () => {
     const user = await asManager();
-    const day = (await db.resourceUsage.findFirstOrThrow({ where: { companyId: user.companyId!, status: "ACTIVE" }, orderBy: { usageAt: "desc" } })).usageAt;
+    const day = (await db.resourceUsage.findFirstOrThrow({ where: { companyId: user.companyId!, factoryId: user.factoryId, status: "ACTIVE" }, orderBy: { usageAt: "desc" } })).usageAt;
     const today = bkkDay(day);
     const water = await db.resourceTypeMaster.findUniqueOrThrow({ where: { resourceCode: "TAP_WATER" } });
     const litre = await db.unit.findUniqueOrThrow({ where: { unitCode: "LITER" } });
-    const tmpl = await db.resourceUsage.findFirstOrThrow({ where: { companyId: user.companyId!, resourceTypeId: water.resourceTypeId } });
+    const tmpl = await db.resourceUsage.findFirstOrThrow({ where: { companyId: user.companyId!, factoryId: user.factoryId, resourceTypeId: water.resourceTypeId } });
     // 00:30 Bangkok belongs to that Bangkok day (17:30 UTC of the previous calendar day).
     const at = new Date(startOfBkkDay(today).getTime() + 30 * 60_000);
     await db.resourceUsage.create({
@@ -162,5 +162,19 @@ describe("KPI recalculation", () => {
       expect(Number(a.actualValue)).toBeCloseTo(Number(b.actualValue), 4);
       expect(Number(a.achievementPercent)).toBeCloseTo(Number(b.achievementPercent), 2);
     });
+  });
+});
+
+describe("home dashboard", () => {
+  it("scopes sensors and KPIs to the manager's factory and never mixes units in the heatmap", async () => {
+    const user = await asManager();
+    const to = bkkDay(new Date());
+    const home = await getHome(user, { from: addDays(to, -6), to, days: 7, isDefault: false });
+    expect(home.live.sensors).toBe(await db.sensor.count({ where: { status: "ACTIVE", machine: { productionLine: { department: { building: { factoryId: user.factoryId! } } } } } }));
+    const ids = await db.kPI.findMany({ where: { kpiId: { in: home.kpis.map((k) => k.id) } }, select: { factoryId: true } });
+    expect(ids.every((k) => k.factoryId === user.factoryId || k.factoryId === null)).toBe(true);
+    expect(home.heatmap.rows.length).toBeLessThanOrEqual(10);
+    expect(home.heatmap.days).toHaveLength(28);
+    expect(home.elec.spark).toHaveLength(28);
   });
 });

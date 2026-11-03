@@ -30,12 +30,19 @@ export function FormSheet({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className={wide ? "w-full sm:max-w-xl" : "w-full sm:max-w-md"}>
-        <form action={onSubmit} className="flex min-h-0 flex-1 flex-col">
+        <form
+          // onSubmit (not `action`): React resets a form after an action, which would wipe what the user typed when the server rejects it.
+          onSubmit={(e) => {
+            e.preventDefault();
+            void onSubmit(new FormData(e.currentTarget));
+          }}
+          className="flex min-h-0 flex-1 flex-col"
+        >
           <SheetHeader className="border-b">
             <SheetTitle>{title}</SheetTitle>
             {description && <SheetDescription>{description}</SheetDescription>}
           </SheetHeader>
-          <div className="flex-1 space-y-4 overflow-y-auto p-4">{children}</div>
+          <div className="flex-1 space-y-6 overflow-y-auto p-4">{children}</div>
           <SheetFooter className="flex-row justify-end border-t">
             <Button type="button" variant="outline" className="h-10" onClick={() => onOpenChange(false)} disabled={pending}>
               ยกเลิก
@@ -54,7 +61,7 @@ export function FormSheet({
 export function FormSection({ title, children }: { title: string; children: ReactNode }) {
   return (
     <fieldset className="space-y-4">
-      <legend className="mb-1 text-sm font-semibold">{title}</legend>
+      <legend className="mb-3 text-sm font-semibold">{title}</legend>
       {children}
     </fieldset>
   );

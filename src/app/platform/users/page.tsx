@@ -1,6 +1,6 @@
-import { UserPlus, Users } from "lucide-react";
+import { Users } from "lucide-react";
 import { PageHeader } from "@/components/app/page-header";
-import { StatTile } from "@/components/data/stat-tile";
+import { SummaryStrip } from "@/components/platform/summary-strip";
 import { UrlFilters } from "@/components/data/url-filters";
 import { Pagination, pageParam } from "@/components/data/pagination";
 import { EmptyState } from "@/components/data/empty-state";
@@ -22,13 +22,15 @@ export default async function Page({ searchParams }: PageProps<"/platform/users"
   return (
     <>
       <PageHeader title="ผู้ใช้งาน" description="บัญชีผู้ใช้ของทุกบริษัทและผู้ดูแลแพลตฟอร์ม" actions={<CreateUserButton options={options} />} />
-      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <StatTile label="ทั้งหมด" value={fmtNum(d.stats.total, 0)} unit="คน" goodWhen="neutral" />
-        <StatTile label="ใช้งานอยู่" value={fmtNum(d.stats.active, 0)} unit="คน" goodWhen="neutral" />
-        <StatTile label="ระงับใช้งาน" value={fmtNum(d.stats.locked, 0)} unit="คน" goodWhen="neutral" />
-        <StatTile label="ปิดใช้งาน" value={fmtNum(d.stats.inactive, 0)} unit="คน" goodWhen="neutral" />
-        <StatTile label="ใหม่ใน 30 วัน" value={fmtNum(d.stats.newUsers, 0)} unit="คน" icon={UserPlus} goodWhen="neutral" />
-      </div>
+      <SummaryStrip
+        items={[
+          { label: "ทั้งหมด", value: fmtNum(d.stats.total, 0), unit: "คน", href: "/platform/users", active: !sp.status },
+          { label: "ใช้งานอยู่", value: fmtNum(d.stats.active, 0), unit: "คน", href: "/platform/users?status=ACTIVE", active: sp.status === "ACTIVE" },
+          { label: "ระงับใช้งาน", value: fmtNum(d.stats.locked, 0), unit: "คน", href: "/platform/users?status=LOCKED", active: sp.status === "LOCKED" },
+          { label: "ปิดใช้งาน", value: fmtNum(d.stats.inactive, 0), unit: "คน", href: "/platform/users?status=INACTIVE", active: sp.status === "INACTIVE" },
+          { label: "ใหม่ใน 30 วัน", value: fmtNum(d.stats.newUsers, 0), unit: "คน" },
+        ]}
+      />
       <UrlFilters
         fields={[
           { type: "search", name: "q", placeholder: "ค้นหาชื่อ อีเมล ชื่อผู้ใช้ หรือรหัสพนักงาน" },
@@ -49,7 +51,7 @@ export default async function Page({ searchParams }: PageProps<"/platform/users"
       {d.rows.length === 0 ? (
         <EmptyState icon={Users} title="ไม่พบผู้ใช้งาน" description="ลองล้างตัวกรอง หรือกด “เพิ่มผู้ใช้งาน”" />
       ) : (
-        <div className="rounded-xl border bg-card">
+        <div className="rounded-[10px] border bg-card">
           <Table>
             <TableHeader>
               <TableRow>

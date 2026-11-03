@@ -2,7 +2,12 @@ import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { db } from "@/server/db";
 import { getCurrentUser } from "@/server/auth/current-user";
 import { deleteMachine, saveMachine, setMachineStatus } from "@/server/actions/company/machines";
-import { deleteSensor } from "@/server/actions/company/sensors";
+import { deleteSensor, issueSensorToken } from "@/server/actions/company/sensors";
+import { POST as ingest } from "@/app/api/ingest/readings/route";
+import { GET as sensorReadings } from "@/app/api/company/sensors/[id]/readings/route";
+import { GET as reportExport } from "@/app/api/company/reports/route";
+import { companyEnergy } from "@/server/queries/company/energy";
+import { monthlyReport } from "@/server/queries/company/reports";
 import { createQr, rotateQrToken, setQrStatus, updateQrCode } from "@/server/actions/company/qr";
 import { createUser, resetUserPassword, setUserStatus, updateUser } from "@/server/actions/company/users";
 import { deleteStructureNode, saveBuilding, saveDepartment, saveLine } from "@/server/actions/company/structure";
@@ -11,7 +16,10 @@ import { listMachines } from "@/server/queries/company/machines";
 import { listUsers } from "@/server/queries/company/users";
 import { listQr, qrByIds } from "@/server/queries/company/qr";
 import { REFERENCED_MSG } from "@/server/actions/company/_shared";
-import { DEMO, signInAs, signOut } from "./helpers";
+import { DEMO as BASE_DEMO, signInAs, signOut } from "./helpers";
+
+// The second seeded tenant is SIAMFOOD (helpers.ts still names the old SIAMPACK admin).
+const DEMO = { ...BASE_DEMO, otherCompanyAdmin: "admin@siamfood.example" };
 
 afterEach(signOut);
 
@@ -19,8 +27,6 @@ const NOT_FOUND = { ok: false, message: "ไม่พบข้อมูล" };
 let v: { factoryId: number; machineId: number; lineId: number; typeId: number; sensorId: number; qrId: string; operatorId: number; departmentId: number };
 
 beforeAll(async () => {
-  // The seeded SIAMPACK tenant is PENDING; activate it (test DB only) so its admin can sign in.
-  await db.company.update({ where: { companyCode: "SIAMPACK" }, data: { status: "ACTIVE" } });
   const f = await db.factory.findFirstOrThrow({ where: { factoryCode: "VT-CB1" } });
   const m = await db.machine.findFirstOrThrow({ where: { productionLine: { department: { building: { factoryId: f.factoryId } } } }, include: { sensors: true, qrCodes: true } });
   const sensor = await db.sensor.findFirstOrThrow({ where: { machine: { productionLine: { department: { building: { factoryId: f.factoryId } } } } } });
@@ -29,7 +35,7 @@ beforeAll(async () => {
   v = { factoryId: f.factoryId, machineId: m.machineId, lineId: m.lineId, typeId: m.machineTypeId, sensorId: sensor.sensorId, qrId: m.qrCodes[0].qrId.toString(), operatorId: op.userId, departmentId: dept.departmentId };
 });
 
-describe("cross-tenant ids (SIAMPACK admin vs VOLTERA rows)", () => {
+describe("cross-tenant ids (SIAMFOOD admin vs VOLTERA rows)", () => {
   it("cannot change VOLTERA machines, sensors or structure", async () => {
     await signInAs(DEMO.otherCompanyAdmin);
     expect(await saveMachine({ id: v.machineId, lineId: v.lineId, machineTypeId: v.typeId, machineCode: "HACK", machineName: "x" })).toEqual(NOT_FOUND);
@@ -57,9 +63,9 @@ describe("cross-tenant ids (SIAMPACK admin vs VOLTERA rows)", () => {
     expect((await createQr({ targetType: "MACHINE", targetId: v.machineId, qrCode: "STEAL" })).ok).toBe(false);
     const u = (await getCurrentUser())!;
     expect(await qrByIds(u, [BigInt(v.qrId)])).toEqual([]);
-    expect((await listQr(u, { page: 1 })).rows).toEqual([]);
-    expect((await listMachines(u, { page: 1 })).rows).toEqual([]);
-    expect((await listUsers(u, { page: 1 })).rows.every((r) => r.email.endsWith("siampack.example"))).toBe(true);
+    expect((await listQr(u, { page: 1 })).rows.some((r) => r.id === v.qrId || r.qrCode.startsWith("QR-VT"))).toBe(false);
+    expect((await listMachines(u, { page: 1 })).rows.some((r) => r.id === v.machineId)).toBe(false);
+    expect((await listUsers(u, { page: 1 })).rows.every((r) => r.email.endsWith("siamfood.example"))).toBe(true);
   });
 });
 
@@ -154,5 +160,107 @@ describe("suspend / reset password", () => {
     expect(await resetUserPassword({ id: v.operatorId, password: "short" })).toMatchObject({ ok: false });
     expect((await resetUserPassword({ id: v.operatorId, password: "Temp12345" })).ok).toBe(true);
     expect((await db.user.findUniqueOrThrow({ where: { userId: v.operatorId } })).sessionVersion).toBe(v0 + 1);
+  });
+});
+
+describe("sensor device tokens", () => {
+  const post = (token: string | null, body: unknown) =>
+    ingest(new Request("http://localhost/api/ingest/readings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify(body),
+    }));
+
+  it("another company's admin cannot issue a token for a VOLTERA sensor", async () => {
+    await signInAs(DEMO.otherCompanyAdmin);
+    const before = (await db.sensor.findUniqueOrThrow({ where: { sensorId: v.sensorId } })).ingestTokenHash;
+    expect(await issueSensorToken({ id: v.sensorId })).toEqual(NOT_FOUND);
+    expect((await db.sensor.findUniqueOrThrow({ where: { sensorId: v.sensorId } })).ingestTokenHash).toBe(before);
+  });
+
+  it("operators and managers cannot issue tokens", async () => {
+    await signInAs(DEMO.manager);
+    expect((await issueSensorToken({ id: v.sensorId })).ok).toBe(false);
+  });
+
+  it("an issued token is stored only as a hash, works against POST /api/ingest/readings, and replaces the old one", async () => {
+    await signInAs(DEMO.companyAdmin);
+    const r1 = await issueSensorToken({ id: v.sensorId });
+    expect(r1.ok).toBe(true);
+    const token = r1.ok ? r1.data.token : "";
+    expect(token).toMatch(/^gfs_/);
+    const stored = await db.sensor.findUniqueOrThrow({ where: { sensorId: v.sensorId } });
+    expect(stored.ingestTokenHash).toHaveLength(64);
+    expect(stored.ingestTokenHash).not.toContain(token);
+
+    signOut(); // the device has no session
+    const before = await db.sensorData.count({ where: { sensorId: v.sensorId } });
+    const res = await post(token, { value: 42.1, unit: "KW" });
+    expect(res.status).toBe(202);
+    expect(await res.json()).toEqual({ accepted: 1 });
+    expect(await db.sensorData.count({ where: { sensorId: v.sensorId } })).toBe(before + 1);
+    expect((await db.sensor.findUniqueOrThrow({ where: { sensorId: v.sensorId } })).lastConnectedAt).not.toBeNull();
+
+    expect((await post(null, { value: 1 })).status).toBe(401);
+    expect((await post(`${token}x`, { value: 1 })).status).toBe(401);
+    expect((await post(token, { nope: true })).status).toBe(400);
+
+    // Re-issuing invalidates the first token.
+    await signInAs(DEMO.companyAdmin);
+    const r2 = await issueSensorToken({ id: v.sensorId });
+    expect(r2.ok).toBe(true);
+    signOut();
+    expect((await post(token, { value: 1, unit: "KW" })).status).toBe(401);
+    expect((await post(r2.ok ? r2.data.token : "", { value: 2, unit: "KW" })).status).toBe(202);
+  });
+
+  it("24 h readings route is scoped to the admin's company", async () => {
+    const call = () => sensorReadings(new Request(`http://localhost/api/company/sensors/${v.sensorId}/readings`), { params: Promise.resolve({ id: String(v.sensorId) }) });
+    await signInAs(DEMO.companyAdmin);
+    const ok = await call();
+    expect(ok.status).toBe(200);
+    const body = await ok.json();
+    expect(body.points.length).toBeGreaterThan(100);
+    expect(body.latest).not.toBeNull();
+    await signInAs(DEMO.otherCompanyAdmin);
+    expect((await call()).status).toBe(404);
+    await signInAs(DEMO.manager);
+    expect((await call()).status).toBe(401);
+  });
+});
+
+describe("company overview and reports", () => {
+  it("energy overview covers both VOLTERA factories and only VOLTERA data", async () => {
+    const admin = (await signInAs(DEMO.companyAdmin)) && (await getCurrentUser())!;
+    const e = await companyEnergy(admin);
+    expect(e.factories.map((f) => f.code)).toEqual(expect.arrayContaining(["VT-CB1", "VT-RY2"]));
+    expect(e.elec.total).toBeGreaterThan(0);
+    expect(e.elec.total).toBeCloseTo(e.factories.reduce((a, f) => a + f.kwh, 0), 3);
+    expect(e.days).toHaveLength(30);
+    const other = (await signInAs(DEMO.otherCompanyAdmin)) && (await getCurrentUser())!;
+    const o = await companyEnergy(other);
+    expect(o.factories.some((f) => f.code.startsWith("VT-"))).toBe(false);
+  });
+
+  it("monthly report filters by factory and ignores other companies' factory ids", async () => {
+    const admin = (await signInAs(DEMO.companyAdmin)) && (await getCurrentUser())!;
+    const latest = await db.resourceUsage.findFirstOrThrow({ where: { companyId: admin.companyId! }, orderBy: { usageAt: "desc" } });
+    const month = new Date(latest.usageAt.getTime() + 7 * 3600_000).toISOString().slice(0, 7);
+    const all = await monthlyReport(admin, month);
+    expect(all.factories.length).toBeGreaterThanOrEqual(2);
+    const one = await monthlyReport(admin, month, v.factoryId);
+    expect(one.factories.map((f) => f.id)).toEqual([v.factoryId]);
+    const foreign = await db.factory.findFirstOrThrow({ where: { company: { companyCode: "SIAMFOOD" } } });
+    expect((await monthlyReport(admin, month, foreign.factoryId)).metrics).toEqual([]);
+
+    const res = await reportExport(new Request(`http://localhost/api/company/reports?month=${month}&format=xlsx`));
+    expect(res.status).toBe(200);
+    const ExcelJS = (await import("exceljs")).default;
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(await res.arrayBuffer());
+    expect(wb.worksheets.map((w) => w.name)).toEqual(["สรุปรายโรงงาน", "เทียบโรงงาน", "รายวัน"]);
+    const csv = await (await reportExport(new Request(`http://localhost/api/company/reports?month=${month}&factory=${v.factoryId}`))).text();
+    expect(csv).toContain("VT-CB1");
+    expect(csv).not.toContain("VT-RY2");
   });
 });

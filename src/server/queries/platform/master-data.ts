@@ -1,6 +1,8 @@
 import "server-only";
 import { db } from "@/server/db";
-import { bkkDay } from "@/lib/time";
+import { bkkDay, fmtDate, startOfBkkDay } from "@/lib/time";
+
+const bkkDate = (day: string) => fmtDate(startOfBkkDay(day));
 import { fmtNum } from "@/lib/format";
 import { factorUnitFor, isExpired } from "@/server/domain/emission-factor";
 import type { MasterKind } from "@/components/platform/master-data/config";
@@ -175,7 +177,7 @@ export async function listMaster(kind: MasterKind, sp: SP): Promise<{ rows: Mast
               region: r.region ?? "—",
               factor: fmtNum(Number(r.factor), 4),
               factorUnit: r.factorUnit,
-              period: `${from} → ${to ?? "ปัจจุบัน"}${isExpired(to, today) ? " (หมดอายุ)" : ""}`,
+              period: `${bkkDate(from)} – ${to ? bkkDate(to) : "ปัจจุบัน"}${isExpired(to, today) ? " (หมดอายุ)" : ""}`,
               source: r.source ?? "—",
             },
             refs: [{ label: "ผลคำนวณคาร์บอน", count: r._count.carbonResults }],

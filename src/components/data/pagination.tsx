@@ -17,10 +17,10 @@ export function Pagination({ page, totalPages, total, params, pathname }: {
     const q = sp.toString();
     return q ? `${pathname}?${q}` : pathname;
   };
-  const btn = "inline-flex h-8 items-center gap-1 rounded-md border px-2.5 text-sm";
+  const btn = "inline-flex h-8 items-center gap-1 rounded-md border px-2.5 text-sm whitespace-nowrap";
   return (
     <nav className="mt-4 flex items-center justify-between gap-3 text-sm text-muted-foreground" aria-label="เลขหน้า">
-      <p className="tabular">ทั้งหมด {total.toLocaleString("th-TH")} รายการ</p>
+      <p className="tabular max-sm:hidden">ทั้งหมด {total.toLocaleString("th-TH")} รายการ</p>
       <div className="flex items-center gap-2">
         {page > 1 ? <Link className={btn} href={href(page - 1)}><ChevronLeft className="size-4" />ก่อนหน้า</Link> : <span className={cn(btn, "opacity-40")}><ChevronLeft className="size-4" />ก่อนหน้า</span>}
         <span className="tabular">หน้า {page} / {Math.max(1, totalPages)}</span>

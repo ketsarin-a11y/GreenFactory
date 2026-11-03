@@ -106,3 +106,17 @@ export function findings(input: {
     });
   return out.slice(0, 4);
 }
+
+/** Days laid out as weekday (Mon..Sun) × week (Monday start). Days outside the list or without data are null. */
+export function weekGrid(points: { day: string; value: number | null }[]) {
+  const dow = (d: string) => (new Date(`${d}T00:00:00Z`).getUTCDay() + 6) % 7;
+  const weeks: string[] = [];
+  const at = new Map<string, number | null>();
+  for (const p of points) {
+    const w = addDays(p.day, -dow(p.day));
+    if (!weeks.includes(w)) weeks.push(w);
+    at.set(p.day, p.value);
+  }
+  const values = Array.from({ length: 7 }, (_, i) => weeks.map((w) => at.get(addDays(w, i)) ?? null));
+  return { weeks, values };
+}

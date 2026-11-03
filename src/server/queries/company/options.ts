@@ -6,7 +6,7 @@ import { companyTree } from "./tree";
 
 type HNode = { value: string; label: string; inactive?: boolean; children?: HNode[] };
 const node = (id: number | string, code: string, name: string, status: string, children?: HNode[]): HNode => ({
-  value: String(id), label: `${code} · ${name}`, inactive: status !== "ACTIVE", children,
+  value: String(id), label: `${name} (${code})`, inactive: status !== "ACTIVE", children,
 });
 
 /**
@@ -23,8 +23,8 @@ export async function hierarchyOptions(user: CurrentUser, leaf: "line" | "machin
             leaf === "line" ? undefined
             : leaf === "machine" ? l.machines.map((m) => node(m.machineId, m.machineCode, m.machineName, m.status))
             : [
-                ...l.machines.map((m) => ({ ...node(`M:${m.machineId}`, m.machineCode, m.machineName, m.status), label: `เครื่องจักร · ${m.machineCode} · ${m.machineName}` })),
-                ...l.checkpoints.map((c) => ({ ...node(`C:${c.checkpointId}`, c.checkpointCode, c.checkpointName, c.status), label: `จุดตรวจวัด · ${c.checkpointCode} · ${c.checkpointName}` })),
+                ...l.machines.map((m) => ({ ...node(`M:${m.machineId}`, m.machineCode, m.machineName, m.status), label: `เครื่องจักร ${m.machineName} (${m.machineCode})` })),
+                ...l.checkpoints.map((c) => ({ ...node(`C:${c.checkpointId}`, c.checkpointCode, c.checkpointName, c.status), label: `จุดตรวจวัด ${c.checkpointName} (${c.checkpointCode})` })),
               ]),
         )),
       )),

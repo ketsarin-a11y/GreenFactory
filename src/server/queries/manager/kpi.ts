@@ -14,7 +14,7 @@ export async function getKpis(user: CurrentUser, range: Range, f: { kpiId?: numb
     include: {
       unit: { select: { symbol: true } },
       resourceType: { select: { resourceCode: true, resourceName: true } },
-      results: { where: { periodEnd: { lte: new Date(`${range.to}T00:00:00Z`) } }, orderBy: { periodEnd: "desc" }, take: 1 },
+      results: { where: { periodEnd: { lte: new Date(`${range.to}T00:00:00Z`) } }, orderBy: { periodEnd: "desc" }, take: 12 },
     },
     orderBy: { kpiCode: "asc" },
   });
@@ -45,6 +45,7 @@ export async function getKpis(user: CurrentUser, range: Range, f: { kpiId?: numb
         id: k.kpiId, code: k.kpiCode, name: k.kpiName, unit: k.unit.symbol, periodType: k.periodType,
         target: Number(k.targetValue), operator: k.targetOperator, resource: k.resourceType?.resourceName ?? "—", resourceCode: k.resourceType?.resourceCode ?? "",
         latest: r ? { actual: Number(r.actualValue), achievement: Number(r.achievementPercent), status: r.resultStatus, start: day(r.periodStart), end: day(r.periodEnd) } : null,
+        history: [...k.results].reverse().map((h) => ({ start: day(h.periodStart), end: day(h.periodEnd), actual: Number(h.actualValue), status: h.resultStatus })),
       };
     }),
     results: results.map((r) => ({

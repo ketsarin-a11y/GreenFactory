@@ -49,11 +49,11 @@ export function DayDetail({ points, detail, mean, sd, unit, label }: {
               </SheetHeader>
               <div className="space-y-5 px-4 pb-6">
                 {p.anomaly && <StatusBadge tone="critical">อยู่นอกช่วงปกติ</StatusBadge>}
-                <dl className="grid grid-cols-2 gap-3 text-sm">
+                <dl className="grid grid-cols-2 gap-x-6 gap-y-3 border-y py-4 text-sm">
                   {[["ค่าที่วัดได้", `${fmtNum(p.value)} ${unit}`], ["ค่าเฉลี่ย (μ)", `${fmtNum(mean)} ${unit}`], ["ส่วนเบี่ยงเบน (σ)", fmtNum(sd)], ["z-score", fmtNum(p.z, 2)]].map(([k, v]) => (
-                    <div key={k} className="rounded-lg border p-3">
+                    <div key={k}>
                       <dt className="text-xs text-muted-foreground">{k}</dt>
-                      <dd className="mt-1 tabular font-medium">{v}</dd>
+                      <dd className="mt-0.5 font-display text-base font-semibold tabular">{v}</dd>
                     </div>
                   ))}
                 </dl>

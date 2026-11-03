@@ -1,6 +1,5 @@
-import { Ban, CheckCircle2, PauseCircle, QrCode } from "lucide-react";
 import { PageHeader } from "@/components/app/page-header";
-import { StatTile } from "@/components/data/stat-tile";
+import { SummaryStrip } from "@/components/company/summary-strip";
 import { Pagination, pageParam } from "@/components/data/pagination";
 import { UrlFilters } from "@/components/data/url-filters";
 import { QR_STATUS_OPTIONS } from "@/components/company/labels";
@@ -23,13 +22,15 @@ export default async function Page({ searchParams }: PageProps<"/company/qr-code
   ]);
   return (
     <>
-      <PageHeader title="QR Code" description="สร้าง พิมพ์ และควบคุม QR Code ของเครื่องจักรและจุดตรวจวัด ผู้ปฏิบัติงานสแกนเพื่อบันทึกข้อมูล" />
-      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatTile label="QR ทั้งหมด" value={fmtNum(data.stats.total)} icon={QrCode} />
-        <StatTile label="ใช้งานอยู่" value={fmtNum(data.stats.ACTIVE)} icon={CheckCircle2} />
-        <StatTile label="ระงับชั่วคราว" value={fmtNum(data.stats.SUSPENDED)} icon={PauseCircle} />
-        <StatTile label="ยกเลิกแล้ว" value={fmtNum(data.stats.REVOKED)} icon={Ban} />
-      </div>
+      <PageHeader title="QR Code" description="ป้ายที่ผู้ปฏิบัติงานสแกนเพื่อบันทึกค่ามิเตอร์ของเครื่องจักรและจุดตรวจวัด" />
+      <SummaryStrip
+        items={[
+          { label: "QR ทั้งหมด", value: fmtNum(data.stats.total) },
+          { label: "ใช้งานอยู่", value: fmtNum(data.stats.ACTIVE) },
+          { label: "ระงับชั่วคราว", value: fmtNum(data.stats.SUSPENDED) },
+          { label: "ยกเลิกแล้ว", value: fmtNum(data.stats.REVOKED) },
+        ]}
+      />
       <UrlFilters
         fields={[
           { type: "search", name: "q", placeholder: "ค้นหารหัส QR หรือเครื่องจักร/จุดตรวจวัด" },

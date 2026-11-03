@@ -65,7 +65,7 @@ export const MASTER: Record<MasterKind, { title: string; noun: string; descripti
     columns: [
       { key: "code", label: "รหัส", mono: true },
       { key: "name", label: "ชื่อ" },
-      { key: "symbol", label: "สัญลักษณ์", mono: true },
+      { key: "symbol", label: "สัญลักษณ์" },
       { key: "unitType", label: "ประเภทหน่วย" },
     ],
     fields: [
@@ -83,7 +83,7 @@ export const MASTER: Record<MasterKind, { title: string; noun: string; descripti
       { key: "code", label: "รหัส", mono: true },
       { key: "name", label: "ชื่อ" },
       { key: "category", label: "หมวดหมู่" },
-      { key: "unit", label: "หน่วยหลัก", mono: true },
+      { key: "unit", label: "หน่วยหลัก" },
       { key: "carbon", label: "คำนวณคาร์บอน" },
     ],
     fields: [
@@ -97,14 +97,14 @@ export const MASTER: Record<MasterKind, { title: string; noun: string; descripti
   },
   "emission-factors": {
     title: "Emission Factor",
-    noun: "Emission Factor",
+    noun: "ค่า Emission Factor",
     description: "ค่าการปล่อยก๊าซเรือนกระจกต่อหน่วยทรัพยากร ช่วงเวลาที่ใช้งานของทรัพยากร/Scope/ภูมิภาคเดียวกันต้องไม่ซ้อนกัน",
     columns: [
       { key: "resource", label: "ทรัพยากร" },
       { key: "scope", label: "Scope" },
-      { key: "region", label: "ภูมิภาค", mono: true },
+      { key: "region", label: "ภูมิภาค" },
       { key: "factor", label: "ค่า Factor", numeric: true },
-      { key: "factorUnit", label: "หน่วย", mono: true },
+      { key: "factorUnit", label: "หน่วย" },
       { key: "period", label: "ช่วงที่ใช้" },
       { key: "source", label: "แหล่งที่มา" },
     ],

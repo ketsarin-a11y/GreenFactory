@@ -3,7 +3,7 @@ import { db } from "@/server/db";
 import { usageWhere } from "@/server/scope";
 import type { CurrentUser } from "@/server/auth/current-user";
 import type { Prisma } from "@/generated/prisma/client";
-import { addDays, bkkDay, endOfBkkDayExclusive, isDay, startOfBkkDay } from "@/lib/time";
+import { addDays, bkkDay, daysBetween, endOfBkkDayExclusive, isDay, startOfBkkDay } from "@/lib/time";
 import { num } from "@/lib/format";
 import { byPriority } from "@/lib/resources";
 
@@ -74,7 +74,9 @@ export function usageRow(u: UsageWithRefs) {
     reference: u.usageReference,
     usageAt: u.usageAt,
     factory: u.factory?.factoryName ?? "—",
-    target: u.machine ? `${u.machine.machineCode} · ${u.machine.machineName}` : u.checkpoint ? `${u.checkpoint.checkpointCode} · ${u.checkpoint.checkpointName}` : "—",
+    targetCode: u.machine?.machineCode ?? u.checkpoint?.checkpointCode ?? null,
+    targetName: u.machine?.machineName ?? u.checkpoint?.checkpointName ?? "—",
+    target: u.machine ? `${u.machine.machineCode} ${u.machine.machineName}` : u.checkpoint ? `${u.checkpoint.checkpointCode} ${u.checkpoint.checkpointName}` : "—",
     resourceCode: u.resourceType.resourceCode,
     resource: u.resourceType.resourceName,
     quantity: num(u.quantity),
@@ -90,3 +92,66 @@ export function usageRow(u: UsageWithRefs) {
 export const resourceOptions = async () =>
   (await db.resourceTypeMaster.findMany({ where: { status: "ACTIVE" }, orderBy: { resourceName: "asc" }, select: { resourceTypeId: true, resourceName: true } }))
     .map((r) => ({ value: String(r.resourceTypeId), label: r.resourceName }));
+
+const MAX_DAY_COLUMNS = 45;
+const MAX_HEAT_ROWS = 24;
+
+/**
+ * Machine/checkpoint × day matrix of one resource in one unit, for the usage heatmap.
+ * Resource = the filtered one, else electricity; unit = the one most rows use. Ranges longer
+ * than 45 days fold into weeks (Monday-start). Cells with no record stay null (not zero).
+ */
+export async function usageHeatmap(where: Prisma.ResourceUsageWhereInput, from: string, to: string, resourceTypeId?: number) {
+  const resource = resourceTypeId
+    ? await db.resourceTypeMaster.findUnique({ where: { resourceTypeId }, select: { resourceTypeId: true, resourceCode: true, resourceName: true } })
+    : await db.resourceTypeMaster.findFirst({ where: { resourceCode: "ELECTRICITY" }, select: { resourceTypeId: true, resourceCode: true, resourceName: true } });
+  if (!resource) return null;
+  const rows = await db.resourceUsage.findMany({
+    where: { AND: [where, { resourceTypeId: resource.resourceTypeId }] },
+    select: {
+      usageAt: true, quantity: true, unit: { select: { symbol: true } },
+      factory: { select: { factoryCode: true } },
+      machine: { select: { machineId: true, machineCode: true, machineName: true } },
+      checkpoint: { select: { checkpointId: true, checkpointCode: true, checkpointName: true } },
+    },
+  });
+  if (rows.length === 0) return null;
+  const unitCount = new Map<string, number>();
+  for (const r of rows) unitCount.set(r.unit.symbol, (unitCount.get(r.unit.symbol) ?? 0) + 1);
+  const unit = [...unitCount].sort((a, b) => b[1] - a[1])[0][0];
+
+  const weekly = daysBetween(from, to) > MAX_DAY_COLUMNS;
+  const monday = (day: string) => addDays(day, -((new Date(`${day}T00:00:00Z`).getUTCDay() + 6) % 7));
+  const colKeys: string[] = [];
+  for (let d = weekly ? monday(from) : from; d <= to; d = addDays(d, weekly ? 7 : 1)) colKeys.push(d);
+  const colOf = new Map(colKeys.map((k, i) => [k, i]));
+
+  const targets = new Map<string, { label: string; sort: string; cells: (number | null)[]; total: number }>();
+  for (const r of rows) {
+    if (r.unit.symbol !== unit) continue;
+    const t = r.machine ?? r.checkpoint;
+    const key = r.machine ? `m${r.machine.machineId}` : r.checkpoint ? `c${r.checkpoint.checkpointId}` : "none";
+    const code = r.machine?.machineCode ?? r.checkpoint?.checkpointCode ?? "";
+    const name = r.machine?.machineName ?? r.checkpoint?.checkpointName ?? "ไม่ระบุเป้าหมาย";
+    if (!targets.has(key)) targets.set(key, { label: t ? `${code} ${name}` : name, sort: `${r.factory?.factoryCode ?? "~"} ${code}`, cells: colKeys.map(() => null), total: 0 });
+    const day = bkkDay(r.usageAt);
+    const i = colOf.get(weekly ? monday(day) : day);
+    if (i === undefined) continue;
+    const row = targets.get(key)!;
+    const q = num(r.quantity);
+    row.cells[i] = (row.cells[i] ?? 0) + q;
+    row.total += q;
+  }
+  const all = [...targets.values()];
+  const shown = all.sort((a, b) => b.total - a.total).slice(0, MAX_HEAT_ROWS).sort((a, b) => a.sort.localeCompare(b.sort));
+  const fmt = new Intl.DateTimeFormat("th-TH", { day: "numeric", month: "short", timeZone: "UTC" });
+  return {
+    resource: resource.resourceName,
+    unit,
+    weekly,
+    hiddenRows: all.length - shown.length,
+    cols: colKeys.map((k) => (weekly ? `สัปดาห์ ${fmt.format(new Date(`${k}T00:00:00Z`))}` : fmt.format(new Date(`${k}T00:00:00Z`)))),
+    rows: shown.map((r) => r.label),
+    values: shown.map((r) => r.cells),
+  };
+}

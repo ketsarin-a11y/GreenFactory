@@ -1,5 +1,6 @@
 "use server";
 
+import { createHash, randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/server/db";
@@ -57,4 +58,18 @@ export const deleteSensor = action(ADMIN, z.object({ id: zId }), async ({ id }, 
   await audit(user.id, "sensor", id, r.mode === "DELETED" ? "DELETE" : "STATUS", s, r);
   done();
   return r;
+});
+
+/**
+ * Issues a new device token for a sensor (replaces the old one). The plain token is returned
+ * once — only its sha256 is stored — so the admin must copy it into the device now.
+ */
+export const issueSensorToken = action(ADMIN, z.object({ id: zId }), async ({ id }, user) => {
+  const sensor = await db.sensor.findFirst({ where: { sensorId: id, ...sensorWhere(user) } });
+  if (!sensor) return fail("ไม่พบข้อมูล");
+  const token = `gfs_${randomBytes(24).toString("base64url")}`;
+  await db.sensor.update({ where: { sensorId: id }, data: { ingestTokenHash: createHash("sha256").update(token).digest("hex") } });
+  await audit(user.id, "sensor", id, "UPDATE", undefined, { ingestToken: "issued" });
+  done();
+  return { token };
 });

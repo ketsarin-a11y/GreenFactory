@@ -2,20 +2,19 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { PageHeader } from "@/components/app/page-header";
-import { ChartCard } from "@/components/data/chart-card";
+import { Sparkline } from "@/components/data/sparkline";
+import { Nameplate } from "@/components/data/nameplate";
+import { Meta, Panel } from "@/components/manager/panel";
 import { TrendChart } from "@/components/data/trend-chart";
 import { ALERT_STATUS, CONNECTION, MACHINE_STATUS, QR_STATUS, SEVERITY, Status } from "@/components/data/status-badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { fmtDay, fmtDayLong, SOURCE_LABEL } from "@/components/manager/format";
+import { fmtRange, fmtTime, SOURCE_LABEL } from "@/components/manager/format";
 import { fmtNum } from "@/lib/format";
 import { fmtDate, fmtDateTime } from "@/lib/time";
-import { resourceColor } from "@/lib/resources";
+import { resourceColor, resourceIcon } from "@/lib/resources";
 import { requireTenantUser } from "@/server/auth/current-user";
 import { getMachine, normMachineStatus } from "@/server/queries/manager/machines";
 
-const Card = ({ title, children, className }: { title: string; children: React.ReactNode; className?: string }) => (
-  <section className={`rounded-xl border bg-card p-5 ${className ?? ""}`}><h2 className="mb-3 font-semibold">{title}</h2>{children}</section>
-);
 const None = ({ text }: { text: string }) => <p className="py-4 text-center text-sm text-muted-foreground">{text}</p>;
 
 export default async function Page({ params }: PageProps<"/manager/machines/[id]">) {
@@ -27,29 +26,81 @@ export default async function Page({ params }: PageProps<"/manager/machines/[id]
   const m = d.machine;
   const line = m.productionLine, dep = line.department, b = dep.building;
   const facts: [string, string][] = [
-    ["รหัส", m.machineCode], ["ประเภท", m.machineType.machineTypeName], ["ผู้ผลิต / รุ่น", [m.manufacturer, m.model].filter(Boolean).join(" ") || "—"],
+    ["ประเภท", m.machineType.machineTypeName], ["ผู้ผลิต / รุ่น", [m.manufacturer, m.model].filter(Boolean).join(" ") || "—"],
     ["หมายเลขเครื่อง", m.serialNumber ?? "—"], ["วันที่ติดตั้ง", m.installationDate ? fmtDate(m.installationDate) : "—"],
-    ["ตำแหน่ง", `${b.factory.factoryName} › ${b.buildingName} › ${dep.departmentName} › ${line.lineName}`], ["หมายเหตุตำแหน่ง", m.locationNote ?? "—"],
-    ["บันทึกทั้งหมด", `${fmtNum(d.usageCount)} รายการ`],
+    ["อาคาร", b.buildingName], ["ไลน์ผลิต", line.lineName], ["หมายเหตุตำแหน่ง", m.locationNote ?? "—"],
   ];
 
   return (
     <>
-      <Link href="/manager/machines" className="mb-3 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ChevronLeft className="size-4" />เครื่องจักรทั้งหมด</Link>
-      <PageHeader title={m.machineName} description={<span className="font-mono">{m.machineCode}</span>} actions={<Status map={MACHINE_STATUS} value={normMachineStatus(m.operationalStatus)} />} />
-      <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
-        <div className="space-y-6">
-          {d.trends.length === 0 ? (
-            <Card title="การใช้ 30 วันล่าสุด"><None text="ยังไม่มีข้อมูลการใช้ใน 30 วันล่าสุด" /></Card>
-          ) : (
-            d.trends.map((t) => (
-              <ChartCard key={t.key} title={`${t.resourceName} 30 วันล่าสุด`} description={`รวม ${fmtNum(t.total)} ${t.unit} · ${fmtDayLong(d.from)} – ${fmtDayLong(d.to)}`}
-                table={{ columns: ["วันที่", `ค่า (${t.unit})`], rows: t.days.map((x) => [fmtDayLong(x.day), fmtNum(x.value)]) }}>
-                <TrendChart data={t.days.map((x) => ({ label: fmtDay(x.day), value: x.value }))} series={[{ key: "value", label: t.resourceName, color: resourceColor(t.resourceCode) }]} unit={t.unit} height={200} />
-              </ChartCard>
-            ))
-          )}
-          <Card title="บันทึกล่าสุด">
+      <Link href="/manager/machines" className="mb-3 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ChevronLeft className="size-4" aria-hidden />เครื่องจักรทั้งหมด</Link>
+      <PageHeader
+        title={m.machineName}
+        description={<Meta factory={b.factory.factoryName}><Nameplate>{m.machineCode}</Nameplate><span>{m.machineType.machineTypeName}</span><span>{dep.departmentName}</span></Meta>}
+        actions={<Status map={MACHINE_STATUS} value={normMachineStatus(m.operationalStatus)} />}
+      />
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="min-w-0 space-y-6">
+          <Panel title="การใช้ 30 วันล่าสุด" description={fmtRange(d.from, d.to)}>
+            {d.trends.length === 0 ? <None text="ยังไม่มีข้อมูลการใช้ใน 30 วันล่าสุด" /> : (
+              <ul className="-my-3 divide-y">
+                {d.trends.map((t) => {
+                  const Icon = resourceIcon(t.resourceCode);
+                  const color = resourceColor(t.resourceCode);
+                  const withData = t.days.filter((x) => x.value !== null).length;
+                  return (
+                    <li key={t.key} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-6 gap-y-2 py-3 sm:grid-cols-[minmax(0,180px)_minmax(0,1fr)_150px]">
+                      <span className="flex min-w-0 items-center gap-2 text-sm"><Icon className="size-4 shrink-0" style={{ color }} aria-hidden /><span className="truncate">{t.resourceName}</span></span>
+                      <Sparkline values={t.days.map((x) => x.value ?? 0)} color={color} className="col-span-2 h-9 sm:col-span-1" label={`${t.resourceName} 30 วัน`} />
+                      <span className="row-start-1 col-start-2 text-right sm:col-start-3">
+                        <span className="font-display text-lg font-semibold tabular">{fmtNum(t.total)}</span> <span className="text-xs text-muted-foreground">{t.unit}</span>
+                        <span className="block text-xs text-muted-foreground">มีข้อมูล {withData} วัน</span>
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </Panel>
+
+          <Panel title="เซนเซอร์" description={d.sensors.length ? "ค่าล่าสุดและ 24 ชั่วโมงก่อนหน้า เฉลี่ยทุก 15 นาที" : undefined}>
+            {d.sensors.length === 0 ? <None text="ยังไม่ได้ติดตั้งเซนเซอร์ ให้ผู้ดูแลระบบของบริษัทเพิ่มเซนเซอร์ให้เครื่องนี้" /> : (
+              <ul className="-my-4 divide-y">
+                {d.sensors.map((s) => (
+                  <li key={s.id} className="py-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="flex items-center gap-2 font-medium">
+                          {s.connection === "ONLINE" && (
+                            <span className="relative flex size-2" aria-hidden><span className="absolute inline-flex size-full animate-ping rounded-full bg-brand-lime opacity-60 motion-reduce:hidden" /><span className="relative inline-flex size-2 rounded-full bg-brand-lime" /></span>
+                          )}
+                          {s.name}
+                        </p>
+                        <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground"><Nameplate>{s.code}</Nameplate><span>{s.type}</span>{s.protocol && <span>{s.protocol}</span>}</p>
+                      </div>
+                      <div className="text-right">
+                        {s.latest ? (
+                          <>
+                            <p><span className="font-display text-2xl font-semibold tabular">{fmtNum(s.latest.value)}</span> <span className="text-sm text-muted-foreground">{s.latest.unit}</span></p>
+                            <p className="mt-0.5 flex items-center justify-end gap-2 text-xs text-muted-foreground"><span className="tabular">{fmtDateTime(s.latest.at)}</span><Status map={CONNECTION} value={s.connection} /></p>
+                          </>
+                        ) : (
+                          <p className="flex items-center gap-2 text-sm text-muted-foreground">ยังไม่มีค่าที่อ่านได้ <Status map={CONNECTION} value={s.connection} /></p>
+                        )}
+                      </div>
+                    </div>
+                    {s.series.length > 1 && s.latest && (
+                      <div className="mt-3">
+                        <TrendChart data={s.series.map((x) => ({ label: fmtTime(x.at), value: x.value }))} series={[{ key: "value", label: s.name, color: "var(--chart-1)" }]} unit={s.latest.unit} height={150} />
+                      </div>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Panel>
+
+          <Panel title="บันทึกล่าสุด" description={`ทั้งหมด ${fmtNum(d.usageCount)} รายการ`}>
             {d.recent.length === 0 ? <None text="ยังไม่มีการบันทึก" /> : (
               <div className="overflow-x-auto">
                 <Table>
@@ -57,49 +108,38 @@ export default async function Page({ params }: PageProps<"/manager/machines/[id]
                   <TableBody>
                     {d.recent.map((r) => (
                       <TableRow key={r.usageId}>
-                        <TableCell className="tabular">{fmtDateTime(r.usageAt)}</TableCell>
+                        <TableCell className="whitespace-nowrap tabular">{fmtDateTime(r.usageAt)}</TableCell>
                         <TableCell>{r.resourceType.resourceName}</TableCell>
-                        <TableCell className="text-right tabular">{fmtNum(r.quantity)} {r.unit.symbol}</TableCell>
+                        <TableCell className="text-right whitespace-nowrap tabular">{fmtNum(r.quantity)} <span className="text-muted-foreground">{r.unit.symbol}</span></TableCell>
                         <TableCell>{SOURCE_LABEL[r.sourceType] ?? r.sourceType}</TableCell>
-                        <TableCell className="font-mono text-xs text-muted-foreground">{r.usageReference}</TableCell>
+                        <TableCell><Nameplate>{r.usageReference}</Nameplate></TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
               </div>
             )}
-          </Card>
+          </Panel>
         </div>
-        <div className="space-y-6">
-          <Card title="ข้อมูลเครื่องจักร">
+
+        <aside className="h-fit rounded-[10px] border bg-card">
+          <div className="p-5">
+            <h2 className="mb-3 font-semibold">ข้อมูลเครื่องจักร</h2>
             <dl className="space-y-2.5 text-sm">
               {facts.map(([k, v]) => <div key={k} className="flex justify-between gap-3"><dt className="shrink-0 text-muted-foreground">{k}</dt><dd className="text-right">{v}</dd></div>)}
             </dl>
-          </Card>
-          <Card title={`เซนเซอร์ (${d.sensors.length})`}>
-            {d.sensors.length === 0 ? <None text="ยังไม่ได้ติดตั้งเซนเซอร์" /> : (
+          </div>
+          <div className="border-t p-5">
+            <h2 className="mb-2 font-semibold">QR Code</h2>
+            {m.qrCodes.length === 0 ? <p className="text-sm text-muted-foreground">ยังไม่มี QR Code</p> : (
               <ul className="divide-y text-sm">
-                {d.sensors.map((s) => (
-                  <li key={s.id} className="py-2.5">
-                    <div className="flex items-center justify-between gap-2"><span className="font-medium">{s.name}</span><Status map={CONNECTION} value={s.connection} /></div>
-                    <p className="mt-0.5 text-xs text-muted-foreground"><span className="font-mono">{s.code}</span> · {s.type}{s.protocol && ` · ${s.protocol}`}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">{s.latest ? <>ค่าล่าสุด <span className="tabular font-medium text-foreground">{fmtNum(s.latest.value)} {s.latest.unit}</span> · {fmtDateTime(s.latest.at)}</> : "ยังไม่มีค่าที่อ่านได้"}</p>
-                  </li>
-                ))}
+                {m.qrCodes.map((q) => <li key={String(q.qrId)} className="flex items-center justify-between gap-2 py-2"><Nameplate>{q.qrCode}</Nameplate><Status map={QR_STATUS} value={q.qrStatus} /></li>)}
               </ul>
             )}
-          </Card>
-          <Card title={`QR Code (${m.qrCodes.length})`}>
-            {m.qrCodes.length === 0 ? <None text="ยังไม่มี QR Code" /> : (
-              <ul className="divide-y text-sm">
-                {m.qrCodes.map((q) => (
-                  <li key={String(q.qrId)} className="flex items-center justify-between gap-2 py-2"><span className="font-mono text-xs">{q.qrCode}</span><Status map={QR_STATUS} value={q.qrStatus} /></li>
-                ))}
-              </ul>
-            )}
-          </Card>
-          <Card title="การแจ้งเตือนล่าสุด">
-            {m.alerts.length === 0 ? <None text="ไม่มีการแจ้งเตือน" /> : (
+          </div>
+          <div className="border-t p-5">
+            <h2 className="mb-2 font-semibold">การแจ้งเตือนล่าสุด</h2>
+            {m.alerts.length === 0 ? <p className="text-sm text-muted-foreground">ไม่มีการแจ้งเตือน</p> : (
               <ul className="divide-y text-sm">
                 {m.alerts.map((a) => (
                   <li key={String(a.alertId)} className="py-2.5">
@@ -109,8 +149,8 @@ export default async function Page({ params }: PageProps<"/manager/machines/[id]
                 ))}
               </ul>
             )}
-          </Card>
-        </div>
+          </div>
+        </aside>
       </div>
     </>
   );

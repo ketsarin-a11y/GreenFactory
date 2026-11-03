@@ -7,6 +7,7 @@ import { resetUserPassword, setUserStatus } from "@/server/actions/platform/user
 import { updateSystemSettings } from "@/server/actions/platform/settings";
 import { deleteMasterItem, saveMasterItem, setMasterStatus } from "@/server/actions/platform/master-data";
 import { saveRolePermissions } from "@/server/actions/platform/roles";
+import { updateFactory } from "@/server/actions/platform/factories";
 import { DEMO, signInAs, signOut } from "./helpers";
 
 afterEach(signOut);
@@ -93,7 +94,7 @@ describe("companies", () => {
     const voltera = await db.company.findUniqueOrThrow({ where: { companyCode: "VOLTERA" } });
     const r = await deleteCompany({ companyId: voltera.companyId });
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.message).toMatch(/โรงงาน 1 แห่ง/);
+    if (!r.ok) expect(r.message).toMatch(/โรงงาน \d+ แห่ง/);
   });
 });
 
@@ -194,5 +195,82 @@ describe("master data", () => {
     expect(await saveMasterItem({ ...base, id, region: "TH", effectiveDate: "2026-01-01" })).toMatchObject({ ok: false });
     expect(await saveMasterItem({ ...base, id, region: "LA", effectiveDate: "2026-01-01", expiryDate: "2025-12-31" })).toMatchObject({ ok: false });
     expect(await deleteMasterItem({ kind: "emission-factors", id })).toMatchObject({ ok: true });
+  });
+});
+
+describe("factory edit", () => {
+  let n = 0;
+  const editable = async () => {
+    const company = await db.company.findUniqueOrThrow({ where: { companyCode: "VOLTERA" } });
+    return db.factory.create({ data: { companyId: company.companyId, factoryCode: `EDT${++n}`, factoryName: "โรงงานก่อนแก้ไข", timezone: "Asia/Bangkok" } });
+  };
+  const valid = (factoryId: number) => ({
+    factoryId,
+    factoryName: "โรงงานหลังแก้ไข",
+    address: "99 ถ.สุขุมวิท",
+    province: "ชลบุรี",
+    postalCode: "20000",
+    phone: "038-123-456",
+    email: "Plant@Voltera.example",
+    latitude: "13.3611",
+    longitude: "100.9847",
+    googleMapUrl: "https://maps.google.com/?q=13.3611,100.9847",
+    timezone: "Asia/Bangkok",
+  });
+
+  it("saves every editable field and writes an UPDATE audit with before/after", async () => {
+    const admin = await signInAs(DEMO.platform);
+    const f = await editable();
+    expect(await updateFactory(valid(f.factoryId))).toMatchObject({ ok: true });
+    const after = await db.factory.findUniqueOrThrow({ where: { factoryId: f.factoryId } });
+    expect(after).toMatchObject({ factoryName: "โรงงานหลังแก้ไข", province: "ชลบุรี", postalCode: "20000", phone: "038-123-456", email: "plant@voltera.example", timezone: "Asia/Bangkok", factoryCode: f.factoryCode });
+    expect(Number(after.latitude)).toBeCloseTo(13.3611, 4);
+    expect(Number(after.longitude)).toBeCloseTo(100.9847, 4);
+    const log = await db.auditLog.findFirstOrThrow({ where: { userId: admin.userId, tableName: "factory", recordId: f.factoryId, action: "UPDATE" } });
+    expect(log.oldData).toMatchObject({ factoryName: "โรงงานก่อนแก้ไข" });
+    expect(log.newData).toMatchObject({ factoryName: "โรงงานหลังแก้ไข", province: "ชลบุรี" });
+  });
+
+  it("clears optional fields when left blank", async () => {
+    await signInAs(DEMO.platform);
+    const f = await editable();
+    await updateFactory(valid(f.factoryId));
+    const r = await updateFactory({ factoryId: f.factoryId, factoryName: "โรงงานว่าง", address: "", province: "", postalCode: "", phone: "", email: "", latitude: "", longitude: "", googleMapUrl: "", timezone: "" });
+    expect(r).toMatchObject({ ok: true });
+    expect(await db.factory.findUniqueOrThrow({ where: { factoryId: f.factoryId } })).toMatchObject({ province: null, postalCode: null, email: null, latitude: null, longitude: null, googleMapUrl: null, timezone: "Asia/Bangkok" });
+  });
+
+  it("validates each field and changes nothing on error", async () => {
+    await signInAs(DEMO.platform);
+    const f = await editable();
+    const bad: [string, unknown][] = [
+      ["factoryName", ""],
+      ["postalCode", "2000"],
+      ["phone", "call me"],
+      ["email", "not-an-email"],
+      ["latitude", "91"],
+      ["longitude", "-181"],
+      ["googleMapUrl", "javascript:alert(1)"],
+      ["timezone", "Mars/Olympus"],
+    ];
+    for (const [field, value] of bad) {
+      const r = await updateFactory({ ...valid(f.factoryId), [field]: value });
+      expect(r, field).toMatchObject({ ok: false, fieldErrors: { [field]: expect.any(String) } });
+    }
+    expect(await updateFactory({ ...valid(f.factoryId), longitude: "" })).toMatchObject({ ok: false, message: "กรุณากรอกละติจูดและลองจิจูดให้ครบทั้งคู่" });
+    expect(await updateFactory({ ...valid(999_999) })).toMatchObject({ ok: false, message: "ไม่พบข้อมูล" });
+    expect((await db.factory.findUniqueOrThrow({ where: { factoryId: f.factoryId } })).factoryName).toBe("โรงงานก่อนแก้ไข");
+    expect(await db.auditLog.count({ where: { tableName: "factory", recordId: f.factoryId, action: "UPDATE" } })).toBe(0);
+  });
+
+  it("refuses non-platform users", async () => {
+    const f = await editable();
+    for (const who of [DEMO.companyAdmin, DEMO.manager]) {
+      await signInAs(who);
+      expect(await updateFactory(valid(f.factoryId))).toMatchObject({ ok: false, message: "คุณไม่มีสิทธิ์ทำรายการนี้" });
+    }
+    signOut();
+    expect(await updateFactory(valid(f.factoryId))).toMatchObject({ ok: false });
+    expect((await db.factory.findUniqueOrThrow({ where: { factoryId: f.factoryId } })).factoryName).toBe("โรงงานก่อนแก้ไข");
   });
 });

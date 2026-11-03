@@ -31,12 +31,14 @@ export function Scanner() {
   const video = useRef<HTMLVideoElement>(null);
   const canvas = useRef<HTMLCanvasElement | null>(null);
   const stream = useRef<MediaStream | null>(null);
+  const attempt = useRef(0);
   const [state, setState] = useState<"starting" | "scanning" | "error" | "found">("starting");
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [torch, setTorch] = useState<boolean | null>(null); // null = not supported
 
   const stop = useCallback(() => {
+    attempt.current++;
     stream.current?.getTracks().forEach((t) => t.stop());
     stream.current = null;
   }, []);
@@ -57,6 +59,8 @@ export function Scanner() {
   );
 
   const start = useCallback(async () => {
+    // Only the latest attempt may update state (effects can run twice in development).
+    const id = ++attempt.current;
     setState("starting");
     setCameraError(null);
     setMessage(null);
@@ -67,6 +71,10 @@ export function Scanner() {
     }
     try {
       const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false });
+      if (id !== attempt.current) {
+        s.getTracks().forEach((t) => t.stop());
+        return;
+      }
       stream.current = s;
       const caps = s.getVideoTracks()[0]?.getCapabilities?.() as MediaTrackCapabilities & { torch?: boolean };
       setTorch(caps?.torch ? false : null);
@@ -74,8 +82,10 @@ export function Scanner() {
         video.current.srcObject = s;
         await video.current.play();
       }
+      if (id !== attempt.current) return;
       setState("scanning");
     } catch (e) {
+      if (id !== attempt.current) return;
       setCameraError(CAMERA_ERROR[(e as Error).name] ?? "เปิดกล้องไม่สำเร็จ กรุณาลองใหม่ หรือใช้ปุ่ม “เลือกรูป QR Code”");
       setState("error");
     }
@@ -140,62 +150,92 @@ export function Scanner() {
     }
   }
 
+  const corner = "absolute size-9 border-brand-lime";
   return (
-    <div className="mx-auto max-w-xl space-y-4">
-      <div className="relative aspect-square overflow-hidden rounded-xl border bg-sidebar sm:aspect-[4/3]">
+    <div className="mx-auto max-w-xl">
+      {/* Viewfinder: edge to edge on phones, dimmed outside the scan window. */}
+      <div className="relative -mx-4 aspect-[3/4] overflow-hidden bg-[#050a08] sm:mx-0 sm:aspect-[4/3] sm:rounded-[14px]">
         <video ref={video} className="size-full object-cover" playsInline muted aria-label="ภาพจากกล้อง" />
-        {state === "scanning" && (
-          <div className="pointer-events-none absolute inset-[15%] rounded-xl border-2 border-white/80" aria-hidden />
-        )}
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center" aria-hidden>
+          <div className="relative aspect-square w-[68%] max-w-72 rounded-[14px] shadow-[0_0_0_100vmax_rgb(5_10_8/0.55)]">
+            <span className={`${corner} top-0 left-0 rounded-tl-[14px] border-t-4 border-l-4`} />
+            <span className={`${corner} top-0 right-0 rounded-tr-[14px] border-t-4 border-r-4`} />
+            <span className={`${corner} bottom-0 left-0 rounded-bl-[14px] border-b-4 border-l-4`} />
+            <span className={`${corner} right-0 bottom-0 rounded-br-[14px] border-r-4 border-b-4`} />
+          </div>
+        </div>
+
+        <p className="absolute inset-x-0 top-0 px-4 pt-4 text-center text-sm font-medium text-white">
+          {state === "scanning" ? "วาง QR Code ให้อยู่ในกรอบ" : state === "found" ? "พบ QR Code กำลังเปิด…" : state === "starting" ? "กำลังเปิดกล้อง…" : ""}
+        </p>
         {(state === "starting" || state === "found") && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-white">
-            <Loader2 className="size-6 animate-spin" aria-hidden />
-            <p className="text-sm">{state === "found" ? "พบ QR Code กำลังเปิด…" : "กำลังเปิดกล้อง…"}</p>
+          <div className="absolute inset-0 flex items-center justify-center text-white" aria-hidden>
+            <Loader2 className="size-7 animate-spin" />
           </div>
         )}
         {state === "error" && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-6 text-center text-white">
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-8 text-center text-white">
             <CameraOff className="size-8" aria-hidden />
-            <p className="text-sm">กล้องไม่พร้อมใช้งาน</p>
+            <p className="font-medium">กล้องไม่พร้อมใช้งาน</p>
+            <p className="text-sm text-white/70">อ่านวิธีแก้ด้านล่าง หรือเลือกรูป QR Code แทน</p>
           </div>
         )}
-        {torch !== null && state === "scanning" && (
-          <Button type="button" variant="secondary" className="absolute top-3 right-3 size-11" onClick={toggleTorch} aria-pressed={torch} aria-label={torch ? "ปิดไฟฉาย" : "เปิดไฟฉาย"}>
-            {torch ? <ZapOff /> : <Zap />}
+
+        <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-3 p-4">
+          <Button asChild variant="secondary" className="h-12 gap-2 rounded-full bg-black/55 px-4 text-white hover:bg-black/70">
+            <label className="cursor-pointer">
+              <ImageUp /> เลือกรูป
+              <input type="file" accept="image/*" className="sr-only" onChange={(e) => { void fromFile(e.target.files?.[0]); e.target.value = ""; }} />
+            </label>
           </Button>
-        )}
+          {state === "scanning" && (
+            <Button
+              type="button"
+              variant="secondary"
+              className={`size-12 rounded-full ${torch ? "bg-white text-black hover:bg-white/90" : "bg-black/55 text-white hover:bg-black/70"}`}
+              onClick={toggleTorch}
+              disabled={torch === null}
+              aria-pressed={!!torch}
+              aria-label={torch === null ? "อุปกรณ์นี้ไม่มีไฟฉาย" : torch ? "ปิดไฟฉาย" : "เปิดไฟฉาย"}
+              title={torch === null ? "อุปกรณ์นี้ไม่มีไฟฉาย" : undefined}
+            >
+              {torch ? <ZapOff /> : <Zap />}
+            </Button>
+          )}
+        </div>
       </div>
 
       <p className="sr-only" aria-live="polite">{state === "scanning" ? "กำลังสแกน" : ""}</p>
-      {cameraError && (
-        <Alert variant="destructive">
-          <CameraOff />
-          <AlertTitle>เปิดกล้องไม่ได้</AlertTitle>
-          <AlertDescription>{cameraError}</AlertDescription>
-        </Alert>
-      )}
-      {message && (
-        <Alert role="alert">
-          <ScanLine />
-          <AlertTitle>{message}</AlertTitle>
-          <AlertDescription>QR Code นี้ไม่ใช่ของระบบ GreenFactory หรืออ่านไม่ชัด ลองสแกนใหม่ หรือบันทึกแบบเลือกเครื่องเอง</AlertDescription>
-        </Alert>
-      )}
 
-      <div className="grid gap-2 sm:grid-cols-2">
-        <Button asChild variant="outline" size="lg" className="h-11">
-          <label className="cursor-pointer">
-            <ImageUp /> เลือกรูป QR Code
-            <input type="file" accept="image/*" className="sr-only" onChange={(e) => { void fromFile(e.target.files?.[0]); e.target.value = ""; }} />
-          </label>
-        </Button>
+      <div className="mt-4 space-y-4">
+        {cameraError && (
+          <Alert variant="destructive">
+            <CameraOff />
+            <AlertTitle>เปิดกล้องไม่ได้</AlertTitle>
+            <AlertDescription>{cameraError}</AlertDescription>
+          </Alert>
+        )}
+        {message && (
+          <Alert role="alert">
+            <ScanLine />
+            <AlertTitle>{message}</AlertTitle>
+            <AlertDescription>QR Code นี้ไม่ใช่ของระบบ GreenFactory หรืออ่านไม่ชัด ลองสแกนใหม่ หรือบันทึกโดยเลือกเครื่องเอง</AlertDescription>
+          </Alert>
+        )}
+
+        <ol className="space-y-2 text-sm text-muted-foreground">
+          <li className="flex gap-3"><span className="font-display font-semibold text-foreground tabular">1</span>ถือโทรศัพท์ห่างจากป้าย QR ประมาณหนึ่งฝ่ามือ</li>
+          <li className="flex gap-3"><span className="font-display font-semibold text-foreground tabular">2</span>ให้ QR อยู่ในกรอบ ระบบจะเปิดหน้าบันทึกเอง ไม่ต้องกดถ่าย</li>
+          <li className="flex gap-3"><span className="font-display font-semibold text-foreground tabular">3</span>ที่มืดหรือป้ายสะท้อนแสง กดปุ่มไฟฉายหรือเอียงโทรศัพท์เล็กน้อย</li>
+        </ol>
+
         {state === "error" ? (
-          <Button type="button" size="lg" className="h-11" onClick={() => void start()}>
+          <Button type="button" size="lg" className="h-11 w-full" onClick={() => void start()}>
             <RotateCcw /> เปิดกล้องอีกครั้ง
           </Button>
         ) : (
-          <Button asChild variant="outline" size="lg" className="h-11">
-            <Link href="/operator/record"><ClipboardList /> บันทึกแบบเลือกเครื่องเอง</Link>
+          <Button asChild variant="outline" size="lg" className="h-11 w-full">
+            <Link href="/operator/record"><ClipboardList /> สแกนไม่ได้ บันทึกโดยเลือกเครื่องเอง</Link>
           </Button>
         )}
       </div>

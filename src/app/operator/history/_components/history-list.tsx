@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { FileText, Loader2, QrCode, Trash2 } from "lucide-react";
+import { Nameplate } from "@/components/data/nameplate";
 import { PROCESSING, Status } from "@/components/data/status-badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -32,21 +33,20 @@ export function HistoryList({ rows }: { rows: HistoryRow[] }) {
 
   return (
     <>
-      {/* Phones: one card per reading. */}
-      <ul className="space-y-2 md:hidden">
+      {/* Phones: a divided two-line list. Source and recorder live in the detail sheet. */}
+      <ul className="divide-y rounded-[10px] border bg-card md:hidden">
         {rows.map((r) => (
           <li key={r.id}>
-            <button type="button" onClick={() => setOpen(r)} className="w-full rounded-xl border bg-card p-4 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
-              <div className="flex items-start justify-between gap-2">
-                <p className="min-w-0 truncate font-medium">{r.target}</p>
-                <p className="tabular shrink-0 font-medium">{fmtNum(r.quantity)} <span className="font-normal text-muted-foreground">{r.unit}</span></p>
-              </div>
-              <p className="mt-0.5 text-sm text-muted-foreground">{r.resource} • <span className="tabular">{when(r.usageAt)}</span></p>
-              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                <Status map={PROCESSING} value={r.processing} />
-                <span>{SOURCE[r.source] ?? r.source}</span>
-                <span>• {r.recorder}{r.mine && " (คุณ)"}</span>
-              </div>
+            <button type="button" onClick={() => setOpen(r)} className="flex min-h-16 w-full items-start justify-between gap-3 px-4 py-3 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset">
+              <span className="min-w-0">
+                <span className="block truncate font-medium">{r.target}</span>
+                <span className="block text-sm text-muted-foreground">{r.resource}</span>
+                {r.processing !== "COMPLETED" && <span className="mt-1 block"><Status map={PROCESSING} value={r.processing} /></span>}
+              </span>
+              <span className="shrink-0 text-right">
+                <span className="block font-medium tabular">{fmtNum(r.quantity)} <span className="font-normal text-muted-foreground">{r.unit}</span></span>
+                <span className="block text-xs text-muted-foreground tabular">{when(r.usageAt)}</span>
+              </span>
             </button>
           </li>
         ))}
@@ -74,6 +74,7 @@ export function HistoryList({ rows }: { rows: HistoryRow[] }) {
                   <button type="button" className="text-left font-medium underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50" onClick={(e) => { e.stopPropagation(); setOpen(r); }}>
                     {r.target}
                   </button>
+                  {r.targetCode && <Nameplate className="ml-2 whitespace-nowrap">{r.targetCode}</Nameplate>}
                   <p className="text-xs text-muted-foreground">{r.location}</p>
                 </TableCell>
                 <TableCell>{r.resource}</TableCell>
@@ -99,7 +100,7 @@ export function HistoryList({ rows }: { rows: HistoryRow[] }) {
               <dl className="divide-y px-4 text-sm">
                 {([
                   ["วันที่และเวลา", when(open.usageAt)],
-                  [open.scope === "CHECKPOINT" ? "จุดตรวจ" : "เครื่องจักร", `${open.target} (${open.targetCode})`],
+                  [open.scope === "CHECKPOINT" ? "จุดตรวจ" : "เครื่องจักร", <span key="t" className="inline-flex flex-wrap items-center justify-end gap-2">{open.target}<Nameplate className="whitespace-nowrap">{open.targetCode}</Nameplate></span>],
                   ["ตำแหน่ง", open.location],
                   ["ทรัพยากร", open.resource],
                   ["ปริมาณ", `${fmtNum(open.quantity, 6)} ${open.unit}`],

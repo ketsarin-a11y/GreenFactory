@@ -80,7 +80,7 @@ export function PermissionMatrix({ roles, permissions, levels }: {
         </div>
       </div>
 
-      <div className="rounded-xl border bg-card">
+      <div className="rounded-[10px] border bg-card">
         <Table>
           <TableHeader>
             <TableRow>

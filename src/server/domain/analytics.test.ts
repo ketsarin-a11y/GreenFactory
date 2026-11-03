@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { anomalyBand, dailyTotals, dataQuality, dayList, findings, pctChange, previousRange, stats, sumByResourceUnit } from "./analytics";
+import { anomalyBand, dailyTotals, dataQuality, dayList, findings, pctChange, previousRange, stats, sumByResourceUnit, weekGrid } from "./analytics";
 
 describe("pctChange", () => {
   it("is null when the previous period is 0", () => expect(pctChange(50, 0)).toBeNull());
@@ -69,5 +69,16 @@ describe("stats / dataQuality / findings", () => {
     expect(findings({ label: "ไฟฟ้า", unit: "kWh", change: 30, anomalyDays: 0 })[0].level).toBe("attention");
     expect(findings({ label: "ไฟฟ้า", unit: "kWh", change: 5, topGroup: { name: "A", share: 80 }, anomalyDays: 2 }).map((f) => f.level)).toEqual(["attention", "attention"]);
     expect(findings({ label: "ไฟฟ้า", unit: "kWh", change: null, anomalyDays: 0 })).toEqual([]);
+  });
+});
+
+describe("weekGrid", () => {
+  it("lays days out Monday-first with nulls outside the range", () => {
+    // 2026-11-04 is a Wednesday; 2026-11-09 the next Monday.
+    const g = weekGrid([{ day: "2026-11-04", value: 1 }, { day: "2026-11-05", value: null }, { day: "2026-11-09", value: 3 }]);
+    expect(g.weeks).toEqual(["2026-11-02", "2026-11-09"]);
+    expect(g.values[0]).toEqual([null, 3]); // Mondays
+    expect(g.values[2]).toEqual([1, null]); // Wednesdays
+    expect(g.values[3]).toEqual([null, null]);
   });
 });

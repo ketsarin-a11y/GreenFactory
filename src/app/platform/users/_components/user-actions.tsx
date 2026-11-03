@@ -129,7 +129,7 @@ export function UserActions({ user, status, isSelf, options }: { user: EditableU
         <SheetContent className="w-full overflow-y-auto sm:max-w-lg">
           <SheetHeader>
             <SheetTitle>ประวัติการเข้าสู่ระบบ</SheetTitle>
-            <SheetDescription>{name} · 20 ครั้งล่าสุด</SheetDescription>
+            <SheetDescription>{name} ย้อนหลัง 20 ครั้ง</SheetDescription>
           </SheetHeader>
           <div className="px-4 pb-4">
             {!history ? (
@@ -145,8 +145,9 @@ export function UserActions({ user, status, isSelf, options }: { user: EditableU
                     <div className="min-w-0">
                       <p className="tabular">{fmtDateTime(new Date(l.loginAt))}</p>
                       <p className="text-xs text-muted-foreground">
-                        {l.browser} · {l.os} · {DEVICE_LABEL_TH[l.device]} · {l.ipAddress ?? "ไม่ทราบ IP"}
+                        {DEVICE_LABEL_TH[l.device]} {l.browser} บน {l.os}
                       </p>
+                      <p className="text-xs text-muted-foreground tabular">IP {l.ipAddress ?? "ไม่ทราบ"}</p>
                       {l.status === "FAILED" && l.failureReason && <p className="text-xs text-status-critical">{LOGIN_FAILURE_LABEL[l.failureReason] ?? l.failureReason}</p>}
                     </div>
                     <Status map={LOGIN_STATUS} value={l.status} />

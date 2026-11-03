@@ -1,16 +1,17 @@
 import "server-only";
 import { db } from "@/server/db";
-import { companyUserWhere, machineWhere } from "@/server/scope";
+import { companyUserWhere, machineWhere, sensorWhere } from "@/server/scope";
 import type { CurrentUser } from "@/server/auth/current-user";
 import { companyReadiness } from "@/server/domain/readiness";
 import { companyTree, factoryCounts } from "./tree";
 import { connectionSummary, sensorsWithStatus } from "./sensors";
+import { companyEnergy } from "./energy";
 
 const nonAdmin = { role: { roleName: { in: ["MANAGER", "OPERATOR"] } } };
 
 export async function companyDashboard(user: CurrentUser) {
   const users = companyUserWhere(user);
-  const [tree, sensors, userTotal, userActive, managers, operators, inactive, noFactory, operatorNoDept, latestUsers, machinesNoSensor, machinesNoQr] =
+  const [tree, sensors, userTotal, userActive, managers, operators, inactive, noFactory, operatorNoDept, latestUsers, machinesNoSensor, machinesNoQr, energy, lastReading] =
     await Promise.all([
       companyTree(user),
       sensorsWithStatus(user),
@@ -29,6 +30,8 @@ export async function companyDashboard(user: CurrentUser) {
       }),
       db.machine.count({ where: { ...machineWhere(user), status: "ACTIVE", sensors: { none: { status: "ACTIVE" } } } }),
       db.machine.count({ where: { ...machineWhere(user), status: "ACTIVE", qrCodes: { none: { qrStatus: "ACTIVE" } } } }),
+      companyEnergy(user),
+      db.sensorData.findFirst({ where: { sensor: sensorWhere(user) }, orderBy: { receivedAt: "desc" }, select: { receivedAt: true } }),
     ]);
 
   const factories = tree.map((f) => ({ id: f.factoryId, code: f.factoryCode, name: f.factoryName, status: f.status, ...factoryCounts(f) }));
@@ -55,5 +58,7 @@ export async function companyDashboard(user: CurrentUser) {
     machines: { total: sum("allMachines"), active: sum("machines"), noSensor: machinesNoSensor, noQr: machinesNoQr },
     sensors: connectionSummary(sensors),
     latestUsers,
+    energy,
+    lastReadingAt: lastReading?.receivedAt ?? null,
   };
 }

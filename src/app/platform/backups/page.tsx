@@ -1,4 +1,5 @@
 import { CheckCircle2, Download, HardDriveDownload, TriangleAlert } from "lucide-react";
+import { Nameplate } from "@/components/data/nameplate";
 import { PageHeader } from "@/components/app/page-header";
 import { EmptyState } from "@/components/data/empty-state";
 import { Status, StatusBadge } from "@/components/data/status-badge";
@@ -41,13 +42,13 @@ export default async function Page() {
           </AlertDescription>
         </Alert>
       ) : (
-        <div className="mb-6 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-xl border bg-card px-5 py-3 text-sm">
+        <div className="mb-6 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-[10px] border bg-card px-5 py-3 text-sm">
           <span className="flex items-center gap-2">
             <CheckCircle2 className="size-4 text-[#0a7d0a] dark:text-status-good" aria-hidden />
             <span className="font-mono text-xs">{d.dump.version}</span>
           </span>
           <span>
-            กู้คืน: {d.client.available ? <span className="font-mono text-xs">{d.client.version}</span> : <StatusBadge tone="warning">ไม่พบโปรแกรม mysql</StatusBadge>}
+            โปรแกรมกู้คืน {d.client.available ? <span className="font-mono text-xs">{d.client.version}</span> : <StatusBadge tone="warning">ไม่พบโปรแกรม mysql</StatusBadge>}
           </span>
           <span className="text-muted-foreground">
             เก็บไฟล์ที่ <code className="font-mono text-xs">{d.dir}</code>
@@ -58,7 +59,7 @@ export default async function Page() {
       {d.rows.length === 0 ? (
         <EmptyState icon={HardDriveDownload} title="ยังไม่มีข้อมูลสำรอง" description={d.dump.available ? "กด “สำรองข้อมูลตอนนี้” เพื่อสร้างไฟล์สำรองชุดแรก" : "ตั้งค่า mysqldump ตามคำแนะนำด้านบนก่อน"} />
       ) : (
-        <div className="rounded-xl border bg-card">
+        <div className="rounded-[10px] border bg-card">
           <Table>
             <TableHeader>
               <TableRow>
@@ -76,7 +77,7 @@ export default async function Page() {
               {d.rows.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell>
-                    <span className="block font-mono text-xs">{r.code}</span>
+                    <Nameplate>{r.code}</Nameplate>
                     {r.restoredAt && <span className="block text-xs text-muted-foreground">กู้คืนเมื่อ {fmtDateTime(r.restoredAt)} โดย {r.restoredBy}</span>}
                     {r.errorMessage && <span className="block max-w-72 truncate text-xs text-status-critical" title={r.errorMessage}>{r.errorMessage}</span>}
                   </TableCell>

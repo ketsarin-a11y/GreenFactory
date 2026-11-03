@@ -55,7 +55,7 @@ export function UserFormSheet({ open, onOpenChange, options, user }: { open: boo
         defaultValue={user && id in user ? String(user[id as keyof EditableUser] ?? "") : ""}
         required={o.required}
         aria-invalid={!!errors[id]}
-        className={o.mono ? "h-10 font-mono" : "h-10"}
+        className="h-10"
       />
     </Field>
   );

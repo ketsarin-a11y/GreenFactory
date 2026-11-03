@@ -12,7 +12,8 @@
     "test:integration": "vitest run -c vitest.integration.config.ts",
     "db:seed": "prisma db seed",
     "db:reset": "prisma migrate reset --force",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "sim:sensors": "tsx scripts/simulate-sensors.mts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.4.0",

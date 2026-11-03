@@ -3,7 +3,22 @@ import type { Prisma } from "@/generated/prisma/client";
 import { db } from "@/server/db";
 import { ROLES } from "@/server/auth/roles";
 import { parseUserAgent } from "@/server/domain/user-agent";
+import { addDays, bkkDay, isDay, startOfBkkDay, endOfBkkDayExclusive } from "@/lib/time";
+import { dayList } from "@/server/domain/analytics";
 import { PAGE_SIZE, dayRange, oneOf, paging, str, type SP } from "./common";
+import { denseDays } from "./series";
+
+/** Days to chart: the filter's from/to when given (max 92 days), else the last 30 days. */
+function chartDays(sp: SP) {
+  const today = bkkDay(new Date());
+  const toRaw = str(sp, "to");
+  const fromRaw = str(sp, "from");
+  const to = isDay(toRaw) && toRaw < today ? toRaw : today;
+  let from = isDay(fromRaw) ? fromRaw : addDays(to, -29);
+  if (from > to) from = to;
+  if (dayList(from, to).length > 92) from = addDays(to, -91);
+  return { from, to, days: dayList(from, to) };
+}
 
 // ---------- Audit log ----------
 
@@ -76,6 +91,23 @@ export async function listAuditLogs(sp: SP, page: number) {
     rows: rows.map(shapeAudit),
     actions: actions.map((a) => a.action),
     modules: modules.map((m) => m.tableName),
+  };
+}
+
+/** Summary above the audit table: events by module and by action, plus events per day (same filters). */
+export async function auditSummary(sp: SP) {
+  const where = auditWhere(sp);
+  const { from, to, days } = chartDays(sp);
+  const [byModule, byAction, perDay] = await Promise.all([
+    db.auditLog.groupBy({ by: ["tableName"], where, _count: { _all: true }, orderBy: { _count: { tableName: "desc" } }, take: 8 }),
+    db.auditLog.groupBy({ by: ["action"], where, _count: { _all: true } }),
+    db.auditLog.findMany({ where: { AND: [where, { createdAt: { gte: startOfBkkDay(from), lt: endOfBkkDayExclusive(to) } }] }, select: { createdAt: true }, take: 50_000 }),
+  ]);
+  return {
+    byModule: byModule.map((m) => ({ module: m.tableName, n: m._count._all })),
+    byAction: byAction.map((a) => ({ action: a.action, n: a._count._all })).sort((a, b) => b.n - a.n),
+    days,
+    perDay: denseDays(perDay.map((r) => ({ day: bkkDay(r.createdAt), n: 1 })), from, to),
   };
 }
 
@@ -158,6 +190,21 @@ export async function listLoginLogs(sp: SP, page: number) {
     db.loginLog.findMany({ where, orderBy: { loginAt: "desc" }, ...paging(page), select: loginSelect }),
   ]);
   return { total, success, failed: total - success, totalPages: Math.ceil(total / PAGE_SIZE), rows: rows.map(shapeLogin) };
+}
+
+/** Failed attempts per day and the top failure reasons, for the summary above the login table (same filters). */
+export async function loginSummary(sp: SP) {
+  const { from, to, days } = chartDays(sp);
+  const failedWhere: Prisma.LoginLogWhereInput = { AND: [loginWhere(sp), { loginStatus: "FAILED" }] };
+  const [failed, reasons] = await Promise.all([
+    db.loginLog.findMany({ where: { AND: [failedWhere, { loginAt: { gte: startOfBkkDay(from), lt: endOfBkkDayExclusive(to) } }] }, select: { loginAt: true }, take: 50_000 }),
+    db.loginLog.groupBy({ by: ["failureReason"], where: failedWhere, _count: { _all: true }, orderBy: { _count: { failureReason: "desc" } }, take: 5 }),
+  ]);
+  return {
+    days,
+    failedPerDay: denseDays(failed.map((r) => ({ day: bkkDay(r.loginAt), n: 1 })), from, to),
+    reasons: reasons.map((r) => ({ reason: r.failureReason, n: r._count._all })),
+  };
 }
 
 export async function exportLoginLogs(sp: SP) {

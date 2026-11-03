@@ -9,7 +9,9 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans);
   --font-mono: var(--font-plex-mono);
-  --font-heading: var(--font-sans);
+  --font-heading: var(--font-bai);
+  --font-display: var(--font-bai);
+  --color-control-room: var(--control-room);
   --color-brand-lime: var(--brand-lime);
   --color-status-good: var(--status-good);
   --color-status-warning: var(--status-warning);
@@ -59,7 +61,8 @@
 
 /* Values come from DESIGN.md — change them there first. */
 :root {
-  --background: #f6f8f6;
+  --background: #f4f6f3;
+  --control-room: #073d2d;
   --foreground: #16201b;
   --card: #ffffff;
   --card-foreground: #16201b;
@@ -90,7 +93,7 @@
   --chart-6: #008300;
   --chart-7: #6250d6;
   --chart-8: #e34948;
-  --radius: 0.75rem;
+  --radius: 0.625rem;
   --sidebar: #062e22;
   --sidebar-foreground: #dfe9e3;
   --sidebar-primary: #9ccb12;
@@ -104,6 +107,7 @@
 
 .dark {
   --background: #0c110e;
+  --control-room: #0f2a20;
   --foreground: #e8eee9;
   --card: #141b17;
   --card-foreground: #e8eee9;
@@ -148,6 +152,10 @@
   }
   h1, h2, h3 {
     text-wrap: balance;
+  }
+  h1 {
+    font-family: var(--font-bai);
+    letter-spacing: -0.01em;
   }
 }
 

@@ -1,6 +1,5 @@
-import { ClipboardList, UserCheck, Users, UserCog } from "lucide-react";
 import { PageHeader } from "@/components/app/page-header";
-import { StatTile } from "@/components/data/stat-tile";
+import { SummaryStrip } from "@/components/company/summary-strip";
 import { Pagination, pageParam } from "@/components/data/pagination";
 import { UrlFilters } from "@/components/data/url-filters";
 import { requireTenantUser } from "@/server/auth/current-user";
@@ -25,12 +24,15 @@ export default async function Page({ searchParams }: PageProps<"/company/users">
   return (
     <>
       <PageHeader title="ผู้ใช้งาน" description="บัญชีผู้จัดการโรงงานและผู้ปฏิบัติงานของบริษัท" />
-      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatTile label="ผู้ใช้งานทั้งหมด" value={fmtNum(s.all)} icon={Users} />
-        <StatTile label="บัญชีใช้งานอยู่" value={fmtNum(s.active)} icon={UserCheck} />
-        <StatTile label="ผู้จัดการ / ผู้ปฏิบัติงาน" value={`${fmtNum(s.managers)} / ${fmtNum(s.operators)}`} icon={UserCog} />
-        <StatTile label="ต้องตั้งค่าเพิ่ม" value={fmtNum(s.needsSetup)} icon={ClipboardList} hint="ไม่มีโรงงาน หรือผู้ปฏิบัติงานไม่มีแผนก" />
-      </div>
+      <SummaryStrip
+        items={[
+          { label: "ผู้ใช้งานทั้งหมด", value: fmtNum(s.all), unit: "บัญชี" },
+          { label: "ใช้งานอยู่", value: fmtNum(s.active) },
+          { label: "ผู้จัดการโรงงาน", value: fmtNum(s.managers) },
+          { label: "ผู้ปฏิบัติงาน", value: fmtNum(s.operators) },
+          { label: "ต้องตั้งค่าเพิ่ม", value: fmtNum(s.needsSetup), tone: s.needsSetup ? "attention" : "default", hint: "ไม่มีโรงงานหรือแผนก" },
+        ]}
+      />
       <UrlFilters
         fields={[
           { type: "search", name: "q", placeholder: "ค้นหาชื่อ อีเมล หรือรหัสพนักงาน" },

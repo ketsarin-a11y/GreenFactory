@@ -21,7 +21,7 @@ export function ChartCard({ title, description, actions, table, children, classN
 }) {
   const [asTable, setAsTable] = useState(false);
   return (
-    <section className={cn("rounded-xl border bg-card p-5", className)}>
+    <section className={cn("rounded-[10px] border bg-card p-5", className)}>
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className="font-semibold">{title}</h2>

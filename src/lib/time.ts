@@ -35,6 +35,8 @@ const dateTimeFmt = new Intl.DateTimeFormat("th-TH", {
   hour: "2-digit",
   minute: "2-digit",
 });
+const timeFmt = new Intl.DateTimeFormat("th-TH", { timeZone: TZ, hour: "2-digit", minute: "2-digit" });
+export const fmtTime = (d: Date) => timeFmt.format(d);
 export const fmtDate = (d: Date) => dateFmt.format(d);
 export const fmtDateTime = (d: Date) => dateTimeFmt.format(d);
 

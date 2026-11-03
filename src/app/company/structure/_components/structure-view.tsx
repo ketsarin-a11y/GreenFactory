@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Field } from "@/components/account/field";
 import { EmptyState } from "@/components/data/empty-state";
+import { Nameplate } from "@/components/data/nameplate";
 import { RECORD_STATUS, Status } from "@/components/data/status-badge";
 import { FormSheet } from "@/components/company/form-sheet";
 import { ConfirmDialog, type Confirm } from "@/components/company/confirm-dialog";
@@ -48,7 +49,8 @@ function filterTree(nodes: TreeNode[], q: string, status: string): TreeNode[] {
 export function StructureView({ nodes }: { nodes: TreeNode[] }) {
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("");
-  const [open, setOpen] = useState<Set<string>>(() => new Set(nodes.map(keyOf)));
+  // Factories and buildings start expanded so the first view shows departments.
+  const [open, setOpen] = useState<Set<string>>(() => new Set(nodes.flatMap((f) => [keyOf(f), ...f.children.map(keyOf)])));
   const [selectedKey, setSelectedKey] = useState<string | null>(nodes[0] ? keyOf(nodes[0]) : null);
   const [form, setForm] = useState<{ kind: Editable; parentId: number; node?: TreeNode } | null>(null);
   const [confirm, setConfirm] = useState<Confirm | null>(null);
@@ -66,24 +68,38 @@ export function StructureView({ nodes }: { nodes: TreeNode[] }) {
 
   const toggle = (k: string) => setOpen((s) => { const n = new Set(s); if (n.has(k)) n.delete(k); else n.add(k); return n; });
 
+  const countsOf = (n: TreeNode) => {
+    const parts: string[] = [];
+    const child = META[n.kind].child;
+    if (child && n.children.length) parts.push(`${n.children.length} ${META[child].label}`);
+    if (n.kind === "line" && Number(n.info.machines)) parts.push(`${n.info.machines} เครื่องจักร`);
+    return parts;
+  };
+
   const renderNode = (n: TreeNode, depth: number) => {
     const k = keyOf(n);
     const expanded = filtering || open.has(k);
     const Icon = META[n.kind].icon;
+    const counts = countsOf(n);
     return (
       <li key={k} role="treeitem" aria-expanded={n.children.length ? expanded : undefined} aria-selected={selectedKey === k}>
-        <div className={cn("flex items-center gap-1 rounded-md pr-2 hover:bg-muted", selectedKey === k && "bg-accent text-accent-foreground")} style={{ paddingLeft: depth * 16 }}>
-          <button type="button" className={cn("flex size-7 items-center justify-center rounded text-muted-foreground", !n.children.length && "invisible")} onClick={() => toggle(k)} aria-label={expanded ? "ยุบ" : "ขยาย"}>
-            <ChevronRight className={cn("size-4 transition-transform", expanded && "rotate-90")} />
+        <div className={cn("group flex items-center gap-1 rounded-md pr-2 hover:bg-muted", selectedKey === k && "bg-accent text-accent-foreground")}>
+          <button type="button" className={cn("flex size-7 shrink-0 items-center justify-center rounded text-muted-foreground", !n.children.length && "invisible")} onClick={() => toggle(k)} aria-label={expanded ? "ยุบ" : "ขยาย"}>
+            <ChevronRight className={cn("size-4 transition-transform motion-reduce:transition-none", expanded && "rotate-90")} />
           </button>
-          <button type="button" className="flex min-w-0 flex-1 items-center gap-2 py-1.5 text-left text-sm" onClick={() => setSelectedKey(k)}>
-            <Icon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-            <span className="truncate">{n.name}</span>
-            <span className="font-mono text-xs text-muted-foreground">{n.code}</span>
+          <button type="button" className="flex min-w-0 flex-1 items-center gap-2 py-2 text-left text-sm" onClick={() => setSelectedKey(k)}>
+            <Icon className={cn("size-4 shrink-0", depth === 0 ? "text-primary" : "text-muted-foreground")} aria-hidden />
+            <span className={cn("truncate", depth === 0 && "font-semibold", depth === 1 && "font-medium")}>{n.name}</span>
+            <Nameplate className="shrink-0">{n.code}</Nameplate>
           </button>
+          {counts.length > 0 && (
+            <span className="hidden shrink-0 gap-3 text-xs text-muted-foreground tabular sm:flex">{counts.map((c) => <span key={c}>{c}</span>)}</span>
+          )}
           {n.status !== "ACTIVE" && <Status map={RECORD_STATUS} value={n.status} />}
         </div>
-        {expanded && n.children.length > 0 && <ul role="group">{n.children.map((c) => renderNode(c, depth + 1))}</ul>}
+        {expanded && n.children.length > 0 && (
+          <ul role="group" className="ml-3.5 border-l pl-2">{n.children.map((c) => renderNode(c, depth + 1))}</ul>
+        )}
       </li>
     );
   };
@@ -93,7 +109,7 @@ export function StructureView({ nodes }: { nodes: TreeNode[] }) {
 
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_380px]">
-      <section className="rounded-xl border bg-card p-4">
+      <section className="rounded-[10px] border bg-card p-4">
         <div className="mb-3 flex flex-wrap gap-2">
           <div className="relative min-w-[200px] flex-1">
             <Search className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
@@ -111,7 +127,7 @@ export function StructureView({ nodes }: { nodes: TreeNode[] }) {
         )}
       </section>
 
-      <aside className="h-fit rounded-xl border bg-card p-5 lg:sticky lg:top-20">
+      <aside className="h-fit rounded-[10px] border bg-card p-5 lg:sticky lg:top-20">
         {!selected ? (
           <p className="text-sm text-muted-foreground">เลือกรายการในโครงสร้างเพื่อดูรายละเอียด</p>
         ) : (
@@ -146,18 +162,18 @@ function Inspector({ node, path, onAdd, onEdit, onDelete }: { node: TreeNode; pa
   const childKind = meta.child;
   return (
     <>
-      <p className="text-xs text-muted-foreground">{[...path.map((p) => p.name), meta.label].join(" › ")}</p>
+      {path.length > 0 && <p className="text-xs text-muted-foreground">{path.map((p) => p.name).join(" › ")}</p>}
       <div className="mt-1 flex items-start justify-between gap-2">
         <h2 className="font-semibold">{node.name}</h2>
         <Status map={RECORD_STATUS} value={node.status} />
       </div>
-      <p className="font-mono text-xs text-muted-foreground">{node.code}</p>
-      <dl className="mt-4 space-y-2 text-sm">
+      <p className="mt-1 flex items-center gap-2 text-xs text-muted-foreground"><Nameplate>{node.code}</Nameplate>{meta.label}</p>
+      <dl className="mt-4 divide-y border-y text-sm">
         {childKind && (
-          <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{META[childKind].label}</dt><dd className="tabular">{node.children.length}</dd></div>
+          <div className="flex justify-between gap-3 py-2"><dt className="text-muted-foreground">{META[childKind].label}</dt><dd className="tabular">{node.children.length}</dd></div>
         )}
         {Object.entries(node.info).map(([k, v]) => (
-          <div key={k} className="flex justify-between gap-3"><dt className="shrink-0 text-muted-foreground">{INFO_LABEL[k] ?? k}</dt><dd className="min-w-0 text-right">{v ?? "—"}</dd></div>
+          <div key={k} className="flex justify-between gap-3 py-2"><dt className="shrink-0 text-muted-foreground">{INFO_LABEL[k] ?? k}</dt><dd className="min-w-0 text-right">{v ?? "—"}</dd></div>
         ))}
       </dl>
       <div className="mt-5 flex flex-wrap gap-2">

@@ -4,43 +4,94 @@ import { db } from "@/server/db";
 import type { CurrentUser } from "@/server/auth/current-user";
 import { checkpointWhere, machineWhere, qrWhere, usageWhere } from "@/server/scope";
 import { scanProblem } from "@/server/domain/qr-scan";
-import { bkkDay, endOfBkkDayExclusive, isDay, startOfBkkDay } from "@/lib/time";
+import { addDays, bkkDay, endOfBkkDayExclusive, isDay, startOfBkkDay } from "@/lib/time";
 import { num } from "@/lib/format";
 import { byPriority } from "@/lib/resources";
 
 const lineInclude = { productionLine: { include: { department: { include: { building: true } } } } } as const;
 type WithLine = { productionLine: { lineName: string; department: { departmentName: string; building: { buildingName: string } } } };
 const location = (t: WithLine) =>
-  [t.productionLine.department.building.buildingName, t.productionLine.department.departmentName, t.productionLine.lineName].join(" • ");
+  [t.productionLine.department.building.buildingName, t.productionLine.department.departmentName, t.productionLine.lineName].join(" / ");
 
-/** Today's (Bangkok) readings in my factory: count + totals per resource, never mixing units. */
-export async function todaySummary(user: CurrentUser) {
-  const day = bkkDay(new Date());
-  const where = { ...usageWhere(user), usageAt: { gte: startOfBkkDay(day), lt: endOfBkkDayExclusive(day) } };
-  const groups = await db.resourceUsage.groupBy({
-    by: ["resourceTypeId", "unitId"],
-    where,
-    _sum: { quantity: true },
-    _count: { _all: true },
-  });
-  const [types, units] = await Promise.all([
-    db.resourceTypeMaster.findMany({ where: { resourceTypeId: { in: groups.map((g) => g.resourceTypeId) } } }),
-    db.unit.findMany({ where: { unitId: { in: groups.map((g) => g.unitId) } } }),
+export const ROUTINE_DAYS = 14;
+
+export type ChecklistItem = {
+  kind: "MACHINE" | "CHECKPOINT";
+  id: number;
+  name: string;
+  code: string;
+  location: string;
+  /** What this target is usually read for (most recent resource in the routine window). */
+  resource: string;
+  /** Latest reading today (Bangkok day), or null if nothing recorded yet. */
+  done: { quantity: number; unit: string; resource: string; at: Date; count: number } | null;
+};
+
+/**
+ * "งานวันนี้": every ACTIVE machine/checkpoint in my factory that was recorded in the last
+ * ROUTINE_DAYS days (i.e. is on a routine), with today's latest reading if there is one.
+ */
+export async function todayChecklist(user: CurrentUser, now = new Date()) {
+  const day = bkkDay(now);
+  const since = startOfBkkDay(addDays(day, -ROUTINE_DAYS));
+  const [routine, today] = await Promise.all([
+    db.resourceUsage.groupBy({
+      by: ["machineId", "checkpointId", "resourceTypeId"],
+      where: { ...usageWhere(user), usageAt: { gte: since, lt: endOfBkkDayExclusive(day) } },
+      _max: { usageAt: true },
+    }),
+    db.resourceUsage.findMany({
+      where: { ...usageWhere(user), usageAt: { gte: startOfBkkDay(day), lt: endOfBkkDayExclusive(day) } },
+      orderBy: { usageAt: "desc" },
+      select: { machineId: true, checkpointId: true, quantity: true, usageAt: true, unit: { select: { symbol: true } }, resourceType: { select: { resourceName: true } } },
+    }),
   ]);
-  const totals = groups
-    .map((g) => {
-      const t = types.find((x) => x.resourceTypeId === g.resourceTypeId)!;
-      return {
-        key: `${g.resourceTypeId}-${g.unitId}`,
-        code: t.resourceCode,
-        name: t.resourceName,
-        unit: units.find((u) => u.unitId === g.unitId)?.symbol ?? "",
-        total: num(g._sum.quantity),
-        count: g._count._all,
-      };
-    })
-    .sort((a, b) => b.count - a.count);
-  return { count: totals.reduce((s, t) => s + t.count, 0), totals };
+  const ids = (k: "machineId" | "checkpointId") => [...new Set(routine.map((r) => r[k]).filter((v): v is number => v !== null))];
+  const [machines, checkpoints, types] = await Promise.all([
+    db.machine.findMany({ where: { machineId: { in: ids("machineId") }, status: "ACTIVE", ...machineWhere(user) }, include: lineInclude }),
+    db.checkpoint.findMany({ where: { checkpointId: { in: ids("checkpointId") }, status: "ACTIVE", ...checkpointWhere(user) }, include: lineInclude }),
+    db.resourceTypeMaster.findMany({ where: { resourceTypeId: { in: [...new Set(routine.map((r) => r.resourceTypeId))] } }, select: { resourceTypeId: true, resourceName: true } }),
+  ]);
+  const usualResource = (match: (r: (typeof routine)[number]) => boolean) => {
+    const latest = routine.filter(match).sort((a, b) => (b._max.usageAt?.getTime() ?? 0) - (a._max.usageAt?.getTime() ?? 0))[0];
+    return types.find((t) => t.resourceTypeId === latest?.resourceTypeId)?.resourceName ?? "";
+  };
+  const doneOf = (match: (u: (typeof today)[number]) => boolean): ChecklistItem["done"] => {
+    const rows = today.filter(match);
+    const u = rows[0];
+    return u ? { quantity: num(u.quantity), unit: u.unit.symbol, resource: u.resourceType.resourceName, at: u.usageAt, count: rows.length } : null;
+  };
+  const items: ChecklistItem[] = [
+    ...machines.map((m) => ({
+      kind: "MACHINE" as const, id: m.machineId, name: m.machineName, code: m.machineCode, location: location(m),
+      resource: usualResource((r) => r.machineId === m.machineId),
+      done: doneOf((u) => u.machineId === m.machineId),
+    })),
+    ...checkpoints.map((c) => ({
+      kind: "CHECKPOINT" as const, id: c.checkpointId, name: c.checkpointName, code: c.checkpointCode, location: location(c),
+      resource: usualResource((r) => r.checkpointId === c.checkpointId),
+      done: doneOf((u) => u.checkpointId === c.checkpointId),
+    })),
+  ];
+  const todo = items.filter((i) => !i.done).sort((a, b) => a.code.localeCompare(b.code, "th"));
+  const done = items.filter((i) => i.done).sort((a, b) => b.done!.at.getTime() - a.done!.at.getTime());
+  return { total: items.length, todo, done };
+}
+
+/** "MACHINE:12" / "CHECKPOINT:3" — the record form's `?target=` value. */
+export const targetParam = (t: { kind: "MACHINE" | "CHECKPOINT"; id: number }) => `${t.kind}:${t.id}`;
+
+/** Resolves `?target=` to an ACTIVE machine/checkpoint in my factory; anything else → null (ignored). */
+export async function targetForRecord(user: CurrentUser, raw: string | null | undefined): Promise<RecordTarget | null> {
+  const m = raw?.match(/^(MACHINE|CHECKPOINT):(\d{1,9})$/);
+  if (!m) return null;
+  const id = Number(m[2]);
+  if (m[1] === "MACHINE") {
+    const t = await db.machine.findFirst({ where: { machineId: id, status: "ACTIVE", ...machineWhere(user) }, include: lineInclude });
+    return t && { kind: "MACHINE", id: t.machineId, name: t.machineName, code: t.machineCode, location: location(t) };
+  }
+  const t = await db.checkpoint.findFirst({ where: { checkpointId: id, status: "ACTIVE", ...checkpointWhere(user) }, include: lineInclude });
+  return t && { kind: "CHECKPOINT", id: t.checkpointId, name: t.checkpointName, code: t.checkpointCode, location: location(t) };
 }
 
 export async function myRecentUsages(user: CurrentUser, take = 5) {
@@ -119,7 +170,8 @@ export async function recordOptions(user: CurrentUser) {
     // Everyday utilities first (electricity, water…), then the long tail by category.
     resources: [...resources].sort((a, b) => byPriority(a.resourceCode, b.resourceCode)).map((r) => ({
       id: r.resourceTypeId,
-      label: `${r.resourceName} — ${r.category.categoryName}`,
+      label: r.resourceName,
+      category: r.category.categoryName,
       unitId: r.defaultUnitId,
       unit: r.defaultUnit.symbol,
     })),
@@ -223,7 +275,7 @@ export async function historyPage(user: CurrentUser, f: HistoryFilters, page: nu
       targetCode: r.machine?.machineCode ?? r.checkpoint?.checkpointCode ?? "",
       scope: r.scopeType,
       location: r.productionLine
-        ? [r.productionLine.department.building.buildingName, r.productionLine.department.departmentName, r.productionLine.lineName].join(" • ")
+        ? location({ productionLine: r.productionLine })
         : "—",
       resource: r.resourceType.resourceName,
       resourceCode: r.resourceType.resourceCode,

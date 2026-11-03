@@ -23,7 +23,7 @@ export default async function Page() {
   return (
     <>
       <PageHeader title="บทบาทและสิทธิ์" description="สิ่งที่ผู้จัดการโรงงานและผู้ปฏิบัติงานทำได้ในระบบ" />
-      <div className="mb-4 flex gap-3 rounded-xl border bg-card p-4 text-sm">
+      <div className="mb-4 flex gap-3 rounded-[10px] border bg-card p-4 text-sm">
         <Info className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
         <div>
           <p>สิทธิ์ของแต่ละบทบาทกำหนดโดยผู้ดูแลแพลตฟอร์ม GreenFactory และใช้เหมือนกันทุกบริษัท หน้านี้แสดงเพื่อให้ตรวจสอบได้ว่าควรมอบบทบาทใดให้ใคร</p>
@@ -38,7 +38,7 @@ export default async function Page() {
       ) : (
         <div className="space-y-4">
           {groups.map((g) => (
-            <section key={g.code} className="overflow-x-auto rounded-xl border bg-card">
+            <section key={g.code} className="overflow-x-auto rounded-[10px] border bg-card">
               <h2 className="border-b px-4 py-3 font-semibold">{g.name}</h2>
               <Table>
                 <TableHeader>

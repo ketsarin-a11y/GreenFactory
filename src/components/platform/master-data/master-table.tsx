@@ -8,6 +8,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { EmptyState } from "@/components/data/empty-state";
 import { StatusBadge } from "@/components/data/status-badge";
+import { Nameplate } from "@/components/data/nameplate";
 import { useAction } from "@/hooks/use-action";
 import { cn } from "@/lib/utils";
 import { deleteMasterItem, setMasterStatus } from "@/server/actions/platform/master-data";
@@ -50,7 +51,7 @@ function StatusToggle({ kind, row }: { kind: MasterKind; row: Row }) {
       disabled={pending}
       onClick={() => run({ kind, id: row.id, status: active ? "INACTIVE" : "ACTIVE" })}
       className="rounded-full focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-60"
-      aria-label={`${active ? "ใช้งานอยู่" : "ปิดใช้งาน"} — คลิกเพื่อ${active ? "ปิดใช้งาน" : "เปิดใช้งาน"}`}
+      aria-label={`${active ? "ใช้งานอยู่" : "ปิดใช้งาน"} คลิกเพื่อ${active ? "ปิดใช้งาน" : "เปิดใช้งาน"}`}
       title={active ? "คลิกเพื่อปิดใช้งาน" : "คลิกเพื่อเปิดใช้งาน"}
     >
       <StatusBadge tone={active ? "good" : "neutral"} className="cursor-pointer hover:ring-1 hover:ring-border">
@@ -115,7 +116,7 @@ export function MasterTable({ kind, rows, options }: { kind: MasterKind; rows: R
   if (!rows.length) return <EmptyState icon={Database} title={`ไม่พบ${cfg.noun}`} description={`ลองล้างตัวกรอง หรือกด “เพิ่ม${cfg.noun}”`} />;
   return (
     <>
-      <div className="rounded-xl border bg-card">
+      <div className="rounded-[10px] border bg-card">
         <Table>
           <TableHeader>
             <TableRow>
@@ -133,8 +134,8 @@ export function MasterTable({ kind, rows, options }: { kind: MasterKind; rows: R
               return (
                 <TableRow key={r.id}>
                   {cfg.columns.map((c) => (
-                    <TableCell key={c.key} className={cn(c.mono && "font-mono text-xs", c.numeric && "text-right tabular", c.key === "description" && "max-w-80 truncate text-muted-foreground")}>
-                      {r.display[c.key]}
+                    <TableCell key={c.key} className={cn(c.numeric && "text-right tabular", (c.key === "description" || c.key === "source") && "max-w-72 truncate text-muted-foreground", c.key === "period" && "whitespace-nowrap")}>
+                      {c.mono && r.display[c.key] ? <Nameplate>{r.display[c.key]}</Nameplate> : <span title={c.key === "source" || c.key === "description" ? r.display[c.key] : undefined}>{r.display[c.key]}</span>}
                     </TableCell>
                   ))}
                   <TableCell className="text-right tabular" title={r.refs.map((x) => `${x.label}: ${x.count.toLocaleString("th-TH")}`).join("\n")}>

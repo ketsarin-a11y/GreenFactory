@@ -13,9 +13,9 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   if (user) redirect(returnTo ?? homeFor(user.role));
   return (
     <>
-      <h1 className="text-2xl font-semibold tracking-tight">เข้าสู่ระบบ</h1>
+      <h1 className="font-display text-2xl font-semibold tracking-tight">เข้าสู่ระบบ</h1>
       <p className="mt-1 mb-8 text-sm text-muted-foreground">ใช้รหัสองค์กรที่ได้รับจากผู้ดูแลระบบของบริษัท</p>
-      <LoginForm returnTo={returnTo ?? ""} />
+      <LoginForm returnTo={returnTo ?? ""} demo={process.env.NEXT_PUBLIC_DEMO_MODE === "true"} />
     </>
   );
 }

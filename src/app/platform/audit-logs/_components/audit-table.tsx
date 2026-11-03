@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronRight } from "lucide-react";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Nameplate } from "@/components/data/nameplate";
 import { InfoList } from "@/components/platform/checklist";
 import { AUDIT_ACTION_LABEL, moduleLabel } from "@/components/platform/labels";
 import { fmtDateTime } from "@/lib/time";
@@ -45,7 +45,7 @@ export function AuditTable({ rows }: { rows: AuditRow[] }) {
   const ua = open ? parseUserAgent(open.userAgent) : null;
   return (
     <>
-      <div className="rounded-xl border bg-card">
+      <div className="rounded-[10px] border bg-card">
         <Table>
           <TableHeader>
             <TableRow>
@@ -56,7 +56,7 @@ export function AuditTable({ rows }: { rows: AuditRow[] }) {
               <TableHead>โมดูล</TableHead>
               <TableHead>อ้างอิง</TableHead>
               <TableHead>IP</TableHead>
-              <TableHead className="w-10"><span className="sr-only">รายละเอียด</span></TableHead>
+              <TableHead className="w-12"><span className="sr-only">รายละเอียด</span></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -70,11 +70,11 @@ export function AuditTable({ rows }: { rows: AuditRow[] }) {
                 <TableCell>{roleLabel(a.role)}</TableCell>
                 <TableCell>{AUDIT_ACTION_LABEL[a.action] ?? a.action}</TableCell>
                 <TableCell>{moduleLabel(a.tableName)}</TableCell>
-                <TableCell className="font-mono text-xs">{a.tableName}#{a.recordId}</TableCell>
-                <TableCell className="font-mono text-xs">{a.ipAddress ?? "—"}</TableCell>
+                <TableCell><Nameplate>#{a.recordId}</Nameplate></TableCell>
+                <TableCell className="text-xs tabular">{a.ipAddress ?? "ไม่ทราบ"}</TableCell>
                 <TableCell>
-                  <button type="button" className="rounded p-1 hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none" aria-label="ดูรายละเอียด" onClick={(e) => { e.stopPropagation(); setOpen(a); }}>
-                    <ChevronRight className="size-4" />
+                  <button type="button" className="rounded px-2 py-1 text-sm whitespace-nowrap text-primary hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none" onClick={(e) => { e.stopPropagation(); setOpen(a); }}>
+                    ดู<span className="sr-only">รายละเอียดรายการ {a.id}</span>
                   </button>
                 </TableCell>
               </TableRow>
@@ -88,7 +88,12 @@ export function AuditTable({ rows }: { rows: AuditRow[] }) {
             <>
               <SheetHeader>
                 <SheetTitle>{AUDIT_ACTION_LABEL[open.action] ?? open.action} {moduleLabel(open.tableName)}</SheetTitle>
-                <SheetDescription className="font-mono">{open.tableName}#{open.recordId} · log #{open.id}</SheetDescription>
+                <SheetDescription className="flex flex-wrap items-center gap-2">
+                  <span>เลขที่ข้อมูล</span>
+                  <Nameplate>#{open.recordId}</Nameplate>
+                  <span className="ml-2">เลขที่บันทึก</span>
+                  <Nameplate>#{open.id}</Nameplate>
+                </SheetDescription>
               </SheetHeader>
               <div className="space-y-5 px-4 pb-6">
                 <InfoList
@@ -97,7 +102,7 @@ export function AuditTable({ rows }: { rows: AuditRow[] }) {
                     ["ผู้ใช้", open.userName ? `${open.userName} (${open.userEmail})` : "ระบบ"],
                     ["บทบาท", roleLabel(open.role)],
                     ["IP", open.ipAddress],
-                    ["อุปกรณ์", `${ua.browser} · ${ua.os}`],
+                    ["อุปกรณ์", `${ua.browser} บน ${ua.os}`],
                     ["User agent", <span key="ua" className="font-mono text-xs">{open.userAgent}</span>],
                   ]}
                 />

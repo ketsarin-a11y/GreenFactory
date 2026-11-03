@@ -133,7 +133,7 @@ export const deleteCompany = action(PA, z.object({ companyId: zId }), async ({ c
     [c.reports, "รายงาน", "ฉบับ"],
     [tickets, "คำร้อง", "รายการ"],
   ].filter(([n]) => (n as number) > 0);
-  if (parts.length) fail(`ลบไม่ได้ เพราะยังมี${parts.map(([n, l, u]) => `${l} ${(n as number).toLocaleString("th-TH")} ${u}`).join(", ")} — ใช้ "ระงับใช้งาน" แทน`);
+  if (parts.length) fail(`ลบไม่ได้ เพราะยังมี${parts.map(([n, l, u]) => `${l} ${(n as number).toLocaleString("th-TH")} ${u}`).join(", ")} ให้ใช้ "ระงับใช้งาน" แทน`);
   const { _count, ...snapshot } = company!;
   void _count;
   await db.company.delete({ where: { companyId } });

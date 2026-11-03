@@ -1,5 +1,5 @@
 import { PageHeader } from "@/components/app/page-header";
-import { StatTile } from "@/components/data/stat-tile";
+import { SummaryStrip } from "@/components/platform/summary-strip";
 import { UrlFilters } from "@/components/data/url-filters";
 import { fmtNum } from "@/lib/format";
 import { listMaster } from "@/server/queries/platform/master-data";
@@ -15,12 +15,14 @@ export async function MasterPage({ kind, searchParams }: { kind: MasterKind; sea
     <>
       <PageHeader title={cfg.title} description={cfg.description} actions={<MasterCreateButton kind={kind} options={d.options} />} />
       {d.stats && (
-        <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatTile label="ทั้งหมด" value={fmtNum(d.stats.total, 0)} goodWhen="neutral" />
-          <StatTile label="ใช้งานอยู่" value={fmtNum(d.stats.active, 0)} goodWhen="neutral" />
-          <StatTile label="ถูกใช้ในการคำนวณ" value={fmtNum(d.stats.referenced, 0)} goodWhen="neutral" />
-          <StatTile label="หมดอายุแล้ว" value={fmtNum(d.stats.expired, 0)} goodWhen="neutral" />
-        </div>
+        <SummaryStrip
+          items={[
+            { label: "ทั้งหมด", value: fmtNum(d.stats.total, 0), unit: "รายการ" },
+            { label: "ใช้งานอยู่", value: fmtNum(d.stats.active, 0), unit: "รายการ" },
+            { label: "ถูกใช้ในการคำนวณ", value: fmtNum(d.stats.referenced, 0), unit: "รายการ" },
+            { label: "หมดอายุแล้ว", value: fmtNum(d.stats.expired, 0), unit: "รายการ" },
+          ]}
+        />
       )}
       <UrlFilters
         fields={[
@@ -29,7 +31,10 @@ export async function MasterPage({ kind, searchParams }: { kind: MasterKind; sea
         ]}
       />
       <MasterTable kind={kind} rows={d.rows} options={d.options} />
-      <p className="mt-3 text-sm text-muted-foreground tabular">ทั้งหมด {d.rows.length.toLocaleString("th-TH")} รายการ · คลิกสถานะเพื่อเปิด/ปิดใช้งาน</p>
+      <div className="mt-3 flex flex-wrap justify-between gap-x-6 gap-y-1 text-sm text-muted-foreground">
+        <p className="tabular">ทั้งหมด {d.rows.length.toLocaleString("th-TH")} รายการ</p>
+        <p>คลิกที่สถานะเพื่อเปิดหรือปิดใช้งาน</p>
+      </div>
     </>
   );
 }

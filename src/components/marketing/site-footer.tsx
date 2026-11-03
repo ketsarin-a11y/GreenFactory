@@ -3,10 +3,11 @@ import { Mail, MapPin } from "lucide-react";
 import { CONTACT, NAV } from "./site";
 
 const SOLUTIONS = [
-  { href: "/features#energy", label: "พลังงาน" },
-  { href: "/features#water", label: "น้ำ" },
+  { href: "/features#energy", label: "พลังงานและน้ำ" },
   { href: "/features#carbon", label: "คาร์บอน" },
-  { href: "/features#alerts", label: "การแจ้งเตือนความผิดปกติ" },
+  { href: "/features#kpi", label: "KPI" },
+  { href: "/features#qr", label: "บันทึกด้วย QR Code" },
+  { href: "/features#sensors", label: "เซนเซอร์ IoT" },
   { href: "/features#reports", label: "รายงาน" },
 ];
 
@@ -15,7 +16,7 @@ export function SiteFooter() {
     <footer className="bg-[#062e22] text-white/75">
       <div className="mx-auto grid max-w-6xl gap-10 px-4 py-14 sm:px-6 md:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1.3fr]">
         <div>
-          <p className="text-lg font-semibold text-white">
+          <p className="font-display text-lg font-semibold text-white">
             GreenFactory Insight<span className="text-brand-lime">.</span>
           </p>
           <p className="mt-3 max-w-xs text-sm leading-relaxed">

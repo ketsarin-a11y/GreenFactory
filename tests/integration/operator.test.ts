@@ -1,7 +1,7 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { db } from "@/server/db";
 import { createUsage, deleteUsage } from "@/server/actions/operator";
-import { scanQr } from "@/server/queries/operator";
+import { scanQr, targetForRecord, todayChecklist } from "@/server/queries/operator";
 import { getCurrentUser } from "@/server/auth/current-user";
 import { bkkLocalInput } from "@/server/domain/qr-scan";
 import { DEMO, signInAs, signOut } from "./helpers";
@@ -144,5 +144,32 @@ describe("operator: delete", () => {
     expect((await db.resourceUsage.findUniqueOrThrow({ where: { usageId: u.usageId } })).status).toBe("INACTIVE");
     expect(await db.carbonResult.count({ where: { usageId: u.usageId } })).toBe(0);
     expect(await db.alert.count({ where: { usageId: u.usageId, status: "OPEN" } })).toBe(0);
+  });
+});
+
+describe("operator: today checklist and ?target= preset", () => {
+  it("resolves ?target= only inside my factory; other company ids and junk are ignored", async () => {
+    await signInAs(DEMO.operator);
+    const me = (await getCurrentUser())!;
+    expect(await targetForRecord(me, `MACHINE:${machine.machineId}`)).toMatchObject({ kind: "MACHINE", id: machine.machineId });
+    expect(await targetForRecord(me, `CHECKPOINT:${checkpoint.checkpointId}`)).toMatchObject({ kind: "CHECKPOINT", id: checkpoint.checkpointId });
+    expect(await targetForRecord(me, `MACHINE:${foreignMachineId}`)).toBeNull();
+    for (const junk of ["", "MACHINE:", "MACHINE:abc", `machine:${machine.machineId}`, `SENSOR:${machine.machineId}`, `MACHINE:${machine.machineId};DROP`]) {
+      expect(await targetForRecord(me, junk)).toBeNull();
+    }
+  });
+
+  it("lists routine targets of my factory and moves one to done after a reading today", async () => {
+    await signInAs(DEMO.operator);
+    const me = (await getCurrentUser())!;
+    await createUsage(base());
+    const list = await todayChecklist(me);
+    const keys = [...list.todo, ...list.done].map((t) => `${t.kind}:${t.id}`);
+    expect(keys).toContain(`MACHINE:${machine.machineId}`);
+    expect(keys).not.toContain(`MACHINE:${foreignMachineId}`);
+    expect(list.total).toBe(keys.length);
+    const done = list.done.find((t) => t.kind === "MACHINE" && t.id === machine.machineId);
+    expect(done?.done).toMatchObject({ quantity: 12.5, unit: expect.any(String) });
+    expect(list.todo.some((t) => t.kind === "MACHINE" && t.id === machine.machineId)).toBe(false);
   });
 });

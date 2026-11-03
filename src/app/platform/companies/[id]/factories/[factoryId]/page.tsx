@@ -6,6 +6,9 @@ import { EmptyState } from "@/components/data/empty-state";
 import { RECORD_STATUS, Status } from "@/components/data/status-badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checklist, InfoList } from "@/components/platform/checklist";
+import { Nameplate } from "@/components/data/nameplate";
+import { Panel } from "@/components/platform/panel";
+import { EditFactoryButton } from "@/components/platform/factory-form";
 import { fmtNum } from "@/lib/format";
 import { requireUser } from "@/server/auth/current-user";
 import { factoryDetail } from "@/server/queries/platform/companies";
@@ -22,7 +25,6 @@ export default async function Page({ params }: PageProps<"/platform/companies/[i
   const lat = f.latitude === null ? null : Number(f.latitude);
   const lng = f.longitude === null ? null : Number(f.longitude);
   const mapUrl = f.googleMapUrl ?? (lat !== null && lng !== null ? `https://www.google.com/maps?q=${lat},${lng}` : null);
-  const card = "rounded-xl border bg-card p-5";
 
   return (
     <>
@@ -33,15 +35,31 @@ export default async function Page({ params }: PageProps<"/platform/companies/[i
         title={f.factoryName}
         description={
           <span className="flex flex-wrap items-center gap-2">
-            <span className="font-mono">{f.factoryCode}</span>
+            <Nameplate>{f.factoryCode}</Nameplate>
             <Status map={RECORD_STATUS} value={f.status} />
-            <span>ข้อมูลโครงสร้างเท่านั้น — ผู้ดูแลแพลตฟอร์มไม่เห็นข้อมูลพลังงานหรือคาร์บอนของลูกค้า</span>
           </span>
         }
+        actions={
+          <EditFactoryButton
+            factory={{
+              factoryId: f.factoryId,
+              factoryName: f.factoryName,
+              address: f.address,
+              province: f.province,
+              postalCode: f.postalCode,
+              phone: f.phone,
+              email: f.email,
+              latitude: lat,
+              longitude: lng,
+              googleMapUrl: f.googleMapUrl,
+              timezone: f.timezone,
+            }}
+          />
+        }
       />
-      <div className="mb-6 grid gap-4 lg:grid-cols-3">
-        <section className={`${card} lg:col-span-2`}>
-          <h2 className="mb-4 font-semibold">ข้อมูลโรงงาน</h2>
+      <p className="-mt-3 mb-6 text-sm text-muted-foreground">หน้านี้แสดงเฉพาะข้อมูลโครงสร้าง ผู้ดูแลแพลตฟอร์มไม่เห็นข้อมูลพลังงานหรือคาร์บอนของลูกค้า</p>
+      <div className="mb-6 grid gap-6 lg:grid-cols-3">
+        <Panel className="lg:col-span-2" title="ข้อมูลโรงงาน">
           <InfoList
             items={[
               ["ที่อยู่", f.address],
@@ -51,18 +69,18 @@ export default async function Page({ params }: PageProps<"/platform/companies/[i
               ["อีเมล", f.email],
               ["พิกัด", lat !== null && lng !== null ? <span className="tabular">{lat.toFixed(6)}, {lng.toFixed(6)}</span> : null],
               ["แผนที่", mapUrl && <a href={mapUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline">เปิดใน Google Maps <ExternalLink className="size-3.5" /></a>],
+              ["เขตเวลา", f.timezone],
               ["เครื่องจักร", <span key="m" className="tabular">{fmtNum(d.machines, 0)} เครื่อง</span>],
             ]}
           />
-        </section>
-        <section className={card}>
-          <h2 className="mb-4 font-semibold">ความพร้อมของโรงงาน</h2>
+        </Panel>
+        <Panel title="ความพร้อมของโรงงาน">
           <Checklist items={d.checklist} />
-        </section>
+        </Panel>
       </div>
       <h2 className="mb-3 font-semibold">อาคาร</h2>
       {f.buildings.length ? (
-        <div className="rounded-xl border bg-card">
+        <div className="rounded-[10px] border bg-card">
           <Table>
             <TableHeader>
               <TableRow>
@@ -77,7 +95,7 @@ export default async function Page({ params }: PageProps<"/platform/companies/[i
             <TableBody>
               {f.buildings.map((b) => (
                 <TableRow key={b.buildingId}>
-                  <TableCell className="font-mono text-xs">{b.buildingCode}</TableCell>
+                  <TableCell><Nameplate>{b.buildingCode}</Nameplate></TableCell>
                   <TableCell>{b.buildingName}</TableCell>
                   <TableCell>{b.buildingType ?? "—"}</TableCell>
                   <TableCell className="text-right tabular">{b.floorCount ?? "—"}</TableCell>

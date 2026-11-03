@@ -8,10 +8,10 @@ import { audit } from "@/server/audit";
 import { action, fail } from "./_action";
 import { ownedWhere } from "@/server/scope";
 import type { CurrentUser } from "@/server/auth/current-user";
-import { kpiWhere } from "@/server/queries/manager/common";
+import { kpiUsageWhere, kpiWhere } from "@/server/queries/manager/common";
 import { evaluateKpi, periodBounds } from "@/server/domain/kpi";
 import { dayList } from "@/server/domain/analytics";
-import { addDays, bkkDay, daysBetween, endOfBkkDayExclusive, isDay, startOfBkkDay } from "@/lib/time";
+import { addDays, bkkDay, daysBetween, isDay, startOfBkkDay } from "@/lib/time";
 
 const M = ["MANAGER"] as const satisfies ["MANAGER"];
 const zDay = z.string().refine(isDay, "วันที่ไม่ถูกต้อง");
@@ -78,18 +78,7 @@ export const recalculateKpis = action([...M], z.object({ from: zDay, to: zDay })
       const agg = await db.resourceUsage.aggregate({
         _sum: { quantity: true },
         _count: true,
-        where: {
-          companyId: k.companyId,
-          status: "ACTIVE",
-          unitId: k.unitId,
-          ...(k.resourceTypeId ? { resourceTypeId: k.resourceTypeId } : {}),
-          ...(k.factoryId ? { factoryId: k.factoryId } : {}),
-          ...(k.buildingId ? { buildingId: k.buildingId } : {}),
-          ...(k.departmentId ? { departmentId: k.departmentId } : {}),
-          ...(k.lineId ? { lineId: k.lineId } : {}),
-          ...(k.machineId ? { machineId: k.machineId } : {}),
-          usageAt: { gte: startOfBkkDay(p.start), lt: endOfBkkDayExclusive(p.end) },
-        },
+        where: kpiUsageWhere(k, p.start, p.end),
       });
       if (agg._count === 0) continue; // nothing recorded: not a PASS, just no result
       const actual = Number(agg._sum.quantity ?? 0);

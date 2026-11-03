@@ -8,7 +8,7 @@ export default function NotFound() {
       <Link href="/" aria-label="GreenFactory Insight หน้าแรก">
         <Logo />
       </Link>
-      <p className="mt-12 font-mono text-sm font-medium text-primary">404</p>
+      <p className="mt-12 font-display text-5xl font-semibold text-primary tabular-nums">404</p>
       <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">ไม่พบหน้าที่คุณต้องการ</h1>
       <p className="mt-3 max-w-md text-muted-foreground">ลิงก์อาจไม่ถูกต้อง หรือหน้านี้ถูกย้ายไปแล้ว</p>
       <div className="mt-8 flex flex-wrap justify-center gap-3">

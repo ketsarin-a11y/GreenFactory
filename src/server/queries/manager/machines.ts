@@ -2,9 +2,9 @@ import "server-only";
 import { db } from "@/server/db";
 import type { CurrentUser } from "@/server/auth/current-user";
 import { machineWhere, ownedWhere, usageWhere } from "@/server/scope";
-import { addDays, bkkDay } from "@/lib/time";
+import { addDays } from "@/lib/time";
 import { sumByResourceUnit, dailyTotals, dayList } from "@/server/domain/analytics";
-import { latestDataDay, loadUsageRows, sortGroups } from "./common";
+import { defaultEndDay, loadUsageRows, sortGroups } from "./common";
 
 const OPEN = { in: ["OPEN", "ACKNOWLEDGED"] };
 
@@ -73,7 +73,7 @@ export async function getMachine(user: CurrentUser, id: number) {
     },
   });
   if (!m) return null;
-  const to = (await latestDataDay(user)) ?? bkkDay(new Date());
+  const to = await defaultEndDay(user);
   const from = addDays(to, -29);
   const [rows, recent, usageCount] = await Promise.all([
     loadUsageRows(user, from, to, { machineId: id }),
@@ -91,6 +91,28 @@ export async function getMachine(user: CurrentUser, id: number) {
     return { ...g, days: days.map((day) => ({ day, value: t.get(day) ?? null })) };
   });
   const now = new Date();
+  // Last 24 h of each sensor (ending at its latest reading), averaged into 15-minute buckets.
+  const BUCKET = 15 * 60_000;
+  const series = await Promise.all(
+    m.sensors.map(async (s) => {
+      const last = s.data[0]?.measuredAt;
+      if (!last) return [];
+      const data = await db.sensorData.findMany({
+        where: { sensorId: s.sensorId, measuredAt: { gt: new Date(last.getTime() - 86_400_000), lte: last } },
+        orderBy: { measuredAt: "asc" },
+        select: { measuredAt: true, rawValue: true, processedValue: true },
+      });
+      const b = new Map<number, { sum: number; n: number }>();
+      for (const x of data) {
+        const k = Math.floor(x.measuredAt.getTime() / BUCKET) * BUCKET;
+        const g = b.get(k) ?? { sum: 0, n: 0 };
+        g.sum += Number(x.processedValue ?? x.rawValue);
+        g.n++;
+        b.set(k, g);
+      }
+      return [...b.entries()].map(([t, g]) => ({ at: new Date(t).toISOString(), value: Math.round((g.sum / g.n) * 100) / 100 }));
+    }),
+  );
   return {
     machine: m,
     from,
@@ -98,12 +120,13 @@ export async function getMachine(user: CurrentUser, id: number) {
     trends,
     usageCount,
     recent: recent.map((r) => ({ ...r, usageId: String(r.usageId), quantity: Number(r.quantity) })),
-    sensors: m.sensors.map((s) => {
+    sensors: m.sensors.map((s, i) => {
       const d = s.data[0];
       return {
         id: s.sensorId, code: s.sensorCode, name: s.sensorName, type: s.sensorType.sensorTypeName, protocol: s.protocol,
         connection: connectionStatus(s, d?.qualityStatus ?? null, now),
         latest: d ? { value: Number(d.processedValue ?? d.rawValue), unit: d.unit.symbol, at: d.measuredAt, quality: d.qualityStatus } : null,
+        series: series[i],
       };
     }),
   };

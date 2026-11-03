@@ -19,12 +19,12 @@ const STATUSES = [
   { value: "PENDING", label: "รอตรวจสอบ" },
 ];
 
-function Text({ id, label, error, required, hint, defaultValue, type = "text", mono }: {
-  id: string; label: string; error?: string; required?: boolean; hint?: string; defaultValue?: string | null; type?: string; mono?: boolean;
+function Text({ id, label, error, required, hint, defaultValue, type = "text" }: {
+  id: string; label: string; error?: string; required?: boolean; hint?: string; defaultValue?: string | null; type?: string;
 }) {
   return (
     <Field id={id} label={label} error={error} required={required} hint={hint}>
-      <Input id={id} name={id} type={type} defaultValue={defaultValue ?? ""} required={required} aria-invalid={!!error} className={mono ? "h-10 font-mono" : "h-10"} />
+      <Input id={id} name={id} type={type} defaultValue={defaultValue ?? ""} required={required} aria-invalid={!!error} className="h-10" />
     </Field>
   );
 }
@@ -51,7 +51,7 @@ export function CreateCompanyButton() {
       >
         <FormSection title="ข้อมูลบริษัท">
           <div className="grid gap-4 sm:grid-cols-2">
-            <Text id="companyCode" label="รหัสบริษัท" required mono hint="ใช้เป็นรหัสองค์กรตอนเข้าสู่ระบบ" error={errors.companyCode} />
+            <Text id="companyCode" label="รหัสบริษัท" required hint="ใช้เป็นรหัสองค์กรตอนเข้าสู่ระบบ" error={errors.companyCode} />
             <Field id="subscriptionPlan" label="แพ็กเกจ" required error={errors.subscriptionPlan}>
               <SelectField id="subscriptionPlan" name="subscriptionPlan" options={PLANS} defaultValue="TRIAL" />
             </Field>
@@ -125,7 +125,7 @@ export function EditCompanyButton({ company: c }: { company: CompanyEdit }) {
         <FormSection title="ข้อมูลทั่วไป">
           <Text id="companyName" label="ชื่อบริษัท" required defaultValue={c.companyName} error={errors.companyName} />
           <div className="grid gap-4 sm:grid-cols-2">
-            <Text id="taxId" label="เลขประจำตัวผู้เสียภาษี" mono defaultValue={c.taxId} error={errors.taxId} />
+            <Text id="taxId" label="เลขประจำตัวผู้เสียภาษี" defaultValue={c.taxId} error={errors.taxId} />
             <Text id="industryType" label="อุตสาหกรรม" defaultValue={c.industryType} error={errors.industryType} />
             <Field id="subscriptionPlan" label="แพ็กเกจ" required error={errors.subscriptionPlan}>
               <SelectField id="subscriptionPlan" name="subscriptionPlan" options={PLANS} defaultValue={c.subscriptionPlan ?? "TRIAL"} />
@@ -150,9 +150,9 @@ export function EditCompanyButton({ company: c }: { company: CompanyEdit }) {
         </FormSection>
         <FormSection title="ภูมิภาค">
           <div className="grid gap-4 sm:grid-cols-3">
-            <Text id="timezone" label="เขตเวลา" mono defaultValue={c.timezone} error={errors.timezone} />
-            <Text id="currency" label="สกุลเงิน" mono defaultValue={c.currency} error={errors.currency} />
-            <Text id="language" label="ภาษา" mono defaultValue={c.language} error={errors.language} />
+            <Text id="timezone" label="เขตเวลา" defaultValue={c.timezone} error={errors.timezone} />
+            <Text id="currency" label="สกุลเงิน" defaultValue={c.currency} error={errors.currency} />
+            <Text id="language" label="ภาษา" defaultValue={c.language} error={errors.language} />
           </div>
         </FormSection>
       </FormSheet>

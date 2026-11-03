@@ -98,7 +98,7 @@ export function SettingsForm({ initial }: { initial: Settings }) {
     >
       <div className="grid gap-4 lg:grid-cols-2">
         {SECTIONS.map((s) => (
-          <section key={s.title} className="rounded-xl border bg-card p-5">
+          <section key={s.title} className="rounded-[10px] border bg-card p-5">
             <h2 className="mb-4 font-semibold">{s.title}</h2>
             <div className="divide-y">
               {s.items.map((it) => {

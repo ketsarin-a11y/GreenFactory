@@ -8,6 +8,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Field } from "@/components/account/field";
 import { EmptyState } from "@/components/data/empty-state";
+import { Nameplate } from "@/components/data/nameplate";
 import { RECORD_STATUS, Status } from "@/components/data/status-badge";
 import { FormSheet } from "@/components/company/form-sheet";
 import { ConfirmDialog, type Confirm } from "@/components/company/confirm-dialog";
@@ -38,12 +39,12 @@ export function UsersView({ rows, tree }: { rows: UserRow[]; tree: HNode[] }) {
   return (
     <>
       <div className="mb-3 flex justify-end">
-        <Button className="h-10" onClick={() => setEditing("new")}><Plus /> เพิ่มผู้ใช้งาน</Button>
+        <Button className="h-10" onClick={() => setEditing("new")}><Plus /> สร้างผู้ใช้</Button>
       </div>
       {rows.length === 0 ? (
         <EmptyState icon={Users} title="ไม่พบผู้ใช้งาน" description="ลองล้างตัวกรอง หรือเพิ่มผู้ใช้งานใหม่" />
       ) : (
-        <div className="overflow-x-auto rounded-xl border bg-card">
+        <div className="overflow-x-auto rounded-[10px] border bg-card">
           <Table>
             <TableHeader>
               <TableRow>
@@ -63,7 +64,7 @@ export function UsersView({ rows, tree }: { rows: UserRow[]; tree: HNode[] }) {
                     <p className="font-medium">{u.firstName} {u.lastName}</p>
                     <p className="text-xs text-muted-foreground">{u.email}</p>
                   </TableCell>
-                  <TableCell className="font-mono text-xs">{u.employeeCode || "—"}</TableCell>
+                  <TableCell>{u.employeeCode ? <Nameplate>{u.employeeCode}</Nameplate> : <span className="text-xs text-muted-foreground">—</span>}</TableCell>
                   <TableCell>{roleLabel(u.role)}</TableCell>
                   <TableCell className="text-xs">
                     <p>{u.factory ?? (u.role === "COMPANY_ADMIN" ? "ทุกโรงงาน" : <span className="text-status-critical">ยังไม่ระบุโรงงาน</span>)}</p>

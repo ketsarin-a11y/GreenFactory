@@ -290,7 +290,7 @@ export const deleteMasterItem = action(PA, z.object(kindId), async ({ kind, id }
   const before = await ad.get(id);
   if (!before) fail("ไม่พบข้อมูล");
   const refs = await ad.refs(id);
-  if (refs > 0) fail(`ลบไม่ได้ เพราะมีข้อมูลอ้างอิงอยู่ ${refs.toLocaleString("th-TH")} รายการ — ใช้ "ปิดใช้งาน" แทน`);
+  if (refs > 0) fail(`ลบไม่ได้ เพราะมีข้อมูลอ้างอิงอยู่ ${refs.toLocaleString("th-TH")} รายการ ให้ใช้ "ปิดใช้งาน" แทน`);
   await ad.remove(id);
   await audit(user.id, ad.table, id, "DELETE", before!.snapshot);
   revalidatePath(`/platform/master-data/${kind}`);

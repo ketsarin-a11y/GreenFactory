@@ -1,7 +1,17 @@
 import "server-only";
 import { Prisma } from "@/generated/prisma/client";
 import { db } from "@/server/db";
+import { addDays, bkkDay, endOfBkkDayExclusive, startOfBkkDay } from "@/lib/time";
+import { dayList } from "@/server/domain/analytics";
 import { PAGE_SIZE, oneOf, paging, str, type SP } from "./common";
+import { dailyRecordsByCompany, lastActivityByCompany } from "./dashboard";
+import { denseDays, sum } from "./series";
+
+/** Last 30 complete Bangkok days (ending yesterday). */
+const window30 = () => {
+  const end = addDays(bkkDay(new Date()), -1);
+  return { from: addDays(end, -29), to: end };
+};
 
 export const COMPANY_STATUSES = ["ACTIVE", "PENDING", "SUSPENDED"] as const;
 export const PLANS = ["TRIAL", "STANDARD", "ENTERPRISE"] as const;
@@ -65,11 +75,16 @@ export async function listCompanies(sp: SP, page: number) {
     db.company.findMany({ where, orderBy: { createdAt: "desc" }, ...paging(page), select: listSelect }),
     db.company.findMany({ where: { industryType: { not: null } }, distinct: ["industryType"], select: { industryType: true }, orderBy: { industryType: "asc" } }),
   ]);
-  const machines = await machineCounts(rows.map((r) => r.companyId));
+  const ids = rows.map((r) => r.companyId);
+  const w = window30();
+  const [machines, usage, last] = await Promise.all([machineCounts(ids), dailyRecordsByCompany(w.from, ids), lastActivityByCompany(ids)]);
   return {
     total,
     totalPages: Math.ceil(total / PAGE_SIZE),
-    rows: rows.map((r) => ({ ...r, machines: machines.get(r.companyId) ?? 0 })),
+    rows: rows.map((r) => {
+      const spark = denseDays(usage.get(r.companyId) ?? [], w.from, w.to);
+      return { ...r, machines: machines.get(r.companyId) ?? 0, spark, records30: sum(spark), lastActivity: last.get(r.companyId) ?? null };
+    }),
     industries: industries.map((i) => i.industryType!).filter(Boolean),
   };
 }
@@ -97,10 +112,28 @@ export async function companyDetail(companyId: number) {
     },
   });
   if (!company) return null;
-  const [machines, buildings] = await Promise.all([
+  const w = window30();
+  const [machines, buildings, usage, last, byRole, byFactory] = await Promise.all([
     machineCounts([companyId]),
     db.building.count({ where: { factory: { companyId } } }),
+    dailyRecordsByCompany(addDays(w.from, -30), [companyId]),
+    lastActivityByCompany([companyId]),
+    db.user.groupBy({ by: ["roleId", "status"], where: { companyId }, _count: { _all: true } }),
+    db.resourceUsage.groupBy({ by: ["factoryId"], where: { companyId, status: "ACTIVE", usageAt: { gte: startOfBkkDay(w.from), lt: endOfBkkDayExclusive(w.to) } }, _count: { _all: true } }),
   ]);
+  const roleRows = await db.role.findMany({ where: { roleId: { in: byRole.map((r) => r.roleId) } }, select: { roleId: true, roleName: true } });
+  const roleName = new Map(roleRows.map((r) => [r.roleId, r.roleName]));
+  const roles30 = new Map<string, { role: string; active: number; total: number }>();
+  for (const r of byRole) {
+    const name = roleName.get(r.roleId) ?? "";
+    const g = roles30.get(name) ?? { role: name, active: 0, total: 0 };
+    g.total += r._count._all;
+    if (r.status === "ACTIVE") g.active += r._count._all;
+    roles30.set(name, g);
+  }
+  const rows = usage.get(companyId) ?? [];
+  const daily = denseDays(rows, w.from, w.to);
+  const prev = sum(denseDays(rows, addDays(w.from, -30), addDays(w.from, -1)));
   const roles = company.users.map((u) => u.role.roleName);
   const checklist = [
     { label: "ข้อมูลบริษัทครบ (อีเมล โทรศัพท์ จังหวัด ที่อยู่)", done: !!(company.email && company.phone && company.province && company.address) },
@@ -108,7 +141,15 @@ export async function companyDetail(companyId: number) {
     { label: "มีผู้ดูแลบริษัทที่ใช้งานได้", done: company.users.some((u) => u.role.roleName === "COMPANY_ADMIN" && u.status === "ACTIVE") },
     { label: "มีผู้ใช้งานระดับโรงงาน (ผู้จัดการหรือผู้ปฏิบัติงาน)", done: roles.includes("MANAGER") || roles.includes("OPERATOR") },
   ];
-  return { company, machines: machines.get(companyId) ?? 0, buildings, checklist };
+  return {
+    company,
+    machines: machines.get(companyId) ?? 0,
+    buildings,
+    checklist,
+    usage: { days: dayList(w.from, w.to), daily, total: sum(daily), prev, lastActivity: last.get(companyId) ?? null },
+    usersByRole: [...roles30.values()].sort((a, b) => b.total - a.total),
+    factoryRecords: new Map(byFactory.map((f) => [f.factoryId, f._count._all])),
+  };
 }
 
 export async function factoryDetail(companyId: number, factoryId: number) {

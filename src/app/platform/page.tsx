@@ -1,144 +1,207 @@
 import Link from "next/link";
-import { Activity, Building2, Cpu, Database, Factory, FileClock, HardDriveDownload, LogIn, Users } from "lucide-react";
 import { PageHeader } from "@/components/app/page-header";
-import { StatTile } from "@/components/data/stat-tile";
-import { BarList } from "@/components/data/bar-list";
-import { EmptyState } from "@/components/data/empty-state";
+import { InstrumentBand } from "@/components/data/instrument-band";
+import { ChartCard } from "@/components/data/chart-card";
+import { TrendChart } from "@/components/data/trend-chart";
+import { Heatmap } from "@/components/data/heatmap";
+import { ProportionBar } from "@/components/data/proportion-bar";
+import { Sparkline } from "@/components/data/sparkline";
+import { Nameplate } from "@/components/data/nameplate";
 import { RECORD_STATUS, Status, StatusBadge } from "@/components/data/status-badge";
-import { AUDIT_ACTION_LABEL, LOGIN_STATUS, ago, moduleLabel } from "@/components/platform/labels";
+import { DayBars } from "@/components/platform/day-bars";
+import { AutoRefresh } from "@/components/platform/auto-refresh";
+import { Panel, QuietEmpty } from "@/components/platform/panel";
+import { AUDIT_ACTION_LABEL, ago, moduleLabel } from "@/components/platform/labels";
 import { fmtNum } from "@/lib/format";
-import { fmtDateTime } from "@/lib/time";
+import { fmtDate } from "@/lib/time";
 import { requireUser } from "@/server/auth/current-user";
-import { ROLE_LABEL, isRole } from "@/server/auth/roles";
-import { LOGIN_FAILURE_LABEL } from "@/server/domain/user-agent";
 import { platformDashboard, systemHealth } from "@/server/queries/platform/dashboard";
+import { shortDay } from "@/server/queries/platform/series";
+
+const SERIES = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)"];
+const weekday = new Intl.DateTimeFormat("th-TH", { timeZone: "UTC", weekday: "short" });
+const dayRow = (day: string) => `${weekday.format(new Date(`${day}T00:00:00Z`))} ${shortDay(day)}`;
+const HOURS = Array.from({ length: 24 }, (_, h) => String(h).padStart(2, "0"));
 
 export default async function Page() {
   await requireUser("PLATFORM_ADMIN");
   const [d, h] = await Promise.all([platformDashboard(), systemHealth()]);
-  const card = "rounded-xl border bg-card p-5";
+
+  const series = d.trend.series.map((s, i) => ({ key: `c${s.companyId}`, label: s.name, color: SERIES[i] }));
+  const trendData = d.trend.days.map((day, i) => ({ label: shortDay(day), ...Object.fromEntries(d.trend.series.map((s) => [`c${s.companyId}`, s.days[i]])) }));
+  const loginTotal = d.logins.success + d.logins.failed;
 
   return (
     <>
-      <PageHeader title="ภาพรวมระบบ" description="ลูกค้า ผู้ใช้งาน และสถานะของแพลตฟอร์ม ณ ตอนนี้" />
+      <AutoRefresh seconds={60} />
+      <PageHeader title="ภาพรวมระบบ" description="ลูกค้า การใช้งาน และสถานะของแพลตฟอร์ม อัปเดตทุกนาที" />
 
-      <section aria-label="สถานะระบบ" className="mb-6 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-xl border bg-card px-5 py-3 text-sm">
-        <span className="flex items-center gap-2">
-          <Database className="size-4 text-muted-foreground" aria-hidden />
-          ฐานข้อมูล
-          {h.dbOk ? <StatusBadge tone="good">ตอบสนอง {fmtNum(h.dbMs, 0)} ms</StatusBadge> : <StatusBadge tone="critical">เชื่อมต่อไม่ได้</StatusBadge>}
-        </span>
-        <span className="flex items-center gap-2">
-          <HardDriveDownload className="size-4 text-muted-foreground" aria-hidden />
-          สำรองข้อมูลล่าสุด
-          {h.lastBackupAt ? (
-            <StatusBadge tone={h.backupStale ? "warning" : "good"}>{ago(h.lastBackupAt)}</StatusBadge>
+      <InstrumentBand
+        live={d.sensors.lastHeard ? `รับค่าจากเซนเซอร์ล่าสุด ${ago(d.sensors.lastHeard)}` : undefined}
+        readings={[
+          {
+            label: "บริษัทที่ใช้งาน",
+            value: fmtNum(d.companies.active, 0),
+            unit: `จาก ${fmtNum(d.companies.total, 0)} บริษัท`,
+            note: d.companies.pending ? `รอตรวจสอบ ${fmtNum(d.companies.pending, 0)} บริษัท` : "ไม่มีบริษัทรอตรวจสอบ",
+            href: d.companies.pending ? "/platform/companies?status=PENDING" : "/platform/companies",
+          },
+          {
+            label: "ผู้ใช้ที่เข้าใช้ 7 วัน",
+            value: fmtNum(d.users7.value, 0),
+            unit: "คน",
+            change: d.users7.change,
+            goodWhen: "up",
+            spark: d.users7.spark,
+            note: "เทียบ 7 วันก่อนหน้า",
+          },
+          {
+            label: "บันทึกข้อมูล 30 วัน",
+            value: fmtNum(d.records.total, 0),
+            unit: "รายการ",
+            change: d.records.change,
+            goodWhen: "up",
+            spark: d.records.spark,
+            note: "ถึงเมื่อวาน เทียบ 30 วันก่อนหน้า",
+          },
+          {
+            label: "เซนเซอร์ออนไลน์",
+            value: fmtNum(d.sensors.online, 0),
+            unit: `/ ${fmtNum(d.sensors.total, 0)} ตัว`,
+            spark: d.sensors.spark,
+            note: "ค่าที่รับทุก 5 นาที ใน 2 ชม.ล่าสุด",
+          },
+        ]}
+      />
+
+      <div className="mb-6 grid gap-6 lg:grid-cols-3">
+        <ChartCard
+          className="lg:col-span-2"
+          title="รายการบันทึกต่อวัน แยกตามบริษัท"
+          description={
+            d.trend.others > 0
+              ? `30 วันที่ผ่านมา แสดง 3 บริษัทที่บันทึกมากที่สุด อีก ${fmtNum(d.trend.others, 0)} บริษัทดูได้ที่หน้าบริษัท`
+              : "30 วันที่ผ่านมา (ถึงเมื่อวาน) นับเป็นจำนวนรายการ ไม่แสดงปริมาณการใช้ของลูกค้า"
+          }
+          table={{ columns: ["วันที่", ...series.map((s) => s.label)], rows: d.trend.days.map((day, i) => [shortDay(day), ...d.trend.series.map((s) => fmtNum(s.days[i], 0))]) }}
+        >
+          {series.length ? (
+            <TrendChart data={trendData} series={series} unit="รายการ" height={260} />
           ) : (
-            <StatusBadge tone="warning">ยังไม่เคยสำรอง</StatusBadge>
+            <QuietEmpty>ยังไม่มีบริษัทใดบันทึกข้อมูลใน 30 วันนี้</QuietEmpty>
           )}
-        </span>
-        {!h.backupToolAvailable && (
-          <Link href="/platform/backups" className="text-muted-foreground underline-offset-4 hover:underline">
-            เครื่องนี้ยังไม่มี mysqldump — ดูวิธีตั้งค่า
-          </Link>
-        )}
-      </section>
+        </ChartCard>
 
-      <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        <StatTile
-          label="บริษัท"
-          value={fmtNum(d.companies.total, 0)}
-          icon={Building2}
-          goodWhen="neutral"
-          hint={`ใช้งาน ${fmtNum(d.companies.active, 0)} · รอตรวจสอบ ${fmtNum(d.companies.pending, 0)} · ระงับ ${fmtNum(d.companies.suspended, 0)}`}
-        />
-        <StatTile label="ผู้ใช้งานที่ใช้งานได้" value={fmtNum(d.users.active, 0)} unit={`/ ${fmtNum(d.users.total, 0)} คน`} icon={Users} goodWhen="neutral" />
-        <StatTile label="โรงงาน" value={fmtNum(d.factories, 0)} unit="แห่ง" icon={Factory} goodWhen="neutral" />
-        <StatTile label="เครื่องจักร" value={fmtNum(d.machines, 0)} unit="เครื่อง" icon={Cpu} goodWhen="neutral" />
-        <StatTile label="รายการบันทึก 30 วัน" value={fmtNum(d.records, 0)} unit="รายการ" icon={Activity} goodWhen="neutral" />
+        <Panel
+          title="การเข้าสู่ระบบ 30 วัน"
+          action={<Link href="/platform/login-logs" className="text-primary hover:underline">ดู Login Log</Link>}
+        >
+          <p className="flex items-baseline gap-1.5">
+            <span className="font-display text-3xl font-semibold tracking-tight tabular">{loginTotal ? fmtNum((d.logins.success / loginTotal) * 100, 1) : "—"}</span>
+            {loginTotal > 0 && <span className="text-sm text-muted-foreground">% สำเร็จ</span>}
+          </p>
+          <p className="mt-1 mb-4 text-sm text-muted-foreground tabular">
+            จาก {fmtNum(loginTotal, 0)} ครั้ง ไม่สำเร็จ {fmtNum(d.logins.failed, 0)} ครั้ง
+          </p>
+          <ProportionBar
+            unit="ครั้ง"
+            parts={[
+              { label: "สำเร็จ", value: d.logins.success, color: "var(--primary)" },
+              { label: "ไม่สำเร็จ", value: d.logins.failed, color: "var(--status-critical)" },
+            ]}
+          />
+          <div className="mt-5 border-t pt-4">
+            <p className="text-sm text-muted-foreground">ไม่สำเร็จต่อวัน</p>
+            <DayBars className="mt-3" labels={d.logins.days.map(shortDay)} values={d.logins.failedDays} unit="ครั้ง" color="var(--status-critical)" label="การเข้าสู่ระบบไม่สำเร็จต่อวัน" />
+          </div>
+        </Panel>
       </div>
 
-      <div className="mb-6 grid gap-4 lg:grid-cols-2">
-        <section className={card}>
-          <h2 className="mb-4 font-semibold">ผู้ใช้งานตามบทบาท</h2>
-          {d.usersByRole.length ? (
-            <BarList items={d.usersByRole.map((r) => ({ label: isRole(r.role) ? ROLE_LABEL[r.role] : r.role, value: r.count }))} unit="คน" />
-          ) : (
-            <EmptyState icon={Users} title="ยังไม่มีผู้ใช้งาน" />
-          )}
-        </section>
-        <section className={card}>
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="font-semibold">บริษัทล่าสุด</h2>
-            <Link href="/platform/companies" className="text-sm text-primary hover:underline">ดูทั้งหมด</Link>
-          </div>
+      <Panel
+        className="mb-6"
+        title="ช่วงเวลาที่ผู้ใช้เข้าสู่ระบบ"
+        description="การเข้าสู่ระบบที่สำเร็จ แยกตามชั่วโมง (เวลาไทย) 14 วันล่าสุด"
+      >
+        {/* relative + overflow-hidden: keeps the heatmap's sr-only header spans from widening the page on phones. */}
+        <div className="relative overflow-hidden">
+          <Heatmap rows={d.heatmap.days.map(dayRow)} cols={HOURS} values={d.heatmap.values} unit="ครั้ง" colLabelEvery={3} />
+        </div>
+      </Panel>
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        <Panel
+          className="lg:col-span-2"
+          title="บริษัทล่าสุด"
+          action={<Link href="/platform/companies" className="text-primary hover:underline">ดูบริษัททั้งหมด</Link>}
+        >
           {d.latestCompanies.length ? (
-            <ul className="divide-y">
+            <ul className="-my-2 divide-y">
               {d.latestCompanies.map((c) => (
-                <li key={c.companyId} className="flex items-center justify-between gap-3 py-2.5">
+                <li key={c.companyId} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 py-3 sm:grid-cols-[minmax(0,1fr)_8rem_auto]">
                   <div className="min-w-0">
-                    <Link href={`/platform/companies/${c.companyId}`} className="block truncate font-medium hover:underline">{c.companyName}</Link>
-                    <p className="text-xs text-muted-foreground">
-                      <span className="font-mono">{c.companyCode}</span> · โรงงาน {fmtNum(c._count.factories, 0)} · ผู้ใช้ {fmtNum(c._count.users, 0)} · {fmtDateTime(c.createdAt)}
+                    <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                      <Link href={`/platform/companies/${c.companyId}`} className="font-medium hover:underline">{c.companyName}</Link>
+                      <Nameplate className="shrink-0">{c.companyCode}</Nameplate>
+                    </div>
+                    <p className="mt-0.5 text-xs text-muted-foreground tabular">
+                      โรงงาน {fmtNum(c._count.factories, 0)} แห่ง ผู้ใช้ {fmtNum(c._count.users, 0)} คน
+                      <span className="ml-3">เพิ่มเมื่อ {fmtDate(c.createdAt)}</span>
                     </p>
+                  </div>
+                  <div className="hidden sm:block" title="รายการบันทึกต่อวัน 30 วัน">
+                    {c.spark.some((v) => v > 0) ? (
+                      <Sparkline values={c.spark} label={`รายการบันทึก 30 วันของ ${c.companyName}`} />
+                    ) : (
+                      <span className="text-xs text-muted-foreground">ยังไม่มีการบันทึก</span>
+                    )}
                   </div>
                   <Status map={RECORD_STATUS} value={c.status} />
                 </li>
               ))}
             </ul>
           ) : (
-            <EmptyState icon={Building2} title="ยังไม่มีบริษัท" description="เพิ่มบริษัทแรกที่หน้าบริษัท" />
+            <QuietEmpty>ยังไม่มีบริษัท เพิ่มบริษัทแรกได้ที่หน้าบริษัท</QuietEmpty>
           )}
-        </section>
+        </Panel>
+
+        <Panel
+            title="กิจกรรมล่าสุด"
+            description={d.auditToday ? `วันนี้ ${fmtNum(d.auditToday, 0)} รายการ` : undefined}
+            action={<Link href="/platform/audit-logs" className="text-primary hover:underline">ดู Audit Log</Link>}
+          >
+            {d.recentAudit.length ? (
+              <ul className="-my-1.5 divide-y text-sm">
+                {d.recentAudit.map((a) => (
+                  <li key={a.auditLogId} className="flex items-baseline justify-between gap-3 py-2">
+                    <span className="min-w-0">
+                      <span className="block truncate font-medium">{a.user ? `${a.user.firstName} ${a.user.lastName}` : "ระบบ"}</span>
+                      <span className="block truncate text-muted-foreground">{AUDIT_ACTION_LABEL[a.action] ?? a.action}{moduleLabel(a.tableName)}</span>
+                    </span>
+                    <span className="shrink-0 text-xs text-muted-foreground">{ago(a.createdAt)}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <QuietEmpty>ยังไม่มีการแก้ไขข้อมูล รายการจะขึ้นที่นี่เมื่อมีผู้สร้างหรือแก้ไขข้อมูล</QuietEmpty>
+            )}
+          </Panel>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <section className={card}>
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="font-semibold">กิจกรรมล่าสุด</h2>
-            <Link href="/platform/audit-logs" className="text-sm text-primary hover:underline">Audit Log</Link>
-          </div>
-          {d.recentAudit.length ? (
-            <ul className="divide-y text-sm">
-              {d.recentAudit.map((a) => (
-                <li key={a.auditLogId} className="flex items-center justify-between gap-3 py-2">
-                  <span className="min-w-0 truncate">
-                    <span className="font-medium">{a.user ? `${a.user.firstName} ${a.user.lastName}` : "ระบบ"}</span>{" "}
-                    {AUDIT_ACTION_LABEL[a.action] ?? a.action} {moduleLabel(a.tableName)} <span className="font-mono text-xs text-muted-foreground">#{a.recordId}</span>
-                  </span>
-                  <span className="shrink-0 text-xs text-muted-foreground">{ago(a.createdAt)}</span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <EmptyState icon={FileClock} title="ยังไม่มีกิจกรรม" />
-          )}
-        </section>
-        <section className={card}>
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="font-semibold">การเข้าสู่ระบบล่าสุด</h2>
-            <Link href="/platform/login-logs" className="text-sm text-primary hover:underline">Login Log</Link>
-          </div>
-          {d.recentLogins.length ? (
-            <ul className="divide-y text-sm">
-              {d.recentLogins.map((l) => (
-                <li key={l.loginLogId} className="flex items-center justify-between gap-3 py-2">
-                  <span className="min-w-0">
-                    <span className="block truncate font-medium">{l.user ? `${l.user.firstName} ${l.user.lastName}` : l.attemptedEmail}</span>
-                    <span className="block truncate text-xs text-muted-foreground">
-                      {l.loginStatus === "FAILED" && l.failureReason ? `${LOGIN_FAILURE_LABEL[l.failureReason] ?? l.failureReason} · ` : ""}
-                      {l.ipAddress ?? "ไม่ทราบ IP"} · {ago(l.loginAt)}
-                    </span>
-                  </span>
-                  <Status map={LOGIN_STATUS} value={l.loginStatus} />
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <EmptyState icon={LogIn} title="ยังไม่มีการเข้าสู่ระบบ" />
-          )}
-        </section>
-      </div>
+      <section aria-label="สถานะระบบ" className="mt-6 flex flex-col gap-x-8 gap-y-2 rounded-[10px] border bg-card px-5 py-3 text-sm sm:flex-row sm:flex-wrap sm:items-center">
+        <h2 className="font-semibold">สถานะระบบ</h2>
+        <p className="flex items-center gap-2">
+          <span className="text-muted-foreground">ฐานข้อมูล</span>
+          {h.dbOk ? <StatusBadge tone="good">ตอบสนอง {fmtNum(h.dbMs, 0)} ms</StatusBadge> : <StatusBadge tone="critical">เชื่อมต่อไม่ได้</StatusBadge>}
+        </p>
+        <p className="flex items-center gap-2">
+          <span className="text-muted-foreground">สำรองข้อมูลที่ตรวจแล้ว</span>
+          {h.lastBackupAt ? <StatusBadge tone={h.backupStale ? "warning" : "good"}>{ago(h.lastBackupAt)}</StatusBadge> : <StatusBadge tone="warning">ยังไม่มี</StatusBadge>}
+        </p>
+        <p className="flex items-center gap-2">
+          <span className="text-muted-foreground">โปรแกรมสำรองข้อมูล</span>
+          {h.backupToolAvailable ? <StatusBadge tone="good">พร้อมใช้</StatusBadge> : <Link href="/platform/backups" className="text-primary hover:underline">ยังไม่ได้ตั้งค่า ดูวิธีตั้งค่า</Link>}
+        </p>
+      </section>
     </>
   );
 }

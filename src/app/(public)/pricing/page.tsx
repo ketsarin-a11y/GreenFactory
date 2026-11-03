@@ -45,21 +45,18 @@ export default function PricingPage() {
   return (
     <>
       <PageIntro
-        eyebrow="ราคา"
-        title="เลือกแพ็กเกจตามขนาดการใช้งาน"
-        body="ทุกแพ็กเกจใช้ระบบเดียวกัน ต่างกันที่จำนวนโรงงานและความช่วยเหลือที่ได้รับ ติดต่อฝ่ายขายเพื่อรับใบเสนอราคาที่ตรงกับโรงงานของคุณ"
+        title="ราคาตามจำนวนโรงงานและจุดวัด"
+        body="ทุกแพ็กเกจใช้ระบบเดียวกัน ต่างกันที่จำนวนโรงงานและความช่วยเหลือที่ได้รับ เรายังไม่ประกาศราคาตายตัว ทีมงานจะเสนอราคาหลังจากคุยเรื่องโรงงานของคุณ"
       />
       <Section>
-        <div className="grid gap-4 lg:grid-cols-3">
+        <div className="grid overflow-hidden rounded-[14px] border bg-card lg:grid-cols-3 lg:divide-x">
           {PLANS.map((p) => (
-            <div key={p.code} className={cn("flex flex-col rounded-xl border bg-card p-6", p.featured && "border-primary ring-1 ring-primary")}>
-              <div className="flex items-center justify-between">
-                <p className="font-mono text-xs font-medium tracking-wider text-muted-foreground">{p.code}</p>
-                {p.featured && <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-primary">แนะนำ</span>}
+            <div key={p.code} className={cn("flex flex-col border-b p-6 last:border-b-0 sm:p-8 lg:border-b-0", p.featured && "bg-accent/40")}>
+              <div className="flex items-center gap-3">
+                <h2 className="font-display text-2xl font-semibold">{p.name}</h2>
+                {p.featured && <span className="rounded-full bg-primary px-2 py-0.5 text-xs font-medium text-primary-foreground">แนะนำ</span>}
               </div>
-              <h2 className="mt-2 text-2xl font-semibold">{p.name}</h2>
-              <p className="mt-2 text-sm text-muted-foreground">{p.fit}</p>
-              <p className="mt-6 text-lg font-semibold">ติดต่อฝ่ายขาย</p>
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{p.fit}</p>
               <ul className="mt-6 flex-1 space-y-3 border-t pt-6">
                 {p.features.map((f) => (
                   <li key={f} className="flex gap-2.5 text-sm leading-relaxed">
@@ -69,15 +66,16 @@ export default function PricingPage() {
                 ))}
               </ul>
               <Button asChild variant={p.featured ? "default" : "outline"} className="mt-8 h-10">
-                <Link href="/contact">ติดต่อฝ่ายขาย</Link>
+                <Link href="/contact">ขอใบเสนอราคา</Link>
               </Button>
             </div>
           ))}
         </div>
+        <p className="mt-4 text-sm text-muted-foreground">เริ่มได้โดยไม่ต้องติดตั้งเซนเซอร์ ใช้แค่ป้าย QR กับมือถือของผู้ปฏิบัติงาน</p>
       </Section>
       <Section tone="surface">
         <div className="grid gap-10 lg:grid-cols-[1fr_1.6fr]">
-          <SectionHeading eyebrow="คำถามที่พบบ่อย" title="ก่อนเริ่มพูดคุย" />
+          <SectionHeading title="คำถามที่พบบ่อย" body="ถ้าไม่เจอคำตอบที่ต้องการ ส่งคำถามมาทางหน้าติดต่อเรา" />
           <div className="divide-y border-y">
             {FAQ.map(({ q, a }) => (
               <details key={q} className="group py-1">

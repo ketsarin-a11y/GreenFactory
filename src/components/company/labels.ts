@@ -21,3 +21,10 @@ export const QR_STATUS_OPTIONS = [
 ];
 
 export const SOURCE_LABEL: Record<string, string> = { QR: "สแกน QR", MANUAL: "บันทึกเอง", SENSOR: "เซนเซอร์", IMPORT: "นำเข้าไฟล์" };
+
+const dayFmt = new Intl.DateTimeFormat("th-TH", { day: "numeric", month: "short", timeZone: "UTC" });
+const monthFmt = new Intl.DateTimeFormat("th-TH", { month: "long", year: "numeric", timeZone: "UTC" });
+/** "YYYY-MM-DD" (Bangkok day) → "3 พ.ย." */
+export const dayLabel = (day: string) => dayFmt.format(new Date(`${day}T00:00:00Z`));
+/** "YYYY-MM" → "พฤศจิกายน 2569" */
+export const monthLabel = (month: string) => monthFmt.format(new Date(`${month}-01T00:00:00Z`));

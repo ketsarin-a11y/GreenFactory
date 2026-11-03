@@ -8,3 +8,6 @@ export const fmtDayLong = (day: string) => dayLongFmt.format(new Date(`${day}T00
 export const fmtRange = (from: string, to: string) => (from === to ? fmtDayLong(from) : `${fmtDay(from)} – ${fmtDayLong(to)}`);
 
 export const SOURCE_LABEL: Record<string, string> = { QR: "สแกน QR", MANUAL: "กรอกเอง", SENSOR: "เซนเซอร์", IMPORT: "นำเข้า" };
+const timeFmt = new Intl.DateTimeFormat("th-TH", { timeZone: "Asia/Bangkok", hour: "2-digit", minute: "2-digit" });
+/** "08:15" in Bangkok. */
+export const fmtTime = (d: Date | string) => timeFmt.format(typeof d === "string" ? new Date(d) : d);

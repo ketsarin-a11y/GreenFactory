@@ -35,7 +35,7 @@ export function MasterSheet({ kind, open, onOpenChange, options, row }: {
   const cfg = MASTER[kind];
   const [vals, setVals] = useState(() => initial(cfg.fields, row?.values, kind));
   const { run, pending, errors } = useAction(saveMasterItem, {
-    success: (d) => (d.reactivated ? "พบรหัสนี้ที่ปิดใช้งานอยู่ — เปิดใช้งานอีกครั้งพร้อมข้อมูลใหม่แล้ว" : row ? "บันทึกแล้ว" : "เพิ่มแล้ว"),
+    success: (d) => (d.reactivated ? "พบรหัสนี้ที่ปิดใช้งานอยู่ จึงเปิดใช้งานอีกครั้งพร้อมข้อมูลใหม่แล้ว" : row ? "บันทึกแล้ว" : "เพิ่มแล้ว"),
   });
   const set = (name: string, v: string | boolean) => setVals((s) => ({ ...s, [name]: v }));
 
@@ -96,7 +96,7 @@ export function MasterSheet({ kind, open, onOpenChange, options, row }: {
               required={f.required}
               aria-invalid={!!err}
               onChange={(e) => set(f.name, f.mono && f.name === "code" ? e.target.value.toUpperCase() : e.target.value)}
-              className={f.mono ? "h-10 font-mono" : "h-10"}
+              className="h-10"
             />
           );
         return (

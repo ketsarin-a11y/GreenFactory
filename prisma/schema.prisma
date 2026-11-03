@@ -824,6 +824,8 @@ model Sensor {
   samplingIntervalSeconds Int? @map("sampling_interval_seconds")
 
   lastConnectedAt     DateTime? @map("last_connected_at")
+  // sha256 of the device token used by POST /api/ingest; the plain token is shown once.
+  ingestTokenHash     String?   @unique @map("ingest_token_hash") @db.VarChar(64)
   installationDate    DateTime? @map("installation_date") @db.Date
   lastCalibrationDate DateTime? @map("last_calibration_date") @db.Date
   nextCalibrationDate DateTime? @map("next_calibration_date") @db.Date

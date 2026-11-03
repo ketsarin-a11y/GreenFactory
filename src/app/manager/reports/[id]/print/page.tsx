@@ -33,9 +33,9 @@ export default async function Page({ params }: PageProps<"/manager/reports/[id]/
         <PrintButton />
       </div>
       <header className="mb-6 border-b pb-4">
-        <p className="text-xs text-[#66726b]">GreenFactory Insight · {factory}</p>
+        <p className="text-xs text-[#66726b]">GreenFactory Insight, {[factory.secondary, factory.primary].filter(Boolean).join(" ")}</p>
         <h1 className="mt-1 text-xl font-semibold">{data.title}</h1>
-        <p className="mt-1 text-xs text-[#66726b]">พิมพ์เมื่อ {fmtDateTime(new Date())} · เวลาประเทศไทย</p>
+        <p className="mt-1 text-xs text-[#66726b]">พิมพ์เมื่อ {fmtDateTime(new Date())} (เวลาประเทศไทย)</p>
       </header>
       <dl className="mb-6 grid grid-cols-2 gap-x-8 gap-y-1.5">
         {data.facts.map(([k, v]) => (

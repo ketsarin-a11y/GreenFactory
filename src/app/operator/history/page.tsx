@@ -3,10 +3,10 @@ import { Download, History } from "lucide-react";
 import { PageHeader } from "@/components/app/page-header";
 import { EmptyState } from "@/components/data/empty-state";
 import { Pagination, pageParam } from "@/components/data/pagination";
-import { UrlFilters } from "@/components/data/url-filters";
 import { Button } from "@/components/ui/button";
 import { requireTenantUser } from "@/server/auth/current-user";
 import { historyPage, parseHistoryFilters, resourceFilterOptions } from "@/server/queries/operator";
+import { HistoryFilters } from "./_components/history-filters";
 import { HistoryList } from "./_components/history-list";
 
 export default async function Page({ searchParams }: PageProps<"/operator/history">) {
@@ -21,16 +21,16 @@ export default async function Page({ searchParams }: PageProps<"/operator/histor
     <>
       <PageHeader
         title="ประวัติการบันทึก"
-        description="รายการบันทึกการใช้ทรัพยากรในโรงงานของคุณ ลบได้เฉพาะรายการของคุณภายใน 24 ชั่วโมง"
+        description="ทุกการบันทึกในโรงงานของคุณ แตะรายการเพื่อดูรายละเอียด ลบได้เฉพาะของคุณภายใน 24 ชั่วโมง"
         actions={
           <Button asChild variant="outline" size="lg" className="h-11">
             <a href={`/api/operator/history/export${qs ? `?${qs}` : ""}`} download><Download /> ส่งออก CSV</a>
           </Button>
         }
       />
-      <UrlFilters
+      <HistoryFilters
         fields={[
-          { type: "search", name: "q", placeholder: "ค้นหาเลขอ้างอิง USG-… เครื่องจักร หรือจุดตรวจ" },
+          { type: "search", name: "q", placeholder: "ค้นหาเครื่อง รหัส หรือเลขอ้างอิง" },
           { type: "select", name: "resource", label: "ทรัพยากร", options: resources },
           { type: "select", name: "source", label: "ที่มา", options: [{ value: "QR", label: "สแกน QR" }, { value: "MANUAL", label: "เลือกเอง" }] },
           { type: "select", name: "mine", label: "ผู้บันทึก", options: [{ value: "1", label: "เฉพาะของฉัน" }] },

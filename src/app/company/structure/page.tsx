@@ -1,6 +1,5 @@
-import { Building2, Cpu, Factory, Layers, Workflow } from "lucide-react";
 import { PageHeader } from "@/components/app/page-header";
-import { StatTile } from "@/components/data/stat-tile";
+import { SummaryStrip } from "@/components/company/summary-strip";
 import { requireTenantUser } from "@/server/auth/current-user";
 import { companyTree } from "@/server/queries/company/tree";
 import { fmtNum } from "@/lib/format";
@@ -38,14 +37,17 @@ export default async function Page() {
   const machines = tree.flatMap((f) => f.buildings.flatMap((b) => b.departments.flatMap((d) => d.productionLines.flatMap((l) => l.machines)))).length;
   return (
     <>
-      <PageHeader title="โครงสร้างโรงงาน" description="โรงงาน › อาคาร › แผนก › สายการผลิต › จุดตรวจวัด" />
-      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-5">
-        <StatTile label="โรงงาน" value={fmtNum(nodes.length)} icon={Factory} />
-        <StatTile label="อาคาร" value={fmtNum(all("building"))} icon={Building2} />
-        <StatTile label="แผนก" value={fmtNum(all("department"))} icon={Layers} />
-        <StatTile label="สายการผลิต" value={fmtNum(all("line"))} icon={Workflow} />
-        <StatTile label="เครื่องจักร" value={fmtNum(machines)} icon={Cpu} />
-      </div>
+      <PageHeader title="โครงสร้างโรงงาน" description="ลำดับชั้นจากโรงงานถึงจุดตรวจวัด เลือกรายการเพื่อดูรายละเอียด เพิ่ม หรือแก้ไข" />
+      <SummaryStrip
+        items={[
+          { label: "โรงงาน", value: fmtNum(nodes.length) },
+          { label: "อาคาร", value: fmtNum(all("building")) },
+          { label: "แผนก", value: fmtNum(all("department")) },
+          { label: "สายการผลิต", value: fmtNum(all("line")) },
+          { label: "จุดตรวจวัด", value: fmtNum(all("checkpoint")) },
+          { label: "เครื่องจักร", value: fmtNum(machines) },
+        ]}
+      />
       <StructureView nodes={nodes} />
     </>
   );

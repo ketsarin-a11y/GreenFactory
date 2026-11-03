@@ -12,10 +12,11 @@ colors:
   accent: "#9ccb12"
   accent-ink: "#3f5605"
   forest-900: "#062e22"
+  control-room: "#073d2d"
   ink: "#16201b"
   ink-secondary: "#46524b"
   ink-mute: "#66726b"
-  canvas: "#f6f8f6"
+  canvas: "#f4f6f3"
   surface: "#ffffff"
   surface-sunken: "#eef2ef"
   hairline: "#e2e8e4"
@@ -43,13 +44,13 @@ colors:
 
 typography:
   display:
-    fontFamily: "IBM Plex Sans Thai, IBM Plex Sans, system-ui, sans-serif"
+    fontFamily: "Bai Jamjuree, IBM Plex Sans Thai, system-ui, sans-serif"
     fontSize: 48px
     fontWeight: 600
     lineHeight: 1.1
     letterSpacing: -0.02em
   headline-lg:
-    fontFamily: "IBM Plex Sans Thai, IBM Plex Sans, system-ui, sans-serif"
+    fontFamily: "Bai Jamjuree, IBM Plex Sans Thai, system-ui, sans-serif"
     fontSize: 30px
     fontWeight: 600
     lineHeight: 1.2
@@ -81,7 +82,7 @@ typography:
     lineHeight: 1.4
     letterSpacing: 0.02em
   metric-xl:
-    fontFamily: "IBM Plex Sans, system-ui, sans-serif"
+    fontFamily: "Bai Jamjuree, IBM Plex Sans, system-ui, sans-serif"
     fontSize: 32px
     fontWeight: 600
     lineHeight: 1.1
@@ -173,6 +174,18 @@ The UI should feel like a precise industrial instrument: calm, trustworthy, info
 
 Reference lineage: structure and numeric rigor from Stripe's dashboard, density and grid discipline from IBM Carbon, brand colors from the GreenFactory logo. We borrow principles, not their branding.
 
+### Direction: the plant control room
+
+The subject is utility metering in Thai factories: meter dials, readout digits, machine nameplates, the plant control room. Visual choices come from there, not from a SaaS template.
+
+- **One bold element per screen.** Dashboards open with an *instrument band*: a control-room green strip (`control-room`) holding the 3–4 readings that matter, separated by vertical hairlines, each with a sparkline. Everything below is quiet.
+- **Readings first.** Numbers and page titles are set in **Bai Jamjuree** (Cadson Demak's squared technical face, like stamped readout plates); units are small and muted next to them.
+- **Nameplates.** Machine, checkpoint and QR codes render as small bordered nameplate tags, not monospace text.
+- **Panels, not a card grid.** Content sits on flat white panels whose size follows importance. Inside a panel, use lists with dividers, never cards inside cards.
+- **Lime is a signal, not a color scheme.** Only for "live/connected" dots and the active nav marker.
+
+Generated-UI tells we do not use: dot-joined meta strings ("A · B · C"), "WORD — fragment" labels, arrows appended to links, ALL-CAPS tracked eyebrows, monospace for small labels, identical rounded cards with the same shadow, gradient washes, a fade-in on every section.
+
 ## Colors
 
 - **Forest (#0b5c43, `primary`):** the logo's deep green. Primary buttons, active nav, links, focus. One primary action per view.
@@ -186,9 +199,9 @@ Reference lineage: structure and numeric rigor from Stripe's dashboard, density 
 
 ## Typography
 
-- **IBM Plex Sans Thai** for all UI text: designed for Thai with matching Latin, readable at 13–14px in dense tables, industrial character that suits factories.
-- **IBM Plex Sans with tabular numerals (`tnum`)** for every metric, table number and axis so columns of figures align.
-- **IBM Plex Mono** for codes: QR tokens, machine codes, company codes.
+- **Bai Jamjuree** (display): page titles, instrument-band readings, stat values, gauge numbers. Weight 600, tabular figures.
+- **IBM Plex Sans Thai** (text): everything else — readable at 13–14px in dense tables. Tabular figures in tables and axes.
+- Codes (machine, QR, company) use the nameplate tag in Bai Jamjuree, not a monospace face. Monospace only for raw tokens/URLs.
 - App body is 14px; dense tables 13px. Marketing display tops out at 48px.
 - One `h1` per page (the page title). Do not skip heading levels.
 - Thai line-height stays at 1.5 or more for body text because of stacked vowels and tone marks.
@@ -208,7 +221,7 @@ Flat. Hierarchy comes from the canvas/surface contrast and 1px hairlines. Shadow
 
 ## Shapes
 
-Tight, consistent radii: 6px controls, 8px inputs inside cards, 12px cards and dialogs, full only for badges and avatars. Charts use 4px rounded data-ends anchored to the baseline and 2px lines.
+Radius follows hierarchy: 14px instrument band and hero surfaces, 10px panels and dialogs, 6px controls and nameplates, full only for status chips and avatars. Charts use 4px rounded data-ends anchored to the baseline and 2px lines.
 
 ## Components
 

@@ -44,6 +44,14 @@ export async function getCarbon(user: CurrentUser, range: Range) {
     return row;
   });
   const top = [...byResource].sort((a, b) => b.kg - a.kg)[0] ?? null;
+  const days = dayList(range.from, range.to);
+  const perDay = (pick: (r: (typeof withC)[number]) => boolean) => {
+    const m = new Map<string, number>();
+    for (const r of withC) if (pick(r)) m.set(r.day, (m.get(r.day) ?? 0) + r.carbon!.kg);
+    return days.map((d) => m.get(d) ?? 0);
+  };
+  const prevScope = new Map<string, number>();
+  for (const r of prevRows) if (r.carbon) prevScope.set(r.carbon.scope, (prevScope.get(r.carbon.scope) ?? 0) + r.carbon.kg);
 
   return {
     total,
@@ -51,7 +59,12 @@ export async function getCarbon(user: CurrentUser, range: Range) {
     change: pctChange(total, prevTotal),
     top,
     byResource,
-    scopes: [...scopes.entries()].map(([scope, kg]) => ({ scope, kg })).sort((a, b) => a.scope.localeCompare(b.scope)),
+    spark: perDay(() => true),
+    perDay: total / Math.max(1, range.days),
+    prevPerDay: prevTotal / Math.max(1, range.days),
+    scopes: [...scopes.entries()]
+      .map(([scope, kg]) => ({ scope, kg, change: pctChange(kg, prevScope.get(scope) ?? 0), spark: perDay((r) => r.carbon!.scope === scope) }))
+      .sort((a, b) => a.scope.localeCompare(b.scope)),
     hotspots: [...hot.entries()].map(([name, kg]) => ({ name, kg })).sort((a, b) => b.kg - a.kg),
     codes,
     daily,

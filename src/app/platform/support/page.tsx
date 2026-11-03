@@ -1,6 +1,6 @@
 import { LifeBuoy } from "lucide-react";
 import { PageHeader } from "@/components/app/page-header";
-import { StatTile } from "@/components/data/stat-tile";
+import { SummaryStrip } from "@/components/platform/summary-strip";
 import { UrlFilters } from "@/components/data/url-filters";
 import { Pagination, pageParam } from "@/components/data/pagination";
 import { EmptyState } from "@/components/data/empty-state";
@@ -18,11 +18,15 @@ export default async function Page({ searchParams }: PageProps<"/platform/suppor
   return (
     <>
       <PageHeader title="คำร้องขอความช่วยเหลือ" description="คำร้องจากผู้ใช้ทุกบริษัท ส่งมาจากหน้าช่วยเหลือของแต่ละบทบาท" />
-      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {Object.entries(TICKET_STATUS).map(([k, [, label]]) => (
-          <StatTile key={k} label={label} value={fmtNum(d.counts[k] ?? 0, 0)} unit="เรื่อง" goodWhen="neutral" />
-        ))}
-      </div>
+      <SummaryStrip
+        items={Object.entries(TICKET_STATUS).map(([k, [, label]]) => ({
+          label,
+          value: fmtNum(d.counts[k] ?? 0, 0),
+          unit: "เรื่อง",
+          href: sp.status === k ? "/platform/support" : `/platform/support?status=${k}`,
+          active: sp.status === k,
+        }))}
+      />
       <UrlFilters
         fields={[
           { type: "search", name: "q", placeholder: "ค้นหาเลขที่ หัวข้อ หมวด หรือความสำคัญ" },

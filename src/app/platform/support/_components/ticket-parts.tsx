@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronRight } from "lucide-react";
+import { Nameplate } from "@/components/data/nameplate";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -49,7 +49,7 @@ export function TicketTable({ rows }: { rows: Ticket[] }) {
   const open = rows.find((r) => r.id === openId) ?? null;
   return (
     <>
-      <div className="rounded-xl border bg-card">
+      <div className="rounded-[10px] border bg-card">
         <Table>
           <TableHeader>
             <TableRow>
@@ -59,13 +59,13 @@ export function TicketTable({ rows }: { rows: Ticket[] }) {
               <TableHead>ความสำคัญ</TableHead>
               <TableHead>แจ้งเมื่อ</TableHead>
               <TableHead>สถานะ</TableHead>
-              <TableHead className="w-10"><span className="sr-only">รายละเอียด</span></TableHead>
+              <TableHead className="w-12"><span className="sr-only">รายละเอียด</span></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {rows.map((t) => (
               <TableRow key={t.id}>
-                <TableCell className="font-mono text-xs whitespace-nowrap">{t.reference}</TableCell>
+                <TableCell className="whitespace-nowrap"><Nameplate>{t.reference}</Nameplate></TableCell>
                 <TableCell className="max-w-72">
                   <span className="block truncate font-medium">{t.subject}</span>
                   <span className="block text-xs text-muted-foreground">{t.category}</span>
@@ -78,8 +78,8 @@ export function TicketTable({ rows }: { rows: Ticket[] }) {
                 <TableCell className="tabular whitespace-nowrap">{fmtDateTime(t.createdAt)}</TableCell>
                 <TableCell><StatusSelect t={t} /></TableCell>
                 <TableCell>
-                  <button type="button" className="rounded p-1 hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none" aria-label={`ดูรายละเอียด ${t.reference}`} onClick={() => setOpenId(t.id)}>
-                    <ChevronRight className="size-4" />
+                  <button type="button" className="rounded px-2 py-1 text-sm whitespace-nowrap text-primary hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none" onClick={() => setOpenId(t.id)}>
+                    ดู<span className="sr-only">รายละเอียด {t.reference}</span>
                   </button>
                 </TableCell>
               </TableRow>
@@ -94,7 +94,7 @@ export function TicketTable({ rows }: { rows: Ticket[] }) {
               <SheetHeader>
                 <SheetTitle>{open.subject}</SheetTitle>
                 <SheetDescription className="flex items-center gap-2">
-                  <span className="font-mono">{open.reference}</span>
+                  <Nameplate>{open.reference}</Nameplate>
                   <Status map={TICKET_STATUS} value={open.status} />
                 </SheetDescription>
               </SheetHeader>

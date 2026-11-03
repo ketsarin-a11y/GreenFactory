@@ -1,6 +1,5 @@
 import { Download, LogIn } from "lucide-react";
 import { PageHeader } from "@/components/app/page-header";
-import { StatTile } from "@/components/data/stat-tile";
 import { UrlFilters } from "@/components/data/url-filters";
 import { Pagination, pageParam } from "@/components/data/pagination";
 import { EmptyState } from "@/components/data/empty-state";
@@ -13,20 +12,23 @@ import { fmtDateTime } from "@/lib/time";
 import { requireUser } from "@/server/auth/current-user";
 import { ROLE_LABEL, isRole } from "@/server/auth/roles";
 import { LOGIN_FAILURE_LABEL } from "@/server/domain/user-agent";
-import { listLoginLogs } from "@/server/queries/platform/logs";
+import { listLoginLogs, loginSummary } from "@/server/queries/platform/logs";
+import { shortDay } from "@/server/queries/platform/series";
+import { ProportionBar } from "@/components/data/proportion-bar";
+import { DayBars } from "@/components/platform/day-bars";
 
 export default async function Page({ searchParams }: PageProps<"/platform/login-logs">) {
   await requireUser("PLATFORM_ADMIN");
   const sp = await searchParams;
   const page = pageParam(sp.page);
-  const d = await listLoginLogs(sp, page);
+  const [d, sum] = await Promise.all([listLoginLogs(sp, page), loginSummary(sp)]);
   const qs = new URLSearchParams(Object.entries(sp).filter((e): e is [string, string] => typeof e[1] === "string" && e[0] !== "page")).toString();
 
   return (
     <>
       <PageHeader
         title="Login Log"
-        description="ทุกความพยายามเข้าสู่ระบบ ทั้งสำเร็จและไม่สำเร็จ ตัวเลขสรุปเป็นไปตามตัวกรองที่เลือก"
+        description="ทุกความพยายามเข้าสู่ระบบ ทั้งสำเร็จและไม่สำเร็จ สรุปด้านบนเป็นไปตามตัวกรองที่เลือก"
         actions={
           <Button variant="outline" className="h-10" asChild>
             <a href={`/api/platform/login-logs/export${qs ? `?${qs}` : ""}`} download>
@@ -35,12 +37,6 @@ export default async function Page({ searchParams }: PageProps<"/platform/login-
           </Button>
         }
       />
-      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatTile label="ทั้งหมด" value={fmtNum(d.total, 0)} unit="ครั้ง" goodWhen="neutral" />
-        <StatTile label="สำเร็จ" value={fmtNum(d.success, 0)} unit="ครั้ง" goodWhen="neutral" />
-        <StatTile label="ไม่สำเร็จ" value={fmtNum(d.failed, 0)} unit="ครั้ง" goodWhen="neutral" />
-        <StatTile label="อัตราสำเร็จ" value={d.total ? fmtNum((d.success / d.total) * 100, 1) : "—"} unit={d.total ? "%" : undefined} goodWhen="neutral" />
-      </div>
       <UrlFilters
         fields={[
           { type: "search", name: "q", placeholder: "ค้นหาอีเมล ชื่อ บริษัท หรือ IP" },
@@ -50,10 +46,43 @@ export default async function Page({ searchParams }: PageProps<"/platform/login-
           { type: "date", name: "to", label: "ถึง" },
         ]}
       />
+      <section aria-label="สรุปตามตัวกรอง" className="mb-6 grid gap-6 rounded-[10px] border bg-card p-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:divide-x">
+        <div className="lg:pr-6">
+          <h2 className="font-semibold">เข้าสู่ระบบไม่สำเร็จต่อวัน</h2>
+          <p className="mt-0.5 mb-3 text-sm text-muted-foreground">{shortDay(sum.days[0])} – {shortDay(sum.days[sum.days.length - 1])}</p>
+          <DayBars labels={sum.days.map(shortDay)} values={sum.failedPerDay} unit="ครั้ง" color="var(--status-critical)" label="การเข้าสู่ระบบไม่สำเร็จต่อวัน" />
+        </div>
+        <div className="lg:pl-6">
+          <p className="flex items-baseline gap-1.5">
+            <span className="font-display text-3xl font-semibold tracking-tight tabular">{d.total ? fmtNum((d.success / d.total) * 100, 1) : "—"}</span>
+            {d.total > 0 && <span className="text-sm text-muted-foreground">% สำเร็จ</span>}
+          </p>
+          <p className="mt-1 mb-3 text-sm text-muted-foreground tabular">
+            ทั้งหมด {fmtNum(d.total, 0)} ครั้ง ไม่สำเร็จ {fmtNum(d.failed, 0)} ครั้ง
+          </p>
+          <ProportionBar
+            unit="ครั้ง"
+            parts={[
+              { label: "สำเร็จ", value: d.success, color: "var(--primary)" },
+              { label: "ไม่สำเร็จ", value: d.failed, color: "var(--status-critical)" },
+            ]}
+          />
+          {sum.reasons.length > 0 && (
+            <dl className="mt-4 divide-y border-t text-sm">
+              {sum.reasons.map((r) => (
+                <div key={r.reason ?? "none"} className="flex justify-between gap-3 py-1.5">
+                  <dt className="min-w-0 truncate text-muted-foreground">{r.reason ? (LOGIN_FAILURE_LABEL[r.reason] ?? r.reason) : "ไม่ระบุสาเหตุ"}</dt>
+                  <dd className="tabular">{fmtNum(r.n, 0)}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
+        </div>
+      </section>
       {d.rows.length === 0 ? (
         <EmptyState icon={LogIn} title="ไม่พบรายการ" description="ลองเปลี่ยนช่วงวันที่หรือล้างตัวกรอง" />
       ) : (
-        <div className="rounded-xl border bg-card">
+        <div className="rounded-[10px] border bg-card">
           <Table>
             <TableHeader>
               <TableRow>
@@ -80,10 +109,10 @@ export default async function Page({ searchParams }: PageProps<"/platform/login-
                     <Status map={LOGIN_STATUS} value={l.status} />
                     {l.status === "FAILED" && l.failureReason && <span className="mt-1 block text-xs text-muted-foreground">{LOGIN_FAILURE_LABEL[l.failureReason] ?? l.failureReason}</span>}
                   </TableCell>
-                  <TableCell className="font-mono text-xs">{l.ipAddress ?? "—"}</TableCell>
+                  <TableCell className="text-xs tabular">{l.ipAddress ?? "ไม่ทราบ"}</TableCell>
                   <TableCell>
                     <span className="block">{DEVICE_LABEL_TH[l.device]}</span>
-                    <span className="block text-xs text-muted-foreground">{l.browser} · {l.os}</span>
+                    <span className="block text-xs text-muted-foreground">{l.browser} บน {l.os}</span>
                   </TableCell>
                 </TableRow>
               ))}

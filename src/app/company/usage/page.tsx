@@ -6,19 +6,25 @@ import { UrlFilters } from "@/components/data/url-filters";
 import { PROCESSING, Status } from "@/components/data/status-badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Heatmap } from "@/components/data/heatmap";
+import { Nameplate } from "@/components/data/nameplate";
+import { SummaryStrip } from "@/components/company/summary-strip";
 import { SOURCE_LABEL } from "@/components/company/labels";
 import { requireTenantUser } from "@/server/auth/current-user";
-import { listUsage, resourceOptions, USAGE_PAGE } from "@/server/queries/company/usage";
+import { listUsage, resourceOptions, usageFilter, usageHeatmap, USAGE_PAGE } from "@/server/queries/company/usage";
 import { factoryFilterOptions } from "@/server/queries/company/options";
 import { fmtCarbon, fmtNum } from "@/lib/format";
 import { fmtDate, fmtDateTime, startOfBkkDay } from "@/lib/time";
-import { resourceIcon } from "@/lib/resources";
 
 export default async function Page({ searchParams }: PageProps<"/company/usage">) {
   const user = await requireTenantUser("COMPANY_ADMIN");
   const sp = await searchParams;
   const page = pageParam(sp.page);
-  const [data, factories, resources] = await Promise.all([listUsage(user, sp, page), factoryFilterOptions(user), resourceOptions()]);
+  const { where, from, to } = usageFilter(user, sp);
+  const resourceId = Number(typeof sp.resource === "string" ? sp.resource : "") || undefined;
+  const [data, factories, resources, heat] = await Promise.all([
+    listUsage(user, sp, page), factoryFilterOptions(user), resourceOptions(), usageHeatmap(where, from, to, resourceId),
+  ]);
   const carbon = fmtCarbon(data.carbonKg);
   const qs = new URLSearchParams(Object.entries(sp).filter((e): e is [string, string] => typeof e[1] === "string" && e[0] !== "page")).toString();
   return (
@@ -38,32 +44,35 @@ export default async function Page({ searchParams }: PageProps<"/company/usage">
           { type: "date", name: "to", label: "ถึง" },
         ]}
       />
-      <section className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4" aria-label="ยอดรวมตามตัวกรอง">
-        {data.totals.map((t) => {
-          const Icon = resourceIcon(t.code);
-          return (
-            <div key={`${t.code}-${t.unit}`} className="rounded-xl border bg-card p-4">
-              <p className="flex items-center gap-1.5 text-sm text-muted-foreground"><Icon className="size-4" aria-hidden />{t.name}</p>
-              <p className="mt-1"><span className="tabular text-2xl font-semibold">{fmtNum(t.quantity)}</span> <span className="text-sm text-muted-foreground">{t.unit}</span></p>
-              <p className="text-xs text-muted-foreground tabular">{fmtNum(t.records)} รายการ</p>
-            </div>
-          );
-        })}
-        <div className="rounded-xl border bg-card p-4">
-          <p className="text-sm text-muted-foreground">คาร์บอนรวม</p>
-          <p className="mt-1"><span className="tabular text-2xl font-semibold">{carbon.value}</span> <span className="text-sm text-muted-foreground">{carbon.unit}</span></p>
-          <p className="text-xs text-muted-foreground">เฉพาะรายการที่คำนวณคาร์บอนได้</p>
-        </div>
-      </section>
+      {data.totals.length > 0 && (
+        <SummaryStrip
+          className="mb-4"
+          items={[
+            ...data.totals.map((t) => ({ label: t.name, value: fmtNum(t.quantity), unit: t.unit, hint: `${fmtNum(t.records)} รายการ` })),
+            { label: "คาร์บอนรวม", value: carbon.value, unit: carbon.unit, hint: "เฉพาะรายการที่คำนวณได้" },
+          ]}
+        />
+      )}
+      {heat && (
+        <section className="mb-4 rounded-[10px] border bg-card p-5" aria-labelledby="heat">
+          <h2 id="heat" className="font-semibold">{heat.resource} ราย{heat.weekly ? "สัปดาห์" : "วัน"} แยกเครื่องจักรและจุดตรวจวัด</h2>
+          <p className="mt-0.5 mb-4 text-sm text-muted-foreground">
+            หน่วย {heat.unit} สีเข้มคือใช้มาก ช่องลายคือวันที่ไม่มีการบันทึก
+            {heat.hiddenRows > 0 && ` แสดง ${fmtNum(heat.rows.length)} รายการที่ใช้มากที่สุด`}
+            {!resourceId && " เลือกทรัพยากรในตัวกรองเพื่อดูประเภทอื่น"}
+          </p>
+          <Heatmap rows={heat.rows} cols={heat.cols} values={heat.values} unit={heat.unit} colLabelEvery={heat.weekly ? 2 : 5} />
+        </section>
+      )}
       {data.rows.length === 0 ? (
         <EmptyState icon={Zap} title="ไม่พบรายการในช่วงนี้" description="ลองขยายช่วงวันที่ หรือล้างตัวกรอง ข้อมูลมาจากการสแกน QR และการบันทึกของผู้ปฏิบัติงาน" />
       ) : (
-        <div className="overflow-x-auto rounded-xl border bg-card">
+        <div className="overflow-x-auto rounded-[10px] border bg-card">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>วันเวลา</TableHead>
-                <TableHead>โรงงาน / เป้าหมาย</TableHead>
+                <TableHead>เป้าหมาย</TableHead>
                 <TableHead>ทรัพยากร</TableHead>
                 <TableHead className="text-right">ปริมาณ</TableHead>
                 <TableHead className="text-right">คาร์บอน (kgCO₂e)</TableHead>
@@ -77,9 +86,12 @@ export default async function Page({ searchParams }: PageProps<"/company/usage">
                 <TableRow key={r.id}>
                   <TableCell className="tabular text-xs">
                     {fmtDateTime(r.usageAt)}
-                    <p className="font-mono text-[11px] text-muted-foreground">{r.reference}</p>
+                    <p className="text-[11px] text-muted-foreground">{r.reference}</p>
                   </TableCell>
-                  <TableCell className="text-xs"><p>{r.factory}</p><p className="text-muted-foreground">{r.target}</p></TableCell>
+                  <TableCell className="text-xs">
+                    <p className="flex items-center gap-2">{r.targetCode && <Nameplate>{r.targetCode}</Nameplate>}<span>{r.targetName}</span></p>
+                    <p className="mt-0.5 text-muted-foreground">{r.factory}</p>
+                  </TableCell>
                   <TableCell>{r.resource}</TableCell>
                   <TableCell className="tabular text-right">{fmtNum(r.quantity)} <span className="text-xs text-muted-foreground">{r.unit}</span></TableCell>
                   <TableCell className="tabular text-right">{r.carbonKg === null ? "—" : fmtNum(r.carbonKg)}</TableCell>

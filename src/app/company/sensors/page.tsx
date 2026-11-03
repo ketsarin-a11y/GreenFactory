@@ -1,9 +1,9 @@
-import { Radio, Wifi, WifiOff, TriangleAlert, Wrench } from "lucide-react";
 import { PageHeader } from "@/components/app/page-header";
-import { StatTile } from "@/components/data/stat-tile";
 import { Pagination, pageParam } from "@/components/data/pagination";
 import { UrlFilters } from "@/components/data/url-filters";
 import { CONNECTION } from "@/components/data/status-badge";
+import { SummaryStrip } from "@/components/company/summary-strip";
+import { LiveRefresh } from "@/components/company/live-refresh";
 import { requireTenantUser } from "@/server/auth/current-user";
 import { connectionSummary, machineOptions, sensorsWithStatus } from "@/server/queries/company/sensors";
 import { sensorTypeOptions } from "@/server/queries/company/options";
@@ -31,21 +31,26 @@ export default async function Page({ searchParams }: PageProps<"/company/sensors
     serialNumber: s.serialNumber, manufacturer: s.manufacturer, protocol: s.protocol, connectionAddress: s.connectionAddress, dataTopic: s.dataTopic,
     samplingIntervalSeconds: s.samplingIntervalSeconds, installationDate: day(s.installationDate), lastCalibrationDate: day(s.lastCalibrationDate),
     nextCalibrationDate: day(s.nextCalibrationDate), status: s.status, connection: s.connection, typeName: s.sensorType.sensorTypeName,
-    machine: `${s.machine.machineCode} · ${s.machine.machineName}`, factory: s.machine.productionLine.department.building.factory.factoryName,
+    machineCode: s.machine.machineCode, machineName: s.machine.machineName, factory: s.machine.productionLine.department.building.factory.factoryName,
     lastConnectedAt: s.lastConnectedAt?.toISOString() ?? null,
+    hasToken: s.ingestTokenHash !== null,
     latest: s.latest && { raw: num(s.latest.rawValue), processed: s.latest.processedValue === null ? null : num(s.latest.processedValue), unit: s.latest.unit.symbol, quality: s.latest.qualityStatus, measuredAt: s.latest.measuredAt.toISOString() },
   }));
+  const withToken = all.filter((s) => s.ingestTokenHash !== null).length;
 
   return (
     <>
-      <PageHeader title="เซนเซอร์ IoT" description="สถานะการเชื่อมต่อคำนวณจากเวลาที่ส่งข้อมูลล่าสุดเทียบกับรอบการอ่านค่า" />
-      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-5">
-        <StatTile label="เซนเซอร์ทั้งหมด" value={fmtNum(summary.total)} icon={Radio} />
-        <StatTile label="เชื่อมต่อ" value={fmtNum(summary.ONLINE)} icon={Wifi} />
-        <StatTile label="ออฟไลน์" value={fmtNum(summary.OFFLINE)} icon={WifiOff} />
-        <StatTile label="ผิดปกติ" value={fmtNum(summary.FAULT)} icon={TriangleAlert} />
-        <StatTile label="บำรุงรักษา / ปิดใช้งาน" value={fmtNum(summary.MAINTENANCE)} icon={Wrench} />
-      </div>
+      <LiveRefresh seconds={30} />
+      <PageHeader title="เซนเซอร์ IoT" description="สถานะคำนวณจากเวลาที่เซนเซอร์ส่งข้อมูลล่าสุดเทียบกับรอบการอ่านค่า หน้านี้อัปเดตเองทุก 30 วินาที" />
+      <SummaryStrip
+        items={[
+          { label: "เชื่อมต่อ", value: fmtNum(summary.ONLINE), unit: `จาก ${fmtNum(summary.total)} ตัว` },
+          { label: "ออฟไลน์", value: fmtNum(summary.OFFLINE), tone: summary.OFFLINE ? "attention" : "default" },
+          { label: "ผิดปกติ", value: fmtNum(summary.FAULT), tone: summary.FAULT ? "attention" : "default" },
+          { label: "บำรุงรักษาหรือปิดใช้งาน", value: fmtNum(summary.MAINTENANCE) },
+          { label: "มี token อุปกรณ์", value: fmtNum(withToken), unit: `จาก ${fmtNum(summary.total)} ตัว` },
+        ]}
+      />
       <UrlFilters
         fields={[
           { type: "search", name: "q", placeholder: "ค้นหารหัส ชื่อ หมายเลข หรือเครื่องจักร" },
@@ -54,7 +59,7 @@ export default async function Page({ searchParams }: PageProps<"/company/sensors
           { type: "select", name: "machine", label: "เครื่องจักร", options: machines.map(({ value, label }) => ({ value, label })) },
         ]}
       />
-      <SensorsView rows={rows} machines={machines} types={types} hasMachines={machines.some((m) => !m.inactive)} />
+      <SensorsView rows={rows} machines={machines} types={types} hasMachines={machines.some((m) => !m.inactive)} appUrl={process.env.NEXT_PUBLIC_APP_URL ?? null} />
       <Pagination page={page} totalPages={Math.ceil(filtered.length / PAGE)} total={filtered.length} params={sp} pathname="/company/sensors" />
     </>
   );

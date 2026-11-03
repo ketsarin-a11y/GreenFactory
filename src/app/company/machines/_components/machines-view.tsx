@@ -8,6 +8,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Field } from "@/components/account/field";
 import { EmptyState } from "@/components/data/empty-state";
+import { Nameplate } from "@/components/data/nameplate";
 import { MACHINE_STATUS, RECORD_STATUS, Status } from "@/components/data/status-badge";
 import { FormSheet } from "@/components/company/form-sheet";
 import { ConfirmDialog, type Confirm } from "@/components/company/confirm-dialog";
@@ -33,7 +34,7 @@ export function MachinesView({ rows, tree, types }: { rows: MachineRow[]; tree: 
       {rows.length === 0 ? (
         <EmptyState icon={Cpu} title="ไม่พบเครื่องจักร" description="ลองล้างตัวกรอง หรือเพิ่มเครื่องจักรใหม่" />
       ) : (
-        <div className="overflow-x-auto rounded-xl border bg-card">
+        <div className="overflow-x-auto rounded-[10px] border bg-card">
           <Table>
             <TableHeader>
               <TableRow>
@@ -51,7 +52,7 @@ export function MachinesView({ rows, tree, types }: { rows: MachineRow[]; tree: 
                 <TableRow key={m.id}>
                   <TableCell>
                     <p className="font-medium">{m.machineName}</p>
-                    <p className="text-xs text-muted-foreground"><span className="font-mono">{m.machineCode}</span> · {m.typeName}</p>
+                    <p className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground"><Nameplate>{m.machineCode}</Nameplate>{m.typeName}</p>
                   </TableCell>
                   <TableCell className="max-w-[280px] truncate text-xs text-muted-foreground" title={m.location}>{m.location}</TableCell>
                   <TableCell><Status map={MACHINE_STATUS} value={m.operationalStatus} /></TableCell>
@@ -71,7 +72,7 @@ export function MachinesView({ rows, tree, types }: { rows: MachineRow[]; tree: 
                         <DropdownMenuSeparator />
                         <DropdownMenuItem variant="destructive" onSelect={() => setConfirm({
                           title: "ลบเครื่องจักร",
-                          description: `ลบ ${m.machineCode} · ${m.machineName} ถ้ามีเซนเซอร์ QR หรือข้อมูลการใช้ทรัพยากรเชื่อมอยู่ ระบบจะปิดใช้งานแทนการลบ`,
+                          description: `ลบ ${m.machineName} (${m.machineCode}) ถ้ามีเซนเซอร์ QR หรือข้อมูลการใช้ทรัพยากรเชื่อมอยู่ ระบบจะปิดใช้งานแทนการลบ`,
                           confirmLabel: "ลบ", destructive: true, run: () => del.run({ id: m.id }),
                         })}>
                           <Trash2 /> ลบ
@@ -100,7 +101,7 @@ function MachineSheet({ editing, tree, types, onClose }: { editing: MachineRow |
     </Field>
   );
   return (
-    <FormSheet open={editing !== null} onOpenChange={(o) => !o && onClose()} title={m ? `แก้ไข ${m.machineCode}` : "เพิ่มเครื่องจักร"}
+    <FormSheet open={editing !== null} onOpenChange={(o) => !o && onClose()} title={m ? `แก้ไข ${m.machineName}` : "เพิ่มเครื่องจักร"}
       description="เลือกได้เฉพาะโครงสร้างที่เปิดใช้งาน" pending={pending}
       onSubmit={async (fd) => { if (m) fd.set("id", String(m.id)); return (await run(fd)).ok; }}>
       <Cascade tree={tree} defaultPath={m?.path} errors={errors} idPrefix="m"

@@ -1,6 +1,5 @@
-import { CheckCircle2, Factory, Users } from "lucide-react";
 import { PageHeader } from "@/components/app/page-header";
-import { StatTile } from "@/components/data/stat-tile";
+import { SummaryStrip } from "@/components/company/summary-strip";
 import { requireTenantUser } from "@/server/auth/current-user";
 import { companyTree, factoryCounts } from "@/server/queries/company/tree";
 import { factoryProfile } from "@/server/domain/readiness";
@@ -28,12 +27,14 @@ export default async function Page() {
   return (
     <>
       <PageHeader title="โรงงาน" description="ข้อมูลโรงงานในบริษัท ตำแหน่งที่ตั้ง และความครบถ้วนของการตั้งค่า" />
-      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatTile label="โรงงานทั้งหมด" value={fmtNum(rows.length)} unit="แห่ง" icon={Factory} />
-        <StatTile label="เปิดใช้งาน" value={fmtNum(rows.filter((r) => r.status === "ACTIVE").length)} unit="แห่ง" icon={Factory} />
-        <StatTile label="ข้อมูลพร้อม (≥ 75%)" value={fmtNum(rows.filter((r) => r.readiness >= 75).length)} unit="แห่ง" icon={CheckCircle2} />
-        <StatTile label="ผู้ใช้ในโรงงาน" value={fmtNum(users)} unit="คน" icon={Users} />
-      </div>
+      <SummaryStrip
+        items={[
+          { label: "โรงงานทั้งหมด", value: fmtNum(rows.length), unit: "แห่ง" },
+          { label: "เปิดใช้งาน", value: fmtNum(rows.filter((r) => r.status === "ACTIVE").length), unit: "แห่ง" },
+          { label: "ข้อมูลครบอย่างน้อย 75%", value: fmtNum(rows.filter((r) => r.readiness >= 75).length), unit: "แห่ง" },
+          { label: "ผู้ใช้ในโรงงาน", value: fmtNum(users), unit: "คน" },
+        ]}
+      />
       <FactoriesView rows={rows} />
     </>
   );

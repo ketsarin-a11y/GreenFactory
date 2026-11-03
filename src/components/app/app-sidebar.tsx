@@ -3,11 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
+  Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
   SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarRail, useSidebar,
 } from "@/components/ui/sidebar";
 import type { Role } from "@/server/auth/roles";
-import { LogoMark, Logo } from "./logo";
+import { LogoMark } from "./logo";
 import { NAV } from "./nav-config";
 
 export function AppSidebar({ role, orgName }: { role: Role; orgName: string }) {
@@ -18,12 +18,16 @@ export function AppSidebar({ role, orgName }: { role: Role; orgName: string }) {
 
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader className="gap-3 px-3 pt-4">
-        <Link href="/" className="flex h-11 items-center justify-center rounded-lg bg-white px-3 group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:px-0" aria-label="GreenFactory Insight">
-          <Logo className="w-[156px] group-data-[collapsible=icon]:hidden" />
-          <LogoMark className="hidden w-5 group-data-[collapsible=icon]:block" />
+      <SidebarHeader className="px-3 pt-4 pb-2">
+        <Link href="/" className="flex items-center gap-2.5 rounded-md px-1 py-1 outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring" aria-label="GreenFactory Insight">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-[7px] bg-white">
+            <LogoMark className="w-5" />
+          </span>
+          <span className="min-w-0 leading-tight group-data-[collapsible=icon]:hidden">
+            <span className="block font-display text-[15px] font-semibold tracking-tight text-white">GreenFactory</span>
+            <span className="block truncate text-xs text-sidebar-foreground/60">{orgName}</span>
+          </span>
         </Link>
-        <p className="truncate px-1 text-xs text-sidebar-foreground/60 group-data-[collapsible=icon]:hidden">{orgName}</p>
       </SidebarHeader>
       <SidebarContent>
         {NAV[role].map((group, i) => (
@@ -39,7 +43,7 @@ export function AppSidebar({ role, orgName }: { role: Role; orgName: string }) {
                         asChild
                         isActive={active}
                         tooltip={item.title}
-                        className="relative data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:text-white data-[active=true]:before:absolute data-[active=true]:before:inset-y-1.5 data-[active=true]:before:-left-2 data-[active=true]:before:w-1 data-[active=true]:before:rounded-full data-[active=true]:before:bg-brand-lime"
+                        className="relative data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:text-white data-[active=true]:shadow-[inset_3px_0_0_var(--brand-lime)]"
                       >
                         <Link href={item.href} onClick={() => setOpenMobile(false)} aria-current={active ? "page" : undefined}>
                           <item.icon />
@@ -54,9 +58,6 @@ export function AppSidebar({ role, orgName }: { role: Role; orgName: string }) {
           </SidebarGroup>
         ))}
       </SidebarContent>
-      <SidebarFooter className="px-4 pb-4 text-[11px] text-sidebar-foreground/40 group-data-[collapsible=icon]:hidden">
-        Data drives better decisions
-      </SidebarFooter>
       <SidebarRail />
     </Sidebar>
   );

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Ban, Copy, Download, Eye, MoreHorizontal, PauseCircle, Pencil, PlayCircle, Plus, Printer, QrCode, RefreshCw } from "lucide-react";
+import { Ban, Copy, Download, Eye, Loader2, MoreHorizontal, PauseCircle, Pencil, PlayCircle, Plus, Printer, QrCode, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -12,6 +12,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Field } from "@/components/account/field";
 import { EmptyState } from "@/components/data/empty-state";
+import { Nameplate } from "@/components/data/nameplate";
 import { QR_STATUS, Status } from "@/components/data/status-badge";
 import { FormSheet } from "@/components/company/form-sheet";
 import { ConfirmDialog, type Confirm } from "@/components/company/confirm-dialog";
@@ -35,6 +36,19 @@ export function QrView({ rows, tree }: { rows: QrRow[]; tree: HNode[] }) {
   const rotate = useAction(rotateQrToken, { success: "ออกโทเค็นใหม่แล้ว กรุณาพิมพ์ป้ายใหม่" });
   const printable = rows.filter((r) => r.status !== "REVOKED");
   const allOn = printable.length > 0 && printable.every((r) => selected.has(r.id));
+  const [downloading, setDownloading] = useState<number | null>(null);
+  // No zip library: download the chosen PNGs one after another with a short pause,
+  // so the browser does not drop them (it may ask once to allow multiple downloads).
+  const downloadSelected = async () => {
+    const list = rows.filter((r) => selected.has(r.id));
+    for (const [i, q] of list.entries()) {
+      setDownloading(i + 1);
+      await downloadQrPng(q.token, fileName(q));
+      await new Promise((res) => setTimeout(res, 400));
+    }
+    setDownloading(null);
+    toast.success(`ดาวน์โหลด ${list.length} ไฟล์แล้ว`);
+  };
   const toggle = (id: string, on: boolean) => setSelected((s) => { const n = new Set(s); if (on) n.add(id); else n.delete(id); return n; });
 
   const ask = (q: QrRow, kind: "suspend" | "activate" | "revoke" | "rotate") => {
@@ -53,9 +67,15 @@ export function QrView({ rows, tree }: { rows: QrRow[]; tree: HNode[] }) {
         <p className="text-sm text-muted-foreground">{selected.size > 0 ? `เลือก ${selected.size} รายการ` : "เลือกหลายรายการเพื่อพิมพ์ป้ายบนกระดาษ A4 (6 ป้ายต่อหน้า)"}</p>
         <div className="flex gap-2">
           {selected.size > 0 && (
-            <Button variant="outline" className="h-10" asChild>
-              <Link href={printHref([...selected])} target="_blank"><Printer /> พิมพ์ที่เลือก</Link>
-            </Button>
+            <>
+              <Button variant="outline" className="h-10" disabled={downloading !== null} onClick={downloadSelected}>
+                {downloading !== null ? <Loader2 className="animate-spin" /> : <Download />}
+                {downloading !== null ? `กำลังดาวน์โหลด ${downloading}/${selected.size}` : "ดาวน์โหลด PNG ทั้งหมดที่เลือก"}
+              </Button>
+              <Button variant="outline" className="h-10" asChild>
+                <Link href={printHref([...selected])} target="_blank"><Printer /> พิมพ์ที่เลือก</Link>
+              </Button>
+            </>
           )}
           <Button className="h-10" onClick={() => setSheet("new")}><Plus /> สร้าง QR Code</Button>
         </div>
@@ -63,7 +83,7 @@ export function QrView({ rows, tree }: { rows: QrRow[]; tree: HNode[] }) {
       {rows.length === 0 ? (
         <EmptyState icon={QrCode} title="ไม่พบ QR Code" description="ลองล้างตัวกรอง หรือสร้าง QR ให้เครื่องจักร/จุดตรวจวัด" />
       ) : (
-        <div className="overflow-x-auto rounded-xl border bg-card">
+        <div className="overflow-x-auto rounded-[10px] border bg-card">
           <Table>
             <TableHeader>
               <TableRow>
@@ -87,12 +107,12 @@ export function QrView({ rows, tree }: { rows: QrRow[]; tree: HNode[] }) {
                   <TableCell>
                     <button type="button" className="flex items-center gap-3 text-left" onClick={() => setPreview(q)}>
                       <QrImage token={q.token} size={40} alt="" className="rounded border" />
-                      <span className="font-mono text-sm font-medium">{q.qrCode}</span>
+                      <Nameplate className="text-xs">{q.qrCode}</Nameplate>
                     </button>
                   </TableCell>
                   <TableCell>
                     <p>{q.targetName}</p>
-                    <p className="text-xs text-muted-foreground">{q.targetType === "MACHINE" ? "เครื่องจักร" : "จุดตรวจวัด"} · <span className="font-mono">{q.targetCode}</span></p>
+                    <p className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground"><Nameplate>{q.targetCode}</Nameplate>{q.targetType === "MACHINE" ? "เครื่องจักร" : "จุดตรวจวัด"}</p>
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">{q.building} › {q.department} › {q.line}</TableCell>
                   <TableCell><Status map={QR_STATUS} value={q.status} /></TableCell>
@@ -101,7 +121,7 @@ export function QrView({ rows, tree }: { rows: QrRow[]; tree: HNode[] }) {
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild><Button variant="ghost" size="icon-sm" aria-label={`จัดการ ${q.qrCode}`}><MoreHorizontal /></Button></DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onSelect={() => setPreview(q)}><Eye /> ดู / ดาวน์โหลด</DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => setPreview(q)}><Eye /> ดูและดาวน์โหลด</DropdownMenuItem>
                         {q.status !== "REVOKED" && (
                           <>
                             <DropdownMenuItem asChild><Link href={printHref([q.id])} target="_blank"><Printer /> พิมพ์ป้าย</Link></DropdownMenuItem>
@@ -129,8 +149,8 @@ export function QrView({ rows, tree }: { rows: QrRow[]; tree: HNode[] }) {
           {preview && (
             <>
               <DialogHeader>
-                <DialogTitle className="font-mono">{preview.qrCode}</DialogTitle>
-                <DialogDescription>{preview.targetName} · {preview.building} › {preview.department} › {preview.line}</DialogDescription>
+                <DialogTitle className="flex items-center gap-2">{preview.targetName}<Nameplate>{preview.qrCode}</Nameplate></DialogTitle>
+                <DialogDescription>{preview.building} › {preview.department} › {preview.line}</DialogDescription>
               </DialogHeader>
               <div className="flex justify-center"><QrImage token={preview.token} size={220} alt={`QR Code ${preview.qrCode}`} className="rounded-lg border" /></div>
               <div className="flex items-center justify-center gap-2"><Status map={QR_STATUS} value={preview.status} /></div>
@@ -139,7 +159,7 @@ export function QrView({ rows, tree }: { rows: QrRow[]; tree: HNode[] }) {
                 <Button variant="outline" size="icon-lg" aria-label="คัดลอกลิงก์" onClick={async () => { await navigator.clipboard.writeText(scanUrl(preview.token)); toast.success("คัดลอกลิงก์แล้ว"); }}><Copy /></Button>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <Button variant="outline" className="h-10" onClick={() => downloadQrPng(preview.token, fileName(preview))}><Download /> PNG</Button>
+                <Button variant="outline" className="h-10" onClick={() => downloadQrPng(preview.token, fileName(preview))}><Download /> ดาวน์โหลด PNG</Button>
                 {preview.status !== "REVOKED" && <Button className="h-10" asChild><Link href={printHref([preview.id])} target="_blank"><Printer /> พิมพ์ป้าย</Link></Button>}
               </div>
             </>
@@ -163,7 +183,7 @@ function CreateSheet({ tree, onClose }: { tree: HNode[]; onClose: () => void }) 
       <Cascade tree={tree} errors={{ ...errors, target: errors.targetId ?? errors.targetType }} idPrefix="q"
         levels={[{ name: "factoryId", label: "โรงงาน" }, { name: "buildingId", label: "อาคาร" }, { name: "departmentId", label: "แผนก" }, { name: "lineId", label: "สายการผลิต" }, { name: "target", label: "เป้าหมาย", required: true }]} />
       <Field id="q-code" label="รหัส QR" error={errors.qrCode} hint="ไม่ซ้ำในบริษัท เช่น QR-RF-01" required>
-        <Input id="q-code" name="qrCode" className="h-10 font-mono" required />
+        <Input id="q-code" name="qrCode" className="h-10" required />
       </Field>
       <Field id="q-status" label="สถานะเริ่มต้น">
         <SelectField id="q-status" name="qrStatus" defaultValue="ACTIVE" options={[{ value: "ACTIVE", label: "ใช้งานอยู่" }, { value: "SUSPENDED", label: "ระงับชั่วคราว" }]} />
@@ -178,7 +198,7 @@ function EditCodeSheet({ qr, onClose }: { qr: QrRow | null; onClose: () => void 
     <FormSheet open={qr !== null} onOpenChange={(o) => !o && onClose()} title="แก้ไขรหัส QR" description="เปลี่ยนเฉพาะรหัสที่แสดงบนป้าย โทเค็นสแกนเดิมยังใช้ได้" pending={pending}
       onSubmit={async (fd) => (await run({ id: qr!.id, qrCode: fd.get("qrCode") })).ok}>
       <Field id="qe-code" label="รหัส QR" error={errors.qrCode} required>
-        <Input id="qe-code" name="qrCode" defaultValue={qr?.qrCode} className="h-10 font-mono" required />
+        <Input id="qe-code" name="qrCode" defaultValue={qr?.qrCode} className="h-10" required />
       </Field>
     </FormSheet>
   );

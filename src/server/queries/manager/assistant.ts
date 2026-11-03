@@ -4,14 +4,14 @@ import type { CurrentUser } from "@/server/auth/current-user";
 import { ownedWhere } from "@/server/scope";
 import { addDays, bkkDay } from "@/lib/time";
 import { anomalyBand, dailyTotals, dayList, pctChange, previousRange, sumByResourceUnit } from "@/server/domain/analytics";
-import { kpiWhere, latestDataDay, loadUsageRows, sortGroups, loadPreviousRows } from "./common";
+import { kpiWhere, defaultEndDay, loadUsageRows, sortGroups, loadPreviousRows } from "./common";
 import { factoryLabel } from "@/server/queries/context";
 
 const r2 = (v: number) => Math.round(v * 100) / 100;
 
 /** Compact, tenant-scoped facts for G-FAY. Only the manager's own factory. */
 export async function assistantContext(user: CurrentUser) {
-  const to = (await latestDataDay(user)) ?? bkkDay(new Date());
+  const to = await defaultEndDay(user);
   const from = addDays(to, -29);
   const prev = previousRange(from, to);
   const [rows, prevRows, alerts, kpis, recs, factory] = await Promise.all([
@@ -49,7 +49,7 @@ export async function assistantContext(user: CurrentUser) {
   }
 
   return {
-    factory,
+    factory: factory.primary,
     period: { from, to, days: 30, previous: prev, timezone: "Asia/Bangkok" },
     records: rows.length,
     resources,
@@ -81,6 +81,23 @@ export async function assistantContext(user: CurrentUser) {
   };
 }
 export type AssistantContext = Awaited<ReturnType<typeof assistantContext>>;
+
+/** Follow-up questions built from the facts (same input → same questions), most specific first. */
+export function followUps(ctx: AssistantContext): string[] {
+  const out: string[] = [];
+  const alert = ctx.openAlerts[0];
+  if (alert) out.push(`การแจ้งเตือน "${alert.title}" ควรตรวจอะไรต่อ?`);
+  const moved = ctx.resources.filter((r) => r.changePct !== null).sort((a, b) => Math.abs(b.changePct!) - Math.abs(a.changePct!))[0];
+  if (moved && Math.abs(moved.changePct!) >= 2) out.push(`${moved.resource} (${moved.unit}) ${moved.changePct! > 0 ? "เพิ่มขึ้น" : "ลดลง"} ${Math.abs(moved.changePct!).toLocaleString("th-TH", { maximumFractionDigits: 1 })}% มาจากไหน?`);
+  const top = ctx.electricity.topMachines[0];
+  if (top) out.push(`${top.machine} ใช้ไฟ ${Math.round(top.sharePct)}% ของโรงงาน ลดได้อย่างไร?`);
+  const day = ctx.electricity.anomalyDays[0];
+  if (day) out.push(`วันที่ ${day.day} ไฟฟ้าผิดปกติหรือไม่?`);
+  const failed = ctx.kpis.find((k) => k.latest?.status === "FAIL");
+  if (failed) out.push(`KPI ${failed.name} ไม่ผ่านเป้า ควรทำอะไร?`);
+  if (ctx.carbon.totalKg > 0) out.push("คาร์บอน 30 วันล่าสุดมาจากแหล่งไหนมากที่สุด?");
+  return out;
+}
 
 export type ChatMessage = { role: "user" | "assistant"; content: string; at: string };
 export type Conversation = { id: string; title: string; updatedAt: string; messages: ChatMessage[] };
@@ -121,7 +138,7 @@ export function fallbackAnswer(ctx: AssistantContext, question: string) {
   } else {
     out.push("**ข้อเท็จจริง** (ยอดรวมแยกตามหน่วย ไม่รวมข้ามหน่วย)", ...ctx.resources.map((r) => `- ${r.resource}: ${n(r.total)} ${r.unit} (${pct(r.changePct)})`));
     out.push(`- คาร์บอน: ${kg(ctx.carbon.totalKg)}`);
-    out.push(`- วันที่ไฟฟ้าผิดปกติ: ${e.anomalyDays.length} วัน · การแจ้งเตือนค้าง: ${ctx.openAlerts.length} รายการ`);
+    out.push(`- วันที่ไฟฟ้าผิดปกติ: ${e.anomalyDays.length} วัน`, `- การแจ้งเตือนค้าง: ${ctx.openAlerts.length} รายการ`);
     if (e.topMachines[0]) out.push(`- ใช้ไฟมากที่สุด: ${e.topMachines[0].machine} (${n(e.topMachines[0].sharePct)}%)`);
   }
   out.push("", "หมายเหตุ: ยังไม่ได้เปิดใช้ AI (ต้องมี ANTHROPIC_API_KEY และผู้ดูแลแพลตฟอร์มเปิด AI Recommendations) คำตอบนี้สร้างจากข้อมูลในระบบโดยตรง");

@@ -5,7 +5,7 @@ export default async function ResetPasswordPage({ searchParams }: PageProps<"/re
   const { token } = await searchParams;
   return (
     <>
-      <h1 className="text-2xl font-semibold tracking-tight">ตั้งรหัสผ่านใหม่</h1>
+      <h1 className="font-display text-2xl font-semibold tracking-tight">ตั้งรหัสผ่านใหม่</h1>
       <p className="mt-1 mb-8 text-sm text-muted-foreground">อย่างน้อย 8 ตัวอักษร มีทั้งตัวอักษรและตัวเลข</p>
       {typeof token === "string" && token ? (
         <ResetForm token={token} />

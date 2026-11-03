@@ -19,12 +19,25 @@ export async function latestDataDay(user: CurrentUser) {
   return u ? bkkDay(u.usageAt) : null;
 }
 
-/** ?from&to (YYYY-MM-DD, Bangkok). Default: `defaultDays` ending at the latest day with data. Max 366 days. */
+/**
+ * Default end day: the latest day with data, but not today while today is still running
+ * (a half-recorded day reads as a fake drop and an anomaly) unless today is the only day there is.
+ */
+export async function defaultEndDay(user: CurrentUser) {
+  const today = bkkDay(new Date());
+  const last = await latestDataDay(user);
+  if (!last) return today;
+  if (last < today) return last;
+  const first = await firstDataDay(user);
+  return first && first < today ? addDays(today, -1) : today;
+}
+
+/** ?from&to (YYYY-MM-DD, Bangkok). Default: `defaultDays` ending at the latest complete day with data. Max 366 days. */
 export async function resolveRange(user: CurrentUser, sp: SP, defaultDays = 7): Promise<Range> {
   let from = str(sp.from), to = str(sp.to);
   const valid = isDay(from) && isDay(to) && from! <= to!;
   if (!valid) {
-    to = isDay(to) ? to! : (await latestDataDay(user)) ?? bkkDay(new Date());
+    to = isDay(to) ? to! : await defaultEndDay(user);
     from = isDay(from) && from! <= to ? from! : addDays(to, -(defaultDays - 1));
   }
   if (daysBetween(from!, to!) > 366) from = addDays(to!, -365);
@@ -137,6 +150,21 @@ export const kpiWhere = (user: CurrentUser) => {
   };
 };
 
+type KpiScope = { companyId: number; unitId: number; resourceTypeId: number | null; factoryId: number | null; buildingId: number | null; departmentId: number | null; lineId: number | null; machineId: number | null };
+/** ACTIVE usages that count toward a KPI: its resource + unit inside its own scope node, from..to (Bangkok days). */
+export const kpiUsageWhere = (k: KpiScope, from: string, to: string) => ({
+  companyId: k.companyId,
+  status: "ACTIVE",
+  unitId: k.unitId,
+  ...(k.resourceTypeId ? { resourceTypeId: k.resourceTypeId } : {}),
+  ...(k.factoryId ? { factoryId: k.factoryId } : {}),
+  ...(k.buildingId ? { buildingId: k.buildingId } : {}),
+  ...(k.departmentId ? { departmentId: k.departmentId } : {}),
+  ...(k.lineId ? { lineId: k.lineId } : {}),
+  ...(k.machineId ? { machineId: k.machineId } : {}),
+  usageAt: dayRange(from, to),
+});
+
 /** Structure options shaped for <StructureFilters>. */
 export async function structureFilterOptions(user: CurrentUser) {
   const s = await structureOptions(user);
@@ -144,7 +172,7 @@ export async function structureFilterOptions(user: CurrentUser) {
     buildings: s.buildings.map((b) => ({ value: String(b.buildingId), label: b.buildingName })),
     departments: s.departments.map((d) => ({ value: String(d.departmentId), label: d.departmentName, parent: String(d.buildingId) })),
     lines: s.lines.map((l) => ({ value: String(l.lineId), label: l.lineName, parent: String(l.departmentId) })),
-    machines: s.machines.map((m) => ({ value: String(m.machineId), label: `${m.machineCode} · ${m.machineName}`, parent: String(m.lineId) })),
+    machines: s.machines.map((m) => ({ value: String(m.machineId), label: `${m.machineName} (${m.machineCode})`, parent: String(m.lineId) })),
   };
 }
 

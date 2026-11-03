@@ -15,5 +15,5 @@ export const DEMO = {
   companyAdmin: "admin@voltera.example",
   manager: "manager@voltera.example",
   operator: "operator@voltera.example",
-  otherCompanyAdmin: "admin@siampack.example",
+  otherCompanyAdmin: "admin@siamfood.example",
 };

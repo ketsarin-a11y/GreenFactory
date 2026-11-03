@@ -1,6 +1,9 @@
-import { Gauge } from "lucide-react";
+import { CheckCircle2, Gauge as GaugeIcon, XCircle } from "lucide-react";
 import { PageHeader } from "@/components/app/page-header";
-import { StatTile } from "@/components/data/stat-tile";
+import { Gauge } from "@/components/data/meter";
+import { Nameplate } from "@/components/data/nameplate";
+import { Meta, Panel } from "@/components/manager/panel";
+import { factoryLabel } from "@/server/queries/context";
 import { EmptyState } from "@/components/data/empty-state";
 import { StatusBadge } from "@/components/data/status-badge";
 import { UrlFilters } from "@/components/data/url-filters";
@@ -18,65 +21,80 @@ import { RecalcButton } from "./_components/recalc-button";
 const OP: Record<string, string> = { "<=": "≤", LTE: "≤", ">=": "≥", GTE: "≥", "<": "<", LT: "<", ">": ">", GT: ">", "=": "=", EQ: "=" };
 const PERIOD: Record<string, string> = { DAILY: "รายวัน", WEEKLY: "รายสัปดาห์", MONTHLY: "รายเดือน", QUARTERLY: "รายไตรมาส", YEARLY: "รายปี" };
 const period = (s: string, e: string) => (s === e ? fmtDayLong(s) : `${fmtDayLong(s)} – ${fmtDayLong(e)}`);
-const Result = ({ status }: { status: string }) => <StatusBadge tone={status === "PASS" ? "good" : "critical"}>{status === "PASS" ? "ผ่านเป้า" : "ไม่ผ่านเป้า"}</StatusBadge>;
+const Result = ({ status }: { status: string }) => (
+  <StatusBadge tone={status === "PASS" ? "good" : "critical"} icon={status === "PASS" ? CheckCircle2 : XCircle}>{status === "PASS" ? "ผ่านเป้า" : "ไม่ผ่านเป้า"}</StatusBadge>
+);
 
 export default async function Page({ searchParams }: PageProps<"/manager/kpi">) {
   const user = await requireTenantUser("MANAGER");
   const sp = await searchParams;
   const range = await resolveRange(user, sp, 90);
   const page = pageParam(sp.page);
-  const d = await getKpis(user, range, { kpiId: intParam(sp.kpi), status: typeof sp.status === "string" ? sp.status : undefined, page });
+  const [d, factory] = await Promise.all([getKpis(user, range, { kpiId: intParam(sp.kpi), status: typeof sp.status === "string" ? sp.status : undefined, page }), factoryLabel(user)]);
 
   return (
     <>
       <PageHeader
         title="KPI"
-        description={<>ผลเทียบเป้าหมายการใช้ทรัพยากร · {fmtRange(range.from, range.to)}</>}
+        description={<Meta factory={factory.primary}><span>ผลเทียบเป้าหมายการใช้ทรัพยากร</span><span>{fmtRange(range.from, range.to)}</span></Meta>}
         actions={<><RangePicker from={range.from} to={range.to} presets={[30, 90, 180]} /><RecalcButton from={range.from} to={range.to} /></>}
       />
       {d.kpis.length === 0 ? (
-        <EmptyState icon={Gauge} title="ยังไม่มี KPI ของโรงงานนี้" description="ให้ผู้ดูแลระบบของบริษัทกำหนด KPI และเป้าหมายก่อน แล้วกดคำนวณผล KPI ใหม่" />
+        <EmptyState icon={GaugeIcon} title="ยังไม่มี KPI ของโรงงานนี้" description="ให้ผู้ดูแลระบบของบริษัทกำหนด KPI และเป้าหมายก่อน แล้วกดคำนวณผล KPI ใหม่" />
       ) : (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <StatTile label="ผลทั้งหมดในช่วงนี้" value={fmtNum(d.summary.total)} unit="งวด" goodWhen="neutral" />
-            <StatTile label="ผ่านเป้า" value={fmtNum(d.summary.pass)} unit="งวด" />
-            <StatTile label="ไม่ผ่านเป้า" value={fmtNum(d.summary.fail)} unit="งวด" />
-            <StatTile label="อัตราผ่านเป้า" value={d.summary.passRate === null ? "—" : fmtNum(d.summary.passRate, 1)} unit="%" />
-          </div>
-
-          <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {d.kpis.map((k) => (
-              <section key={k.id} className="rounded-xl border bg-card p-5">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <h2 className="font-semibold">{k.name}</h2>
-                    <p className="mt-0.5 text-xs text-muted-foreground"><span className="font-mono">{k.code}</span> · {k.resource} · {PERIOD[k.periodType] ?? k.periodType}</p>
-                  </div>
-                  {k.latest && <Result status={k.latest.status} />}
-                </div>
-                {k.latest ? (
-                  <>
-                    <p className="mt-4 flex items-baseline gap-1.5">
-                      <span className="tabular text-2xl font-semibold">{fmtNum(k.latest.actual)}</span>
-                      <span className="text-sm text-muted-foreground">{k.unit} · เป้า {OP[k.operator] ?? k.operator} {fmtNum(k.target)}</span>
-                    </p>
-                    <div className="mt-3">
-                      <div className="mb-1 flex justify-between text-xs text-muted-foreground"><span>ความสำเร็จ</span><span className="tabular font-medium text-foreground">{fmtNum(k.latest.achievement, 1)}%</span></div>
-                      <div className="h-2 rounded-full bg-muted" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={k.latest.achievement} aria-label={`ความสำเร็จ ${k.name}`}>
-                        <div className={cn("h-2 rounded-full", k.latest.status === "PASS" ? "bg-status-good" : "bg-status-critical")} style={{ width: `${Math.min(100, Math.max(2, k.latest.achievement))}%` }} />
+          <Panel
+            title="ผลงวดล่าสุดที่ปิดแล้ว"
+            description="ความสำเร็จเทียบเป้า และผล 12 งวดล่าสุดของแต่ละ KPI"
+            actions={
+              <dl className="flex gap-5 text-sm">
+                <div><dt className="text-xs text-muted-foreground">ผ่านเป้า</dt><dd className="font-display text-lg font-semibold tabular">{fmtNum(d.summary.pass)}</dd></div>
+                <div><dt className="text-xs text-muted-foreground">ไม่ผ่านเป้า</dt><dd className="font-display text-lg font-semibold tabular">{fmtNum(d.summary.fail)}</dd></div>
+                <div><dt className="text-xs text-muted-foreground">อัตราผ่าน</dt><dd className="font-display text-lg font-semibold tabular">{d.summary.passRate === null ? "—" : `${fmtNum(d.summary.passRate, 1)}%`}</dd></div>
+              </dl>
+            }
+          >
+            <ul className="grid gap-x-8 gap-y-8 sm:grid-cols-2 xl:grid-cols-3">
+              {d.kpis.map((k) => (
+                <li key={k.id} className="flex flex-col items-center text-center">
+                  {k.latest ? (
+                    <Gauge percent={k.latest.achievement} label="ความสำเร็จ" tone={k.latest.status === "PASS" ? "primary" : "critical"} size={160} />
+                  ) : (
+                    <div className="flex h-[110px] items-center text-sm text-muted-foreground">ยังไม่มีผล</div>
+                  )}
+                  <h3 className="mt-3 font-semibold">{k.name}</h3>
+                  <p className="mt-1 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                    <Nameplate>{k.code}</Nameplate><span>{k.resource}</span><span>{PERIOD[k.periodType] ?? k.periodType}</span>
+                  </p>
+                  {k.latest ? (
+                    <>
+                      <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+                        <Result status={k.latest.status} />
+                        <span className="text-sm tabular"><span className="font-medium">{fmtNum(k.latest.actual)}</span> <span className="text-muted-foreground">/ เป้า {OP[k.operator] ?? k.operator} {fmtNum(k.target)} {k.unit}</span></span>
                       </div>
-                    </div>
-                    <p className="mt-3 text-xs text-muted-foreground">งวดล่าสุด {period(k.latest.start, k.latest.end)}</p>
-                  </>
-                ) : (
-                  <p className="mt-4 text-sm text-muted-foreground">ยังไม่มีผลในงวดที่ปิดแล้ว กดคำนวณผล KPI ใหม่</p>
-                )}
-              </section>
-            ))}
-          </div>
+                      <p className="mt-1 text-xs text-muted-foreground">งวด {period(k.latest.start, k.latest.end)}</p>
+                      <div className="mt-4 w-full max-w-60">
+                        <ol className="flex gap-1" aria-label={`ผล ${k.history.length} งวดล่าสุด`}>
+                          {k.history.map((h) => (
+                            <li key={h.start} title={`${period(h.start, h.end)}: ${fmtNum(h.actual)} ${k.unit} ${h.status === "PASS" ? "ผ่านเป้า" : "ไม่ผ่านเป้า"}`}
+                              className={cn("h-4 flex-1 rounded-[3px]", h.status === "PASS" ? "bg-primary" : "bg-status-critical")}>
+                              <span className="sr-only">{period(h.start, h.end)} {h.status === "PASS" ? "ผ่านเป้า" : "ไม่ผ่านเป้า"}</span>
+                            </li>
+                          ))}
+                          {Array.from({ length: 12 - k.history.length }, (_, i) => <li key={`e${i}`} aria-hidden className="h-4 flex-1 rounded-[3px] bg-muted" />)}
+                        </ol>
+                        <p className="mt-1.5 flex justify-between text-xs text-muted-foreground"><span>เก่า</span><span>{k.history.filter((h) => h.status === "PASS").length} จาก {k.history.length} งวดผ่านเป้า</span><span>ล่าสุด</span></p>
+                      </div>
+                    </>
+                  ) : (
+                    <p className="mt-3 text-sm text-muted-foreground">ยังไม่มีผลในงวดที่ปิดแล้ว กดคำนวณผล KPI ใหม่</p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </Panel>
 
-          <section className="mt-6 rounded-xl border bg-card p-5">
+          <section className="mt-6 rounded-[10px] border bg-card p-5">
             <h2 className="mb-4 font-semibold">ผลรายงวด</h2>
             <UrlFilters fields={[
               { type: "select", name: "kpi", label: "KPI", options: d.kpis.map((k) => ({ value: String(k.id), label: k.name })) },

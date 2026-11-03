@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { CheckCircle2, Cpu, QrCode, Radio, Wrench } from "lucide-react";
+import { Cpu } from "lucide-react";
 import { PageHeader } from "@/components/app/page-header";
-import { StatTile } from "@/components/data/stat-tile";
+import { SummaryStrip } from "@/components/company/summary-strip";
 import { EmptyState } from "@/components/data/empty-state";
 import { Pagination, pageParam } from "@/components/data/pagination";
 import { UrlFilters } from "@/components/data/url-filters";
@@ -29,15 +29,17 @@ export default async function Page({ searchParams }: PageProps<"/company/machine
   return (
     <>
       <PageHeader title="เครื่องจักร" description="ทะเบียนเครื่องจักร ตำแหน่งติดตั้ง และความพร้อมของข้อมูล" />
-      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-5">
-        <StatTile label="เครื่องทั้งหมด" value={fmtNum(s.total)} icon={Cpu} />
-        <StatTile label="เปิดใช้งาน" value={fmtNum(s.active)} icon={CheckCircle2} />
-        <StatTile label="บำรุงรักษา" value={fmtNum(s.maintenance)} icon={Wrench} />
-        <StatTile label="มีเซนเซอร์" value={fmtNum(s.withSensor)} unit={`/ ${fmtNum(s.active)}`} icon={Radio} />
-        <StatTile label="มี QR Code" value={fmtNum(s.withQr)} unit={`/ ${fmtNum(s.active)}`} icon={QrCode} />
-      </div>
+      <SummaryStrip
+        items={[
+          { label: "เครื่องทั้งหมด", value: fmtNum(s.total), unit: "เครื่อง" },
+          { label: "เปิดใช้งาน", value: fmtNum(s.active) },
+          { label: "บำรุงรักษา", value: fmtNum(s.maintenance) },
+          { label: "มีเซนเซอร์", value: fmtNum(s.withSensor), unit: `จาก ${fmtNum(s.active)}` },
+          { label: "มี QR Code", value: fmtNum(s.withQr), unit: `จาก ${fmtNum(s.active)}` },
+        ]}
+      />
       {!hasLine && s.total === 0 ? (
-        <EmptyState icon={Cpu} title="ยังเพิ่มเครื่องจักรไม่ได้" description="ต้องมี โรงงาน → อาคาร → แผนก → สายการผลิต ก่อน"
+        <EmptyState icon={Cpu} title="ยังเพิ่มเครื่องจักรไม่ได้" description="สร้างอาคาร แผนก และสายการผลิตในโรงงานก่อน แล้วจึงเพิ่มเครื่องจักรลงในสายการผลิต"
           action={<Link className="text-sm font-medium text-primary underline-offset-4 hover:underline" href="/company/structure">ไปที่โครงสร้างโรงงาน</Link>} />
       ) : (
         <>
