@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: greenfactory
+          MYSQL_USER: greenfactory
+          MYSQL_PASSWORD: greenfactory
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -uroot -proot"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    env:
+      DATABASE_URL: mysql://greenfactory:greenfactory@127.0.0.1:3306/greenfactory
+      SESSION_SECRET: ci-only-secret-ci-only-secret-ci-only-secret
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      PLATFORM_ACCESS_CODE: CI
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Allow the test user to create the throwaway test database
+        run: mysql -h 127.0.0.1 -uroot -proot -e "GRANT ALL ON *.* TO 'greenfactory'@'%'; FLUSH PRIVILEGES;"
+      - run: npm ci
+      - run: npx next typegen
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npm run test:integration
+      - run: npm run build
