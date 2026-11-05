@@ -109,14 +109,14 @@ export default function HomePage() {
       </Section>
 
       <section aria-labelledby="heatmap-title" className="overflow-hidden border-y bg-card py-16 sm:py-24">
-        <div className="mx-auto grid max-w-6xl gap-10 px-4 sm:px-6 lg:grid-cols-[340px_1fr] lg:items-center lg:gap-14">
-          <div>
+        <div className="mx-auto max-w-6xl px-4 sm:px-6">
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,560px)_auto] lg:items-end lg:justify-between lg:gap-14">
             <SectionHeading id="heatmap-title" title="เห็นทุกเครื่อง ทุกวัน" body="แต่ละแถวคือเครื่องจักร แต่ละช่องคือหนึ่งวัน สีเข้มคือใช้ไฟมาก วันที่เครื่องหยุดหรือมิเตอร์ไม่ได้บันทึกเห็นได้ทันที โดยไม่ต้องไล่อ่านตาราง" />
-            <Points className="mt-6" items={["เรียงจากเครื่องที่ใช้มากที่สุด", "กดที่วันเพื่อดูค่าที่บันทึกจริงของวันนั้น", "ช่องลายเฉียงคือวันที่ไม่มีข้อมูล"]} />
+            <Points items={["เรียงจากเครื่องที่ใช้มากที่สุด", "กดที่วันเพื่อดูค่าที่บันทึกจริงของวันนั้น", "ช่องลายเฉียงคือวันที่ไม่มีข้อมูล"]} />
           </div>
           {/* On phones the matrix would be unreadable at screen width, so it scrolls sideways instead. */}
-          <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0 lg:-mr-48 lg:overflow-visible" tabIndex={0} aria-label="ภาพตารางสีการใช้ไฟฟ้า เลื่อนดูด้านข้างได้">
-            <Shot name="heatmap" sizes="(min-width: 1024px) 1000px, (min-width: 640px) 100vw, 760px" className="w-[760px] sm:w-auto" />
+          <div className="-mx-4 mt-10 overflow-x-auto px-4 sm:mx-0 sm:px-0" tabIndex={0} aria-label="ภาพตารางสีการใช้ไฟฟ้า เลื่อนดูด้านข้างได้">
+            <Shot name="heatmap" sizes="(min-width: 1152px) 1104px, (min-width: 640px) 100vw, 760px" className="w-[760px] sm:w-auto" />
           </div>
         </div>
       </section>

@@ -34,7 +34,8 @@ export function Points({ items, className }: { items: readonly string[]; classNa
 }
 
 /** Same request the company sensors page shows after issuing a token (token and host are placeholders). */
-export const INGEST_CURL = `curl -X POST https://<โดเมนของคุณ>/api/ingest/readings \\
+export const INGEST_CURL = `curl -X POST \\
+  https://<โดเมนของคุณ>/api/ingest/readings \\
   -H "Authorization: Bearer <token ของเซนเซอร์>" \\
   -H "Content-Type: application/json" \\
   -d '{"value": 42.1, "unit": "KW"}'`;

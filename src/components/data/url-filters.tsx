@@ -5,6 +5,7 @@ import { useEffect, useState, useTransition } from "react";
 import { Loader2, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateField } from "@/components/ui/date-field";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export type FilterField =
@@ -62,7 +63,7 @@ export function UrlFilters({ fields }: { fields: FilterField[] }) {
         ) : (
           <label key={f.name} className="flex flex-col gap-1 text-xs text-muted-foreground">
             {f.label}
-            <Input type="date" className="h-9 w-[150px]" value={sp.get(f.name) ?? ""} onChange={(e) => set(f.name, e.target.value || null)} />
+            <DateField className="w-[150px]" aria-label={f.label} value={sp.get(f.name) ?? ""} onChange={(d) => set(f.name, d)} />
           </label>
         ),
       )}

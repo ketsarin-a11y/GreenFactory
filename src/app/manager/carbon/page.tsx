@@ -78,7 +78,7 @@ export default async function Page({ searchParams }: PageProps<"/manager/carbon"
               <TableHeader>
                 <TableRow>
                   <TableHead>ทรัพยากร</TableHead><TableHead className="text-right">ปริมาณที่ใช้</TableHead><TableHead className="text-right">Factor</TableHead>
-                  <TableHead className="text-right">คาร์บอน</TableHead><TableHead>Scope</TableHead><TableHead>แหล่งที่มาของ Factor</TableHead>
+                  <TableHead className="text-right">คาร์บอน</TableHead><TableHead>แหล่งที่มาของ Factor</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -89,9 +89,8 @@ export default async function Page({ searchParams }: PageProps<"/manager/carbon"
                       <TableCell><span className="flex items-center gap-2 whitespace-nowrap"><Icon className="size-4" style={{ color: resourceColor(r.resourceCode) }} aria-hidden />{r.resourceName}</span><span className="text-xs text-muted-foreground">{fmtNum(r.count)} รายการ</span></TableCell>
                       <TableCell className="text-right whitespace-nowrap tabular">{fmtNum(r.activity)} <span className="text-muted-foreground">{r.unit}</span></TableCell>
                       <TableCell className="text-right whitespace-nowrap tabular">{r.factor === null ? "หลายค่า" : fmtNum(r.factor, 4)}<p className="text-xs text-muted-foreground">{r.factorUnit}</p></TableCell>
-                      <TableCell className="text-right whitespace-nowrap font-medium tabular">{c(r.kg)}</TableCell>
-                      <TableCell className="whitespace-nowrap">{r.scope}</TableCell>
-                      <TableCell className="min-w-48 text-sm whitespace-normal text-muted-foreground">{r.source}</TableCell>
+                      <TableCell className="text-right whitespace-nowrap tabular"><span className="font-medium">{c(r.kg)}</span><p className="text-xs text-muted-foreground">{r.scope}</p></TableCell>
+                      <TableCell className="min-w-44 text-xs leading-relaxed whitespace-normal text-muted-foreground">{r.source}</TableCell>
                     </TableRow>
                   );
                 })}
@@ -100,7 +99,7 @@ export default async function Page({ searchParams }: PageProps<"/manager/carbon"
           </div>
         </Panel>
         <Panel title="จุดปล่อยสูงสุด" description="ตามเครื่องจักรและจุดตรวจ">
-          <BarList items={d.hotspots.slice(0, 6).map((h) => ({ label: h.name, value: h.kg, color: "var(--chart-6)" }))} unit="kgCO₂e" />
+          <BarList items={d.hotspots.slice(0, 6).map((h) => ({ label: h.name, value: h.kg, color: "var(--primary)" }))} unit="kgCO₂e" />
         </Panel>
       </div>
 

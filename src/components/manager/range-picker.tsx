@@ -3,7 +3,7 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTransition } from "react";
 import { Loader2 } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { DateRangeField } from "@/components/ui/date-field";
 import { cn } from "@/lib/utils";
 
 const addDays = (day: string, n: number) => {
@@ -36,9 +36,7 @@ export function RangePicker({ from, to, presets = [7, 30, 90] }: { from: string;
           </button>
         ))}
       </div>
-      <Input type="date" aria-label="ตั้งแต่วันที่" className="h-9 w-[150px]" value={from} max={to} onChange={(e) => e.target.value && go(e.target.value, to)} />
-      <span className="text-sm text-muted-foreground">ถึง</span>
-      <Input type="date" aria-label="ถึงวันที่" className="h-9 w-[150px]" value={to} min={from} onChange={(e) => e.target.value && go(from, e.target.value)} />
+      <DateRangeField from={from} to={to} onChange={go} />
       {pending && <Loader2 className="size-4 animate-spin text-muted-foreground" aria-label="กำลังโหลด" />}
     </div>
   );
