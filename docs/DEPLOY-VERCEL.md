@@ -30,6 +30,7 @@ DATABASE_URL="mysql://...?...ssl=true" DATABASE_CA_CERT="$(cat ca.pem)" npm run 
 | `ANTHROPIC_API_KEY` | (ไม่บังคับ) สำหรับผู้ช่วย G-FAY |
 
 4. Deploy แล้วแก้ `NEXT_PUBLIC_APP_URL` ให้ตรงกับโดเมนจริง แล้ว Redeploy (ค่านี้ใช้ในลิงก์ของ QR Code)
+5. หลังจากนี้ push เข้า `main` ของ `Teera235/greenfactory-insight` แล้ว Vercel deploy ขึ้น production ให้เอง branch อื่นได้ลิงก์ preview
 
 ## 3. เซนเซอร์เดโมให้ "ออนไลน์"
 มีสองทาง เลือกทางใดทางหนึ่งหรือใช้ทั้งคู่
