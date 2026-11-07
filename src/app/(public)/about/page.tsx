@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import { CtaBand, PageIntro, Section, SectionHeading } from "@/components/marketing/section";
 import { PhoneShot } from "@/components/marketing/shot";
 
@@ -85,6 +86,22 @@ export default function AboutPage() {
           ))}
         </div>
         <p className="mt-10 text-sm text-muted-foreground">โครงการพัฒนาที่มหาวิทยาลัยเทคโนโลยีสุรนารี จังหวัดนครราชสีมา</p>
+      </Section>
+
+      <Section tone="surface">
+        <div className="grid items-center gap-10 md:grid-cols-[minmax(0,420px)_1fr] lg:gap-16">
+          <div className="relative flex h-[340px] items-end justify-center overflow-hidden rounded-[14px] bg-control-room sm:h-[400px]">
+            <Image src="/images/team/founder.webp" alt="เบบี้มาย ผู้ก่อตั้ง GreenFactory Insight" width={900} height={870} sizes="(min-width: 768px) 420px, 100vw" className="h-[92%] w-auto object-contain object-bottom" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-primary">ผู้ก่อตั้ง</p>
+            <h2 className="mt-1 font-display text-3xl font-semibold tracking-tight">เบบี้มาย</h2>
+            <div className="mt-5 max-w-xl space-y-4 leading-relaxed text-muted-foreground">
+              <p>เบบี้มายเริ่ม GreenFactory Insight จากคำถามง่าย ๆ ว่า ทำไมค่ามิเตอร์ที่โรงงานจดทุกวัน ถึงต้องรอจนสิ้นเดือนกว่าจะรู้ว่าใช้ไฟไปเท่าไหร่ และปล่อยคาร์บอนไปเท่าไหร่</p>
+              <p>คำตอบที่อยากได้คือระบบที่คนหน้างานใช้ได้จากมือถือในไม่กี่วินาที แล้วผู้จัดการเห็นตัวเลขชุดเดียวกันทันที ไม่ต้องพิมพ์ซ้ำ ไม่ต้องเดาว่าตัวเลขมาจากไหน</p>
+            </div>
+          </div>
+        </div>
       </Section>
 
       <CtaBand title="เปลี่ยนค่ามิเตอร์ของโรงงาน ให้พร้อมสำหรับการตัดสินใจ" />
