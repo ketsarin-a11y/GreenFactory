@@ -1,6 +1,6 @@
 generator client {
   provider = "prisma-client"
-  output   = "../generated/prisma"
+  output   = "../src/generated/prisma"
 }
 
 datasource db {
@@ -17,32 +17,6 @@ enum UserStatus {
   ACTIVE
   INACTIVE
   LOCKED
-}
-
-/**
- * |--------------------------------------------------------------------------
- * | LEGACY ENUMS
- * |--------------------------------------------------------------------------
- * | ใช้กับ Equipment / ResourceRecord เดิมชั่วคราว
- * | จะถูก migrate ไป Reference Data + Resource Usage ภายหลัง
- * |--------------------------------------------------------------------------
- */
-
-enum ResourceType {
-  ELECTRICITY
-  WATER
-  DI_WATER
-  CHILLED_WATER
-  COMPRESSED_AIR
-  NITROGEN
-  GAS
-  STEAM
-  DIESEL
-}
-
-enum RecordStatus {
-  PENDING
-  RECORDED
 }
 
 /**
@@ -96,9 +70,6 @@ model Company {
   alerts            Alert[]
   aiRecommendations AIRecommendation[]
   reports           Report[]
-
-  // Legacy
-  equipment Equipment[]
 
   @@index([status])
   @@index([companyName])
@@ -345,14 +316,11 @@ model User {
   // คงชื่อ property เดิมไว้ แต่ map ให้ตรง ERD
   lastLogin DateTime? @map("last_login_at")
 
+  // bumped on suspend / password change so existing JWTs stop working
+  sessionVersion Int @default(0) @map("session_version")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
-
-  /**
-   * Legacy organization fields — เก็บไว้ชั่วคราวจนหน้าเดิม migrate เสร็จ
-   */
-  department     String? @db.VarChar(191)
-  productionLine String? @map("production_line") @db.VarChar(191)
 
   company       Company?    @relation(fields: [companyId], references: [companyId], onDelete: SetNull, onUpdate: Cascade)
   factory       Factory?    @relation(fields: [factoryId], references: [factoryId], onDelete: SetNull, onUpdate: Cascade)
@@ -363,7 +331,6 @@ model User {
   auditLogs               AuditLog[]
   notifications           Notification[]
   qrScanLogs              QRScanLog[]
-  resourceRecords         ResourceRecord[]
   recordedResourceUsages  ResourceUsage[]
   resolvedAlerts          Alert[]            @relation("AlertResolvedBy")
   reviewedRecommendations AIRecommendation[] @relation("RecommendationReviewedBy")
@@ -857,6 +824,8 @@ model Sensor {
   samplingIntervalSeconds Int? @map("sampling_interval_seconds")
 
   lastConnectedAt     DateTime? @map("last_connected_at")
+  // sha256 of the device token used by POST /api/ingest; the plain token is shown once.
+  ingestTokenHash     String?   @unique @map("ingest_token_hash") @db.VarChar(64)
   installationDate    DateTime? @map("installation_date") @db.Date
   lastCalibrationDate DateTime? @map("last_calibration_date") @db.Date
   nextCalibrationDate DateTime? @map("next_calibration_date") @db.Date
@@ -906,78 +875,10 @@ model SensorData {
   @@map("sensor_data")
 }
 
-/**
- * |--------------------------------------------------------------------------
- * | LEGACY — CURRENT OPERATIONAL TABLES
- * |--------------------------------------------------------------------------
- * |
- * | ห้ามลบตอนนี้
- * |
- * | Equipment
- * |   → จะ migrate ไป Machine
- * |
- * | ResourceRecord
- * |   → จะ migrate ไป ResourceUsage
- * |
- * |--------------------------------------------------------------------------
- */
-
-model Equipment {
-  equipmentId Int @id @default(autoincrement()) @map("equipment_id")
-  companyId   Int @map("company_id")
-
-  name     String @db.VarChar(191)
-  location String @db.VarChar(191)
-
-  resourceType ResourceType @map("resource_type")
-  isActive     Boolean      @default(true) @map("is_active")
-
-  equipmentCode String? @unique @map("equipment_code") @db.VarChar(191)
-  equipmentType String? @map("equipment_type") @db.VarChar(191)
-
-  productionLine String? @map("production_line") @db.VarChar(191)
-  department     String? @map("department") @db.VarChar(191)
-
-  status String @default("NORMAL") @map("status") @db.VarChar(191)
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  company Company @relation(fields: [companyId], references: [companyId], onDelete: Restrict, onUpdate: Cascade)
-
-  records ResourceRecord[]
-
-  @@index([companyId])
-  @@map("equipment")
-}
-
-model ResourceRecord {
-  recordId Int @id @default(autoincrement()) @map("record_id")
-
-  equipmentId  Int @map("equipment_id")
-  recordedById Int @map("recorded_by_id")
-
-  value Float
-
-  unit          String  @db.VarChar(191)
-  note          String? @map("note") @db.Text
-  attachmentUrl String? @map("attachment_url") @db.VarChar(191)
-
-  status     RecordStatus @default(RECORDED)
-  recordedAt DateTime     @default(now()) @map("recorded_at")
-
-  equipment  Equipment @relation(fields: [equipmentId], references: [equipmentId], onDelete: Restrict, onUpdate: Cascade)
-  recordedBy User      @relation(fields: [recordedById], references: [userId], onDelete: Restrict, onUpdate: Cascade)
-
-  @@index([recordedById, recordedAt])
-  @@index([equipmentId, recordedAt])
-  @@map("resource_record")
-}
-
 model CarbonResult {
   carbonId BigInt @id @default(autoincrement()) @map("carbon_id")
 
-  usageId  BigInt @map("usage_id")
+  usageId  BigInt @unique @map("usage_id")
   factorId Int    @map("factor_id")
 
   quantityUsed Decimal @map("quantity_used") @db.Decimal(18, 6)

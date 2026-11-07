@@ -1,47 +1,73 @@
-<<<<<<< HEAD
-<<<<<<< HEAD
-# GreenFactory
-Online clothing store system project
-=======
-=======
->>>>>>> 37ded5974e06fe0a84cce4492d54d7a27a12accd
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# GreenFactory Insight
 
-## Getting Started
+แพลตฟอร์มบริหารข้อมูลพลังงาน น้ำ เชื้อเพลิง และคาร์บอนสำหรับโรงงานอุตสาหกรรม
+บันทึกค่ามิเตอร์หน้างานด้วย QR Code → คำนวณคาร์บอนอัตโนมัติ → ตรวจจับการใช้ผิดปกติ → รายงานและผู้ช่วย AI
 
-First, run the development server:
+| บทบาท | ทำอะไร |
+|---|---|
+| ผู้ปฏิบัติงาน (Operator) | สแกน QR ที่เครื่องจักร/จุดตรวจ บันทึกค่า แนบหลักฐาน ดูประวัติของตัวเอง |
+| ผู้จัดการโรงงาน (Manager) | แดชบอร์ด วิเคราะห์แนวโน้ม คาร์บอน KPI แจ้งเตือน รายงาน ผู้ช่วย G-FAY |
+| ผู้ดูแลบริษัท (Company admin) | โรงงาน โครงสร้าง เครื่องจักร เซนเซอร์ QR ผู้ใช้ ข้อมูลบริษัท |
+| ผู้ดูแลแพลตฟอร์ม (Platform admin) | บริษัทลูกค้า ผู้ใช้ทั้งหมด สิทธิ์ ข้อมูลมาตรฐาน Emission Factor log สำรองข้อมูล |
+
+## เริ่มใช้งานบนเครื่อง
+
+ต้องมี Node.js 24 และ Docker
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.example .env            # แล้วตั้ง SESSION_SECRET และ PLATFORM_ACCESS_CODE
+docker compose up -d            # MySQL 8.4 ที่ localhost:3306
+npm install
+npx prisma migrate deploy
+npm run db:seed                 # master data + บริษัทเดโม VOLTERA พร้อมข้อมูลย้อนหลัง 120 วัน
+npm run dev                     # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+บัญชีเดโม (รหัสผ่านจาก `SEED_DEMO_PASSWORD`, ค่าเริ่มต้น `Demo1234`)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| รหัสองค์กร | อีเมล | บทบาท |
+|---|---|---|
+| ค่า `PLATFORM_ACCESS_CODE` | admin@greenfactory.dev | Platform admin |
+| VOLTERA | admin@voltera.example | Company admin |
+| VOLTERA | manager@voltera.example | Manager |
+| VOLTERA | operator@voltera.example | Operator |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+ข้อมูลเดโมทั้งหมดเป็นข้อมูลสมมติ ค่า Emission Factor ที่ seed ไว้เป็น **ค่าตัวอย่าง** ต้องตรวจสอบกับ อบก. (TGO) ก่อนใช้งานจริง
 
-## Learn More
+## คำสั่งที่ใช้บ่อย
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npm run typecheck          # TypeScript
+npm run lint               # ESLint
+npm test                   # unit tests (กฎธุรกิจ, เวลา, สิทธิ์)
+npm run test:integration   # ยิงกับฐานข้อมูลจริง greenfactory_test (สร้างใหม่ทุกครั้ง)
+npm run build
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## โครงสร้าง
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```
+src/app/(public)        เว็บไซต์สาธารณะ
+src/app/(auth)          เข้าสู่ระบบ / ลืมรหัสผ่าน
+src/app/<role>/         หน้าของแต่ละบทบาท (Server Components)
+src/server/auth         session (JWT เก็บแค่ user id + version), login, สิทธิ์
+src/server/scope.ts     ตัวกำหนดขอบเขตข้อมูลตามบริษัท/โรงงาน — ทุก query ต้องใช้
+src/server/actions      Server Actions: ตรวจข้อมูล → ตรวจสิทธิ์ → บันทึก → audit log
+src/server/queries      ฟังก์ชันอ่านข้อมูล
+src/server/domain       กฎธุรกิจล้วน + เทสต์: คาร์บอน, ตรวจจับความผิดปกติ, KPI, พยากรณ์
+prisma/                 schema, migrations, seed
+DESIGN.md               ระบบดีไซน์ (สี ตัวอักษร ระยะ คอมโพเนนต์) ตามสเปก DESIGN.md
+docs/CONVENTIONS.md     แนวทางเขียนโค้ด
+docs/legacy-spec/       สเปกที่ถอดจากระบบเดิม (ฟีเจอร์ ข้อมูลปลอม และบั๊กที่แก้แล้ว)
+```
 
-## Deploy on Vercel
+หลักความปลอดภัยสำคัญ
+- ทุกหน้าและทุก action ตรวจ session กับฐานข้อมูลทุกครั้ง ระงับบัญชีหรือเปลี่ยนรหัสผ่านแล้วมีผลทันที
+- ทุก query ของข้อมูลลูกค้ากรองด้วยบริษัท (และโรงงานสำหรับ Manager/Operator) ป้อน id ของบริษัทอื่นจะได้ "ไม่พบข้อมูล"
+- ไฟล์อัปโหลดเก็บนอก `public/` ตรวจชนิดจาก magic bytes และดาวน์โหลดผ่าน route ที่ตรวจสิทธิ์
+- ทุกการแก้ไขข้อมูลบันทึก Audit Log
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Deploy
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-<<<<<<< HEAD
->>>>>>> 03d1846 (First upload: Project GreenFactory)
-=======
->>>>>>> 37ded5974e06fe0a84cce4492d54d7a27a12accd
+- **Server ทั่วไป / Docker / VM**: `npm run build && npm start` ตั้ง env ตาม `.env.example` ใช้ MySQL ที่มี TLS (`?ssl=true` + `DATABASE_CA_CERT`) รัน `npx prisma migrate deploy` ทุกครั้งที่ deploy
+- **Vercel**: ดูขั้นตอนเต็มใน [docs/DEPLOY-VERCEL.md](docs/DEPLOY-VERCEL.md) ไฟล์อัปโหลดเก็บใน Vercel Blob แบบ private อัตโนมัติเมื่อมี `BLOB_READ_WRITE_TOKEN` ฟีเจอร์สำรองข้อมูลด้วย mysqldump ใช้บน Vercel ไม่ได้ (หน้าแอดมินแจ้งไว้)

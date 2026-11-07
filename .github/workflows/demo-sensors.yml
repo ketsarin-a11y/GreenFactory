@@ -1,0 +1,26 @@
+name: Demo sensors
+
+# Keeps the demo deployment's sensors "online" by posting a reading every 30 minutes
+# through the real ingest API. Does nothing until both settings below exist:
+#   Settings → Secrets → DEMO_SENSOR_TOKENS (output of scripts/issue-demo-tokens.mts)
+#   Settings → Variables → DEMO_APP_URL (e.g. https://greenfactory-insight.vercel.app)
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: node scripts/post-demo-readings.mjs
+        env:
+          APP_URL: ${{ vars.DEMO_APP_URL }}
+          DEMO_SENSOR_TOKENS: ${{ secrets.DEMO_SENSOR_TOKENS }}
