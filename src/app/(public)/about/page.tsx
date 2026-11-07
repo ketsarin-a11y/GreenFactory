@@ -91,7 +91,7 @@ export default function AboutPage() {
       <Section tone="surface">
         <div className="grid items-center gap-10 md:grid-cols-[minmax(0,420px)_1fr] lg:gap-16">
           <div className="relative flex h-[340px] items-end justify-center overflow-hidden rounded-[14px] bg-control-room sm:h-[400px]">
-            <Image src="/images/team/founder.webp" alt="เบบี้มาย ผู้ก่อตั้ง GreenFactory Insight" width={900} height={870} sizes="(min-width: 768px) 420px, 100vw" className="h-[92%] w-auto object-contain object-bottom" />
+            <Image src="/images/team/founder-portrait.webp" alt="เบบี้มาย ผู้ก่อตั้ง GreenFactory Insight" width={900} height={1131} sizes="(min-width: 768px) 420px, 100vw" className="h-[88%] w-full object-cover object-top" />
           </div>
           <div>
             <p className="text-sm font-medium text-primary">ผู้ก่อตั้ง</p>
